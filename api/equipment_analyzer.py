@@ -197,8 +197,9 @@ class EquipmentAnalyzer:
                     discount = float(eval_res["discount_pct"])
                     profit = float(eval_res["profit"])
                     if discount >= self.min_discount_pct and profit >= 1.0:
+                        top_badge = f"🌟 ТОП РОЛ ({roll_quality:.1f}% якості)! " if roll_quality >= self.god_roll_threshold else ""
                         note = (
-                            f"{eval_res['verdict']}! [{eval_res['stat_desc']}] зазвичай коштує {eval_res['expected_price']:.2f} "
+                            f"{top_badge}{eval_res['verdict']}! [{eval_res['stat_desc']}] зазвичай коштує {eval_res['expected_price']:.2f} "
                             f"(медіана за 3 дні, {eval_res['sample_count']} угод). "
                             f"Виставлено за {off_price:.2f} (знижка {discount:.1f}%, вигода +{profit:.2f})"
                         )
@@ -250,9 +251,10 @@ class EquipmentAnalyzer:
                 if discount >= self.min_discount_pct and profit >= 1.0:
                     stat_desc = self._format_stat_desc(skills)
                     verdict = "🔥 ДУЖЕ ДЕШЕВО" if discount >= 15.0 else "💎 ДЕШЕВО"
+                    top_badge = f"🌟 ТОП РОЛ ({roll_quality:.1f}% якості)! " if roll_quality >= self.god_roll_threshold else ""
 
                     note = (
-                        f"{verdict}! [{stat_desc}] на ринку коштує {median_price:.2f} "
+                        f"{top_badge}{verdict}! [{stat_desc}] на ринку коштує {median_price:.2f} "
                         f"(медіана відкритих ордерів, {len(comparable)} шт, {match_label}). "
                         f"Виставлено за {off_price:.2f} (знижка {discount:.1f}%, вигода +{profit:.2f})"
                     )
@@ -294,6 +296,8 @@ class EquipmentAnalyzer:
                 skills = item_obj.get("skills", {})
                 profit = second_price - cheapest_price
                 if profit >= 1.0:
+                    roll_q = calculate_roll_quality(item_code, skills)
+                    top_badge = f"🌟 ТОП РОЛ ({roll_q:.1f}% якості)! " if roll_q >= self.god_roll_threshold else ""
                     opportunities.append(
                         EquipmentOpportunity(
                             opp_type="FLOOR_UNDERCUT",
@@ -307,45 +311,11 @@ class EquipmentAnalyzer:
                             discount_pct=round(undercut_pct, 1),
                             potential_profit=round(profit, 2),
                             skills=skills,
-                            roll_quality=calculate_roll_quality(item_code, skills),
+                            roll_quality=roll_q,
                             state=item_obj.get("state", 100),
                             user_id=cheapest.get("user", ""),
-                            notes=f"Демпінг мінімальної ціни! Дешевше за 2-й лот ({second_price:.2f}) на {undercut_pct:.1f}%",
+                            notes=f"{top_badge}Демпінг мінімальної ціни! Дешевше за 2-й лот ({second_price:.2f}) на {undercut_pct:.1f}%",
                         )
                     )
-
-        # 3. Топ-рол за мінімальною ціною (God-Roll at Floor Price)
-        floor_price = float(valid_offers[0].get("price", 0.0))
-        for offer in valid_offers[:5]:
-            off_id = offer.get("_id", "")
-            if any(o.offer_id == off_id for o in opportunities):
-                continue
-
-            off_price = float(offer.get("price", 0.0))
-            off_item = offer.get("item", {})
-            off_skills = off_item.get("skills", {})
-            off_quality = calculate_roll_quality(item_code, off_skills)
-
-            if off_quality >= self.god_roll_threshold and off_price <= floor_price * 1.05:
-                profit = round(off_price * 0.25, 2)
-                opportunities.append(
-                    EquipmentOpportunity(
-                        opp_type="GOD_ROLL_FLOOR",
-                        offer_id=off_id,
-                        item_code=item_code,
-                        item_name=meta["name"],
-                        rarity=meta["rarity"],
-                        tier=meta["tier"],
-                        price=off_price,
-                        reference_price=floor_price,
-                        discount_pct=0.0,
-                        potential_profit=profit,
-                        skills=off_skills,
-                        roll_quality=off_quality,
-                        state=off_item.get("state", 100),
-                        user_id=offer.get("user", ""),
-                        notes=f"🌟 ТОП РОЛ ({off_quality}% якості) за мінімальною ціною ринку ({off_price:.2f})!",
-                    )
-                )
 
         return opportunities

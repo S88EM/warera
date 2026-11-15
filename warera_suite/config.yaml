@@ -1,6 +1,6 @@
 name: "WarEra Suite"
 slug: "warera_suite"
-version: "1.2.0"
+version: "1.2.1"
 description: "Автономний сканер ринку спорядження WarEra з пошуком вигідних цін, Web UI в Home Assistant та Telegram сповіщеннями"
 url: "https://warera.io"
 arch:
