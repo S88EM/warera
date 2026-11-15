@@ -1,0 +1,1143 @@
+"""
+Interactive Web Dashboard for WarEra Equipment Market Scanner.
+Provides real-time visualization of market bargains, anomalies, stat rolls,
+filters by rarity/slot, direct links to game market, and live scanner controls.
+Compatible with Home Assistant Ingress and standalone desktop/Raspberry Pi mode.
+"""
+
+import asyncio
+import json
+import os
+import sys
+import time
+from http import HTTPStatus
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
+from typing import Dict, Any, Optional, List
+from urllib.parse import parse_qs, urlparse
+
+# Ensure UTF-8 output
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+import config
+from equipment_data import EQUIPMENT_METADATA, ALL_QUALITIES, QUALITY_TIERS
+
+# Reference to the running EquipmentScannerApp instance
+_app_instance: Optional[Any] = None
+_loop_instance: Optional[asyncio.AbstractEventLoop] = None
+
+
+def set_app_instance(app: Any, loop: Optional[asyncio.AbstractEventLoop] = None):
+    global _app_instance, _loop_instance
+    _app_instance = app
+    _loop_instance = loop or getattr(app, "event_loop", None)
+
+
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="uk" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarEra Market Scanner — Вигідні ціни та демпінг</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0B0F19',
+                        cardbg: '#111827',
+                        bordercolor: '#1F2937',
+                        hoverbg: '#1E293B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0B0F19; }
+        ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .animate-pulse-slow { animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-bordercolor bg-cardbg/90 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl p-2 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-xl border border-cyan-500/30">⚔️</span>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-base sm:text-lg font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                            WarEra Market Scanner
+                        </h1>
+                        <span id="versionBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
+                            v--
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400 hidden sm:block">Пошук вигідних цін, демпінгу та топ-ролів спорядження</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Live Pulse Status Badge -->
+                <div id="statusPill" class="flex items-center space-x-2 text-xs bg-emerald-950/60 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-800">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="statusText" class="font-medium">Сканує</span>
+                    <span class="text-emerald-600">|</span>
+                    <span id="pricingModeText" class="font-mono text-[11px]">⚡ Live</span>
+                </div>
+
+                <!-- Immediate Scan Button -->
+                <button id="btnScanNow" onclick="triggerScan()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5" title="Сканувати ринок прямо зараз">
+                    <i class="fa-solid fa-arrows-rotate" id="scanIcon"></i>
+                    <span class="hidden sm:inline">Сканувати</span>
+                </button>
+
+                <!-- Pause / Resume Button -->
+                <button id="btnTogglePause" onclick="togglePause()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs font-semibold rounded-lg border border-bordercolor shadow transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-pause" id="pauseIcon"></i>
+                    <span id="pauseBtnText" class="hidden sm:inline">Пауза</span>
+                </button>
+
+                <!-- Settings Button -->
+                <button onclick="openSettingsModal()" class="p-2 bg-gray-800 hover:bg-gray-700 text-xs font-semibold rounded-lg border border-bordercolor shadow transition text-gray-300 hover:text-white" title="Налаштування сканера">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+
+        <!-- KPI Summary Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor shadow flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wider font-semibold">Знайдено аномалій</div>
+                    <div class="text-xl sm:text-2xl font-bold font-mono text-emerald-400 mt-1" id="statAnomalies">0</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5" id="statActiveDeals">0 активних на ринку</div>
+                </div>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl text-emerald-400 border border-emerald-500/20">
+                    🎯
+                </div>
+            </div>
+
+            <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor shadow flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wider font-semibold">Краща знижка</div>
+                    <div class="text-xl sm:text-2xl font-bold font-mono text-cyan-400 mt-1" id="statBestDiscount">--%</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5 truncate max-w-[130px]" id="statBestDealName">Пошук...</div>
+                </div>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl text-cyan-400 border border-cyan-500/20">
+                    🔥
+                </div>
+            </div>
+
+            <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor shadow flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wider font-semibold">Категорії в моніторингу</div>
+                    <div class="text-xl sm:text-2xl font-bold font-mono text-purple-400 mt-1" id="statMonitoredCount">-- / 36</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5 truncate max-w-[130px]" id="statActiveRarities">Т3–Т6</div>
+                </div>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl text-purple-400 border border-purple-500/20">
+                    💎
+                </div>
+            </div>
+
+            <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor shadow flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] sm:text-xs text-gray-400 uppercase tracking-wider font-semibold">Швидкість сканера</div>
+                    <div class="text-xl sm:text-2xl font-bold font-mono text-blue-400 mt-1" id="statSpeed">-- сек</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5" id="statCycleInfo">Цикл #0 • --:--:--</div>
+                </div>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl text-blue-400 border border-blue-500/20">
+                    ⚡
+                </div>
+            </div>
+        </section>
+
+        <!-- Filter & Search Toolbar -->
+        <section class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow space-y-3">
+            <!-- Rarity Quick Filters -->
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span class="text-xs text-gray-400 mr-1 font-semibold uppercase tracking-wider">Рідкість:</span>
+                <button onclick="setRarityFilter('all')" id="btnRarity-all" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-cyan-500 bg-cyan-950/60 text-cyan-300">
+                    Всі
+                </button>
+                <button onclick="setRarityFilter('mythic')" id="btnRarity-mythic" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-red-800 bg-red-950/30 text-red-400 hover:bg-red-950/60">
+                    🔴 Mythic (VI)
+                </button>
+                <button onclick="setRarityFilter('legendary')" id="btnRarity-legendary" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-yellow-800 bg-yellow-950/30 text-yellow-400 hover:bg-yellow-950/60">
+                    🟡 Legendary (V)
+                </button>
+                <button onclick="setRarityFilter('epic')" id="btnRarity-epic" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-purple-800 bg-purple-950/30 text-purple-400 hover:bg-purple-950/60">
+                    🟣 Epic (IV)
+                </button>
+                <button onclick="setRarityFilter('rare')" id="btnRarity-rare" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-blue-800 bg-blue-950/30 text-blue-400 hover:bg-blue-950/60">
+                    🔵 Rare (III)
+                </button>
+                <button onclick="setRarityFilter('uncommon')" id="btnRarity-uncommon" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-green-800 bg-green-950/30 text-green-400 hover:bg-green-950/60">
+                    🟢 Uncommon (II)
+                </button>
+                <button onclick="setRarityFilter('common')" id="btnRarity-common" class="px-2.5 py-1 text-xs rounded-lg font-medium border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700">
+                    ⚪ Common (I)
+                </button>
+            </div>
+
+            <!-- Slots, Discount & Search row -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-bordercolor/60">
+                <!-- Slot Selector -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 mb-1">Слот спорядження:</label>
+                    <select id="slotFilter" onchange="renderDealsTable()" class="w-full bg-gray-800 border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+                        <option value="all">🛡️ Всі слоти</option>
+                        <option value="weapon">⚔️ Зброя (Jet, Tank, Sniper...)</option>
+                        <option value="helmet">🪖 Шоломи (Critical Damages)</option>
+                        <option value="chest">🦺 Броня (Armor)</option>
+                        <option value="pants">👖 Штани (Armor)</option>
+                        <option value="boots">🥾 Чоботи (Dodge)</option>
+                        <option value="gloves">🧤 Рукавиці (Precision)</option>
+                    </select>
+                </div>
+
+                <!-- Min Discount Filter -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 mb-1">Мінімальна знижка:</label>
+                    <select id="discountFilter" onchange="renderDealsTable()" class="w-full bg-gray-800 border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+                        <option value="0">Всі знайдені лоти</option>
+                        <option value="5" selected>⚡ Знижка ≥ 5% (Стандарт)</option>
+                        <option value="10">💎 Знижка ≥ 10%</option>
+                        <option value="15">🔥 Знижка ≥ 15%</option>
+                        <option value="20">🚀 Знижка ≥ 20%</option>
+                        <option value="30">🏆 Знижка ≥ 30%</option>
+                    </select>
+                </div>
+
+                <!-- God Roll Toggle -->
+                <div class="flex items-end">
+                    <label class="w-full h-8 flex items-center px-3 bg-gray-800/80 border border-bordercolor rounded-lg cursor-pointer hover:bg-gray-800 text-xs text-amber-300">
+                        <input type="checkbox" id="godRollOnly" onchange="renderDealsTable()" class="w-4 h-4 rounded text-amber-500 bg-gray-700 border-gray-600 focus:ring-0 mr-2">
+                        <span>🌟 Лише ТОП РОЛ (≥ <span id="lblGodRollThresh">80</span>%)</span>
+                    </label>
+                </div>
+
+                <!-- Search Input -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 mb-1">Швидкий пошук:</label>
+                    <div class="relative">
+                        <input type="text" id="searchInput" oninput="renderDealsTable()" placeholder="Назва, код або стат (atk, crit...)" class="w-full bg-gray-800 border border-bordercolor rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-xs text-gray-500"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Live Deals Table -->
+        <section class="bg-cardbg rounded-xl border border-bordercolor shadow overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-bordercolor flex items-center justify-between">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
+                        <span>🎯</span>
+                        <span>Вигідні пропозиції ринку (Live Deals)</span>
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Лоты, виставлені дешевше оціночної вартості з урахуванням статів та якості ролу
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="dealsCounterBadge" class="text-xs px-2.5 py-1 bg-blue-950 text-blue-400 rounded-lg border border-blue-800 font-mono">
+                        0 лотів
+                    </span>
+                    <button onclick="clearDealsHistory()" class="px-2 py-1 text-xs text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded transition" title="Очистити список">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-800/50 text-gray-400 text-[11px] uppercase tracking-wider font-semibold border-b border-bordercolor">
+                            <th class="p-3.5">Час</th>
+                            <th class="p-3.5">Предмет</th>
+                            <th class="p-3.5">Характеристики (Стати)</th>
+                            <th class="p-3.5 text-center">Якість ролу</th>
+                            <th class="p-3.5 text-right">Ціна лоту</th>
+                            <th class="p-3.5 text-right">Оцінка ринку</th>
+                            <th class="p-3.5 text-right">Знижка</th>
+                            <th class="p-3.5 text-right">Вигода</th>
+                            <th class="p-3.5 text-center">Дія</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dealsTableBody" class="divide-y divide-bordercolor">
+                        <tr>
+                            <td colspan="9" class="p-12 text-center text-gray-500">
+                                <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3 text-blue-500"></i>
+                                <div>Завантаження ринкових аномалій...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Market Inspector Section (Inspect real order book for any item) -->
+        <section class="bg-cardbg rounded-xl border border-bordercolor shadow overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-bordercolor flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
+                        <span>🔍</span>
+                        <span>Інспектор ордербуку (Live Order Book)</span>
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Перегляд поточних активних пропозицій на ринку для вибраного предмета
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <select id="marketInspectorSelect" onchange="loadMarketInspector()" class="bg-gray-800 border border-bordercolor rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
+                        <optgroup label="Міфічні (Т6)">
+                            <option value="jet">✈️ Винищувач (Jet)</option>
+                            <option value="helmet6">🪖 Шолом VI</option>
+                            <option value="chest6">🦺 Броня VI</option>
+                            <option value="pants6">👖 Штани VI</option>
+                            <option value="boots6">🥾 Чоботи VI</option>
+                            <option value="gloves6">🧤 Рукавиці VI</option>
+                        </optgroup>
+                        <optgroup label="Легендарні (Т5)">
+                            <option value="tank">🛡️ Танк (Tank)</option>
+                            <option value="helmet5">🪖 Шолом V</option>
+                            <option value="chest5">🦺 Броня V</option>
+                            <option value="pants5">👖 Штани V</option>
+                            <option value="boots5">🥾 Чоботи V</option>
+                            <option value="gloves5">🧤 Рукавиці V</option>
+                        </optgroup>
+                        <optgroup label="Елітні (Т4)">
+                            <option value="sniper">🎯 Снайперка (Sniper)</option>
+                            <option value="helmet4">🪖 Шолом IV</option>
+                            <option value="chest4">🦺 Броня IV</option>
+                            <option value="pants4">👖 Штани IV</option>
+                            <option value="boots4" selected>🥾 Чоботи IV</option>
+                            <option value="gloves4">🧤 Рукавиці IV</option>
+                        </optgroup>
+                        <optgroup label="Поліпшені (Т3)">
+                            <option value="rifle">🔫 Гвинтівка (Rifle)</option>
+                            <option value="helmet3">🪖 Шолом III</option>
+                            <option value="chest3">🦺 Броня III</option>
+                            <option value="pants3">👖 Штани III</option>
+                            <option value="boots3">🥾 Чоботи III</option>
+                            <option value="gloves3">🧤 Рукавиці III</option>
+                        </optgroup>
+                    </select>
+                    <button onclick="loadMarketInspector()" class="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs rounded-lg text-gray-300">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-800/50 text-gray-400 text-[11px] uppercase tracking-wider font-semibold border-b border-bordercolor">
+                            <th class="p-3">#</th>
+                            <th class="p-3">Ціна ордеру</th>
+                            <th class="p-3">Характеристики (Стати)</th>
+                            <th class="p-3 text-center">Рол якості</th>
+                            <th class="p-3 text-center">Міцність</th>
+                            <th class="p-3">Продавець (ID)</th>
+                            <th class="p-3 text-center">Посилання</th>
+                        </tr>
+                    </thead>
+                    <tbody id="marketInspectorBody" class="divide-y divide-bordercolor">
+                        <tr>
+                            <td colspan="7" class="p-6 text-center text-gray-500">
+                                Оберіть предмет для перегляду відкритого стакана цін
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-cardbg rounded-2xl border border-bordercolor shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-bordercolor flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">⚙️</span>
+                    <h3 class="font-bold text-white text-base">Налаштування сканера WarEra</h3>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4 text-xs">
+                <!-- Pricing mode -->
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1.5">Метод оцінки вартості (Pricing Mode):</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="optModeLive" onclick="setPricingMode('live')" class="p-2.5 rounded-xl border text-left font-medium transition flex flex-col space-y-1">
+                            <span class="font-bold">⚡ Реальний час (Live)</span>
+                            <span class="text-[10px] text-gray-400">Порівняння статів з відкритими ордерами</span>
+                        </button>
+                        <button id="optModeHistory" onclick="setPricingMode('history')" class="p-2.5 rounded-xl border text-left font-medium transition flex flex-col space-y-1">
+                            <span class="font-bold">📜 3-денна історія (DB)</span>
+                            <span class="text-[10px] text-gray-400">Медіана угод з локальної бази SQLite</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scan Interval -->
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1.5">Частота сканування:</label>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="setScanInterval(1)" id="btnInterval-1" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">1 сек</button>
+                        <button onclick="setScanInterval(2)" id="btnInterval-2" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">2 сек</button>
+                        <button onclick="setScanInterval(3)" id="btnInterval-3" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">3 сек</button>
+                        <button onclick="setScanInterval(5)" id="btnInterval-5" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">5 сек</button>
+                        <button onclick="setScanInterval(10)" id="btnInterval-10" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">10 сек</button>
+                    </div>
+                </div>
+
+                <!-- Thresholds -->
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                        <label class="block font-semibold text-gray-300 mb-1">Мін. знижка для алерту (%):</label>
+                        <input type="number" id="settingMinDiscount" min="1" max="50" step="0.5" class="w-full bg-gray-800 border border-bordercolor rounded-lg px-3 py-1.5 text-gray-100 font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-300 mb-1">Поріг ТОП РОЛ (%):</label>
+                        <input type="number" id="settingGodRoll" min="50" max="99" step="1" class="w-full bg-gray-800 border border-bordercolor rounded-lg px-3 py-1.5 text-gray-100 font-mono">
+                    </div>
+                </div>
+
+                <!-- Active Qualities checkboxes -->
+                <div class="pt-2 border-t border-bordercolor">
+                    <label class="block font-semibold text-gray-300 mb-1.5">Категорії спорядження в сканері:</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-red-400">
+                            <input type="checkbox" id="chkQuality-mythic" onchange="toggleQualityBackend('mythic')" class="rounded bg-gray-700 border-gray-600 text-red-500">
+                            <span>🔴 Mythic (VI)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-yellow-400">
+                            <input type="checkbox" id="chkQuality-legendary" onchange="toggleQualityBackend('legendary')" class="rounded bg-gray-700 border-gray-600 text-yellow-500">
+                            <span>🟡 Legendary (V)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-purple-400">
+                            <input type="checkbox" id="chkQuality-epic" onchange="toggleQualityBackend('epic')" class="rounded bg-gray-700 border-gray-600 text-purple-500">
+                            <span>🟣 Epic (IV)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-blue-400">
+                            <input type="checkbox" id="chkQuality-rare" onchange="toggleQualityBackend('rare')" class="rounded bg-gray-700 border-gray-600 text-blue-500">
+                            <span>🔵 Rare (III)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-green-400">
+                            <input type="checkbox" id="chkQuality-uncommon" onchange="toggleQualityBackend('uncommon')" class="rounded bg-gray-700 border-gray-600 text-green-500">
+                            <span>🟢 Uncommon (II)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 p-1.5 rounded bg-gray-800/60 border border-bordercolor cursor-pointer text-gray-400">
+                            <input type="checkbox" id="chkQuality-common" onchange="toggleQualityBackend('common')" class="rounded bg-gray-700 border-gray-600 text-gray-500">
+                            <span>⚪ Common (I)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-900 border-t border-bordercolor flex items-center justify-between">
+                <button onclick="saveThresholds()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg shadow text-xs transition">
+                    Зберегти налаштування
+                </button>
+                <button onclick="closeSettingsModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg text-xs transition">
+                    Закрити
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-bordercolor/60 py-4 text-center text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>WarEra Market Scanner Suite • Ingress & Autonomous Engine</div>
+            <div class="flex items-center space-x-3 text-[11px]">
+                <span id="footerPulse">🟢 Підключено до сканера</span>
+                <a href="https://app.warera.io/market/equipments" target="_blank" class="text-blue-400 hover:underline">
+                    WarEra Market ↗
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Client-side Logic -->
+    <script>
+        // State
+        let currentStatus = {};
+        let rawDeals = [];
+        let selectedRarity = 'all';
+        let isPaused = false;
+        let isPolling = true;
+
+        // Auto-detect Ingress base URL
+        const BASE_PATH = window.location.pathname.replace(/\/+$/, '');
+
+        function getApiUrl(endpoint) {
+            const cleanEndpoint = endpoint.replace(/^\/+/, '');
+            return BASE_PATH ? `${BASE_PATH}/${cleanEndpoint}` : `/${cleanEndpoint}`;
+        }
+
+        // Rarity styling helpers
+        const RARITY_MAP = {
+            'mythic': { label: 'Mythic VI', color: 'text-red-400', border: 'border-red-800', bg: 'bg-red-950/40', dot: '🔴' },
+            'legendary': { label: 'Legendary V', color: 'text-yellow-400', border: 'border-yellow-800', bg: 'bg-yellow-950/40', dot: '🟡' },
+            'epic': { label: 'Epic IV', color: 'text-purple-400', border: 'border-purple-800', bg: 'bg-purple-950/40', dot: '🟣' },
+            'rare': { label: 'Rare III', color: 'text-blue-400', border: 'border-blue-800', bg: 'bg-blue-950/40', dot: '🔵' },
+            'uncommon': { label: 'Uncommon II', color: 'text-green-400', border: 'border-green-800', bg: 'bg-green-950/40', dot: '🟢' },
+            'common': { label: 'Common I', color: 'text-gray-400', border: 'border-gray-700', bg: 'bg-gray-800', dot: '⚪' },
+        };
+
+        const SLOT_ICONS = {
+            'weapon': '⚔️',
+            'helmet': '🪖',
+            'chest': '🦺',
+            'pants': '👖',
+            'boots': '🥾',
+            'gloves': '🧤'
+        };
+
+        function getSlotByItemCode(code) {
+            if (!code) return 'weapon';
+            if (code.startsWith('helmet')) return 'helmet';
+            if (code.startsWith('chest')) return 'chest';
+            if (code.startsWith('pants')) return 'pants';
+            if (code.startsWith('boots')) return 'boots';
+            if (code.startsWith('gloves')) return 'gloves';
+            return 'weapon';
+        }
+
+        // Fetch Scanner Status
+        async function fetchStatus() {
+            try {
+                const res = await fetch(getApiUrl('api/status'));
+                if (!res.ok) return;
+                currentStatus = await res.json();
+                updateStatusUI();
+            } catch (e) {
+                console.warn('Status poll error:', e);
+            }
+        }
+
+        // Fetch Live Deals
+        async function fetchDeals() {
+            try {
+                const res = await fetch(getApiUrl('api/deals'));
+                if (!res.ok) return;
+                const data = await res.json();
+                rawDeals = data.deals || [];
+                renderDealsTable();
+            } catch (e) {
+                console.warn('Deals poll error:', e);
+            }
+        }
+
+        function updateStatusUI() {
+            if (!currentStatus) return;
+
+            document.getElementById('versionBadge').textContent = `v${currentStatus.version || 'b.0001.15'}`;
+            document.getElementById('statAnomalies').textContent = currentStatus.total_alerts || 0;
+            document.getElementById('statActiveDeals').textContent = `${currentStatus.active_deals_count || 0} активних на ринку`;
+            document.getElementById('statBestDiscount').textContent = currentStatus.best_discount ? `-${currentStatus.best_discount}%` : '--%';
+            document.getElementById('statBestDealName').textContent = currentStatus.best_deal_item || 'Пошук...';
+            document.getElementById('statMonitoredCount').textContent = `${currentStatus.monitored_items_count || 0} / 36`;
+            
+            const activeQ = currentStatus.active_qualities || [];
+            document.getElementById('statActiveRarities').textContent = activeQ.map(q => q.charAt(0).toUpperCase() + q.slice(1)).join(', ') || '--';
+            document.getElementById('statSpeed').textContent = `${currentStatus.scan_interval || 1} сек`;
+            document.getElementById('statCycleInfo').textContent = `Цикл #${currentStatus.cycle_count || 0} • ${currentStatus.last_scan_time || '--:--:--'}`;
+
+            // Mode text
+            const modeIsLive = (currentStatus.pricing_mode || 'live').toLowerCase() === 'live';
+            document.getElementById('pricingModeText').textContent = modeIsLive ? '⚡ Live' : '📜 Історія';
+
+            // Pause status
+            isPaused = !!currentStatus.paused;
+            const statusPill = document.getElementById('statusPill');
+            const statusText = document.getElementById('statusText');
+            const pauseIcon = document.getElementById('pauseIcon');
+            const pauseBtnText = document.getElementById('pauseBtnText');
+
+            if (isPaused) {
+                statusPill.className = 'flex items-center space-x-2 text-xs bg-amber-950/60 text-amber-400 px-3 py-1.5 rounded-full border border-amber-800';
+                statusText.textContent = 'Пауза';
+                pauseIcon.className = 'fa-solid fa-play text-emerald-400';
+                pauseBtnText.textContent = 'Запустити';
+            } else {
+                statusPill.className = 'flex items-center space-x-2 text-xs bg-emerald-950/60 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-800';
+                statusText.textContent = 'Сканує';
+                pauseIcon.className = 'fa-solid fa-pause text-amber-400';
+                pauseBtnText.textContent = 'Пауза';
+            }
+
+            // Update modal fields
+            document.getElementById('lblGodRollThresh').textContent = currentStatus.god_roll_threshold || 80;
+            document.getElementById('settingMinDiscount').value = currentStatus.min_discount || 5.0;
+            document.getElementById('settingGodRoll').value = currentStatus.god_roll_threshold || 80.0;
+
+            // Update interval buttons highlight
+            [1, 2, 3, 5, 10].forEach(sec => {
+                const btn = document.getElementById(`btnInterval-${sec}`);
+                if (btn) {
+                    if (currentStatus.scan_interval === sec) {
+                        btn.className = 'flex-1 py-1.5 rounded-lg border border-blue-500 bg-blue-900/60 text-blue-300 font-mono font-bold';
+                    } else {
+                        btn.className = 'flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono';
+                    }
+                }
+            });
+
+            // Update mode buttons highlight
+            const optLive = document.getElementById('optModeLive');
+            const optHist = document.getElementById('optModeHistory');
+            if (modeIsLive) {
+                optLive.className = 'p-2.5 rounded-xl border border-cyan-500 bg-cyan-950/50 text-cyan-300 font-medium transition flex flex-col space-y-1';
+                optHist.className = 'p-2.5 rounded-xl border border-bordercolor bg-gray-800/80 text-gray-400 hover:bg-gray-800 font-medium transition flex flex-col space-y-1';
+            } else {
+                optHist.className = 'p-2.5 rounded-xl border border-amber-500 bg-amber-950/50 text-amber-300 font-medium transition flex flex-col space-y-1';
+                optLive.className = 'p-2.5 rounded-xl border border-bordercolor bg-gray-800/80 text-gray-400 hover:bg-gray-800 font-medium transition flex flex-col space-y-1';
+            }
+
+            // Update quality checkboxes
+            ['mythic', 'legendary', 'epic', 'rare', 'uncommon', 'common'].forEach(q => {
+                const chk = document.getElementById(`chkQuality-${q}`);
+                if (chk) chk.checked = activeQ.includes(q);
+            });
+        }
+
+        // Render Deals Table with Active Filters
+        function renderDealsTable() {
+            const tbody = document.getElementById('dealsTableBody');
+            const slotFilter = document.getElementById('slotFilter').value;
+            const minDiscount = parseFloat(document.getElementById('discountFilter').value) || 0;
+            const godRollOnly = document.getElementById('godRollOnly').checked;
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            const filtered = rawDeals.filter(deal => {
+                // Rarity filter
+                if (selectedRarity !== 'all' && deal.rarity !== selectedRarity) return false;
+
+                // Slot filter
+                const slot = getSlotByItemCode(deal.item_code);
+                if (slotFilter !== 'all' && slot !== slotFilter) return false;
+
+                // Discount threshold
+                if (deal.discount_pct < minDiscount) return false;
+
+                // God roll only
+                if (godRollOnly && !deal.is_god_roll) return false;
+
+                // Text search
+                if (search) {
+                    const name = (deal.item_name || '').toLowerCase();
+                    const code = (deal.item_code || '').toLowerCase();
+                    const skillsStr = JSON.stringify(deal.skills || {}).toLowerCase();
+                    if (!name.includes(search) && !code.includes(search) && !skillsStr.includes(search)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            document.getElementById('dealsCounterBadge').textContent = `${filtered.length} лотів`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="p-12 text-center text-gray-500">
+                            <div class="text-3xl mb-2">🔍</div>
+                            <div class="text-sm font-semibold text-gray-300">Аномалій за вибраними фільтрами не знайдено</div>
+                            <div class="text-xs text-gray-500 mt-1">Сканер перевіряє ринок кожні ${currentStatus.scan_interval || 1} сек. Нові демпінгові лоти з'являться тут миттєво.</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map((d, index) => {
+                const rStyle = RARITY_MAP[d.rarity] || RARITY_MAP['common'];
+                const slotIcon = SLOT_ICONS[getSlotByItemCode(d.item_code)] || '🛡️';
+                const skillsHtml = formatSkillsPills(d.skills);
+                const rollPct = Math.round(d.roll_quality || 50);
+                const rollBadge = d.is_god_roll 
+                    ? `<span class="ml-1.5 px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded font-bold whitespace-nowrap">🌟 ТОП РОЛ</span>`
+                    : '';
+
+                const activeMarker = d.is_active 
+                    ? `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5" title="Зараз активний на ринку"></span>`
+                    : `<span class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1.5" title="Попередньо виявлений лот"></span>`;
+
+                return `
+                    <tr class="hover:bg-hoverbg/50 transition">
+                        <td class="p-3.5 text-xs text-gray-400 font-mono whitespace-nowrap">
+                            ${activeMarker}${d.timestamp || '--:--'}
+                        </td>
+                        <td class="p-3.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-lg">${slotIcon}</span>
+                                <div>
+                                    <div class="font-bold text-white flex items-center space-x-1.5">
+                                        <span>${d.item_name || d.item_code}</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1.5 mt-0.5">
+                                        <span class="text-[10px] px-1.5 py-0.2 rounded border ${rStyle.border} ${rStyle.bg} ${rStyle.color} font-medium">
+                                            ${rStyle.label}
+                                        </span>
+                                        <span class="text-[10px] text-gray-500 font-mono">${d.item_code}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="flex flex-wrap gap-1 max-w-[280px]">
+                                ${skillsHtml}
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-center whitespace-nowrap">
+                            <div class="inline-flex items-center">
+                                <div class="w-16 bg-gray-800 rounded-full h-2 mr-2 overflow-hidden border border-bordercolor">
+                                    <div class="h-2 rounded-full ${rollPct >= 80 ? 'bg-amber-400' : rollPct >= 65 ? 'bg-cyan-400' : 'bg-blue-500'}" style="width: ${rollPct}%"></div>
+                                </div>
+                                <span class="font-mono text-xs font-semibold ${rollPct >= 80 ? 'text-amber-400' : 'text-gray-300'}">${rollPct}%</span>
+                                ${rollBadge}
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-right font-mono font-bold text-white text-sm whitespace-nowrap">
+                            ${Number(d.price).toFixed(2)}
+                        </td>
+                        <td class="p-3.5 text-right font-mono text-gray-400 text-xs whitespace-nowrap">
+                            <div>${Number(d.reference_price).toFixed(2)}</div>
+                            <div class="text-[10px] text-gray-500">${d.notes ? d.notes.slice(0, 16) : 'медіана'}</div>
+                        </td>
+                        <td class="p-3.5 text-right whitespace-nowrap">
+                            <span class="px-2 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded-md font-mono font-bold text-xs">
+                                -${d.discount_pct}%
+                            </span>
+                        </td>
+                        <td class="p-3.5 text-right font-mono font-bold text-emerald-400 text-xs whitespace-nowrap">
+                            +${Number(d.potential_profit).toFixed(2)}
+                        </td>
+                        <td class="p-3.5 text-center whitespace-nowrap">
+                            <a href="${d.url || `https://app.warera.io/market/equipments?item=${d.item_code}`}" target="_blank" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow inline-flex items-center space-x-1 transition">
+                                <span>Купити</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatSkillsPills(skills) {
+            if (!skills || typeof skills !== 'object' || Object.keys(skills).length === 0) {
+                return '<span class="text-xs text-gray-500">Без статів</span>';
+            }
+
+            const labels = {
+                'attack': { name: 'Atk', color: 'text-red-300 bg-red-950/40 border-red-900/60' },
+                'criticalChance': { name: 'Crit', color: 'text-amber-300 bg-amber-950/40 border-amber-900/60', suffix: '%' },
+                'armor': { name: 'Armor', color: 'text-blue-300 bg-blue-950/40 border-blue-900/60' },
+                'dodge': { name: 'Dodge', color: 'text-emerald-300 bg-emerald-950/40 border-emerald-900/60' },
+                'precision': { name: 'Prec', color: 'text-purple-300 bg-purple-950/40 border-purple-900/60' },
+                'criticalDamages': { name: 'CritDmg', color: 'text-orange-300 bg-orange-950/40 border-orange-900/60', suffix: '%' }
+            };
+
+            return Object.entries(skills).map(([k, v]) => {
+                const conf = labels[k] || { name: k, color: 'text-gray-300 bg-gray-800 border-gray-700' };
+                const suff = conf.suffix || '';
+                return `
+                    <span class="text-[11px] font-mono px-1.5 py-0.5 rounded border ${conf.color} font-semibold">
+                        ${conf.name} ${v}${suff}
+                    </span>
+                `;
+            }).join('');
+        }
+
+        // Rarity Filter Click
+        function setRarityFilter(rarity) {
+            selectedRarity = rarity;
+            ['all', 'mythic', 'legendary', 'epic', 'rare', 'uncommon', 'common'].forEach(r => {
+                const btn = document.getElementById(`btnRarity-${r}`);
+                if (!btn) return;
+                if (r === rarity) {
+                    btn.classList.add('ring-2', 'ring-cyan-400', 'font-bold');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-cyan-400', 'font-bold');
+                }
+            });
+            renderDealsTable();
+        }
+
+        // Trigger manual scan immediately
+        async function triggerScan() {
+            const icon = document.getElementById('scanIcon');
+            icon.classList.add('fa-spin');
+            try {
+                await fetch(getApiUrl('api/scan'), { method: 'POST' });
+                await fetchStatus();
+                await fetchDeals();
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+            }
+        }
+
+        // Pause/Resume scanner
+        async function togglePause() {
+            const action = isPaused ? 'resume' : 'pause';
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action })
+                });
+                await fetchStatus();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Change interval
+        async function setScanInterval(sec) {
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'set_interval', interval: sec })
+                });
+                await fetchStatus();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Change pricing mode
+        async function setPricingMode(mode) {
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'set_mode', mode: mode })
+                });
+                await fetchStatus();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Toggle Quality Backend
+        async function toggleQualityBackend(q) {
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'toggle_quality', quality: q })
+                });
+                await fetchStatus();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Save Thresholds
+        async function saveThresholds() {
+            const minD = parseFloat(document.getElementById('settingMinDiscount').value) || 5.0;
+            const godR = parseFloat(document.getElementById('settingGodRoll').value) || 80.0;
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'set_thresholds', min_discount: minD, god_roll: godR })
+                });
+                closeSettingsModal();
+                await fetchStatus();
+                await fetchDeals();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Clear Deals History
+        async function clearDealsHistory() {
+            if (!confirm('Очистити список виявлених лотів на екрані?')) return;
+            try {
+                await fetch(getApiUrl('api/control'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'clear_deals' })
+                });
+                rawDeals = [];
+                renderDealsTable();
+                await fetchStatus();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Market Inspector Loader
+        async function loadMarketInspector() {
+            const select = document.getElementById('marketInspectorSelect');
+            const itemCode = select.value;
+            const tbody = document.getElementById('marketInspectorBody');
+
+            tbody.innerHTML = `
+                <tr><td colspan="7" class="p-6 text-center text-gray-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-xl text-blue-500 mb-2"></i>
+                    <div>Опитування стакану ордерів для ${itemCode}...</div>
+                </td></tr>
+            `;
+
+            try {
+                const res = await fetch(getApiUrl(`api/market?item=${itemCode}`));
+                if (!res.ok) return;
+                const data = await res.json();
+                const offers = data.offers || [];
+
+                if (offers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-500">Немає зафіксованих ордерів для ${itemCode}.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = offers.map((off, idx) => {
+                    const price = Number(off.price || 0).toFixed(2);
+                    const skills = off.item ? off.item.skills : (off.skills || {});
+                    const state = off.item ? off.item.state : (off.state || 100);
+                    const userId = off.userId || off.user_id || 'unknown';
+                    const skillsPills = formatSkillsPills(skills);
+
+                    return `
+                        <tr class="hover:bg-hoverbg/50 transition">
+                            <td class="p-3 text-xs text-gray-400 font-mono">#${idx + 1}</td>
+                            <td class="p-3 font-mono font-bold text-white">${price}</td>
+                            <td class="p-3"><div class="flex flex-wrap gap-1">${skillsPills}</div></td>
+                            <td class="p-3 text-center font-mono text-xs text-gray-300">--</td>
+                            <td class="p-3 text-center font-mono text-xs text-gray-400">${state}%</td>
+                            <td class="p-3 font-mono text-xs text-gray-400 truncate max-w-[120px]">${userId.slice(0, 10)}...</td>
+                            <td class="p-3 text-center">
+                                <a href="https://app.warera.io/market/equipments?item=${itemCode}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-400">Помилка завантаження: ${e}</td></tr>`;
+            }
+        }
+
+        // Modal Controls
+        function openSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // Initial Loop
+        fetchStatus();
+        fetchDeals();
+
+        // Periodic Refresh (every 2.5 seconds)
+        setInterval(() => {
+            if (isPolling) {
+                fetchStatus();
+                fetchDeals();
+            }
+        }, 2500);
+    </script>
+</body>
+</html>
+"""
+
+
+class EquipmentDashboardHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Silence default request logging to avoid terminal clutter
+        pass
+
+    def _send_json(self, data: Any, status: int = HTTPStatus.OK):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+
+    def do_OPTIONS(self):
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        clean_path = parsed.path.rstrip("/")
+
+        # Status endpoint
+        if clean_path.endswith("/api/status"):
+            if _app_instance:
+                status = _app_instance.get_status()
+            else:
+                status = {
+                    "version": config.APP_VERSION,
+                    "running": False,
+                    "paused": True,
+                    "scan_interval": config.EQUIPMENT_SCAN_INTERVAL,
+                    "pricing_mode": config.PRICING_MODE,
+                    "cycles": 0,
+                    "total_alerts": 0,
+                    "active_deals_count": 0,
+                    "history_deals_count": 0,
+                    "best_discount": 0.0,
+                    "best_deal_item": "--",
+                    "last_scan_time": "--:--:--",
+                    "active_qualities": config.EQUIPMENT_QUALITIES,
+                    "monitored_items_count": len(config.EQUIPMENT_TO_MONITOR),
+                    "min_discount": config.EQUIPMENT_MIN_DISCOUNT,
+                    "god_roll_threshold": config.EQUIPMENT_GOD_ROLL_THRESHOLD,
+                }
+            self._send_json(status)
+            return
+
+        # Deals endpoint
+        if clean_path.endswith("/api/deals"):
+            deals = _app_instance.get_deals() if _app_instance else []
+            self._send_json({"status": "ok", "deals": deals, "count": len(deals)})
+            return
+
+        # Market offers inspector endpoint
+        if clean_path.endswith("/api/market"):
+            query_params = parse_qs(parsed.query)
+            item_code = query_params.get("item", ["boots4"])[0]
+            offers = []
+            if _app_instance:
+                offers = _app_instance.get_market_offers(item_code)
+            self._send_json({"status": "ok", "item": item_code, "offers": offers})
+            return
+
+        # Serve SPA HTML for root or any Ingress subpath
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        clean_path = parsed.path.rstrip("/")
+
+        # Manual Scan endpoint
+        if clean_path.endswith("/api/scan"):
+            if _app_instance:
+                if _loop_instance and _loop_instance.is_running():
+                    asyncio.run_coroutine_threadsafe(_app_instance.trigger_manual_scan(), _loop_instance)
+                else:
+                    _app_instance.wake_event.set()
+                self._send_json({"status": "ok", "message": "Сканування запущено"})
+            else:
+                self._send_json({"status": "error", "message": "Сканер не підключено"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+
+        # Control actions endpoint
+        if clean_path.endswith("/api/control"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            body_raw = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+            try:
+                body = json.loads(body_raw)
+            except Exception:
+                body = {}
+
+            action = body.get("action", "")
+
+            if not _app_instance:
+                self._send_json({"status": "error", "message": "Сканер не підключено"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+
+            if action == "pause":
+                _app_instance.pause()
+            elif action == "resume":
+                _app_instance.resume()
+            elif action == "set_interval":
+                sec = int(body.get("interval", 1))
+                _app_instance.set_scan_interval(sec)
+            elif action == "set_mode":
+                mode = str(body.get("mode", "live"))
+                _app_instance.set_pricing_mode(mode)
+            elif action == "toggle_quality":
+                q = str(body.get("quality", "mythic"))
+                _app_instance.toggle_quality(q)
+            elif action == "set_thresholds":
+                if "min_discount" in body:
+                    _app_instance.set_min_discount_pct(float(body["min_discount"]))
+                if "god_roll" in body:
+                    _app_instance.set_god_roll_threshold(float(body["god_roll"]))
+            elif action == "clear_deals":
+                _app_instance.clear_deals()
+
+            self._send_json({
+                "status": "ok",
+                "action": action,
+                "current_status": _app_instance.get_status()
+            })
+            return
+
+        self._send_json({"status": "error", "message": "Невідомий маршрут"}, HTTPStatus.NOT_FOUND)
+
+
+def start_dashboard(host: str = "0.0.0.0", port: int = 8080, app_instance: Optional[Any] = None, loop: Optional[asyncio.AbstractEventLoop] = None):
+    """Starts the Web Dashboard HTTP server in a separate background daemon thread."""
+    if app_instance is not None:
+        set_app_instance(app_instance, loop)
+
+    def _serve():
+        try:
+            server = HTTPServer((host, port), EquipmentDashboardHandler)
+            print(f"\n[🚀 Web Dashboard] Активний за адресою: http://{host}:{port} (Ingress port {port})")
+            server.serve_forever()
+        except Exception as e:
+            print(f"[Web Dashboard] Помилка або сервер зупинено: {e}")
+
+    thread = Thread(target=_serve, daemon=True)
+    thread.start()
+    return thread
+
+
+if __name__ == "__main__":
+    print(f"Starting standalone WarEra Equipment Dashboard on port {config.WEB_DASHBOARD_PORT}...")
+    server = HTTPServer((config.WEB_DASHBOARD_HOST, config.WEB_DASHBOARD_PORT), EquipmentDashboardHandler)
+    try:
+        print(f"Open: http://localhost:{config.WEB_DASHBOARD_PORT}")
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")

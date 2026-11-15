@@ -1,0 +1,41 @@
+# Versions and snapshots
+versions/
+api/versions/
+warera_suite/api/versions/
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+API_key.txt
+*.key
+*.token
+
+# Python cache and virtual environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+
+# Temporary databases and logs
+*.db-journal
+*.log
+
+# Compressed bundles
+warera.tar.gz
+warera_suite_ha_addon.zip
+
+# Local test and debug scripts
+test_*.py
+api/test_*.py
+warera_suite/api/test_*.py
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

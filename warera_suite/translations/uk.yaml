@@ -1,0 +1,58 @@
+configuration:
+  enable_telegram_alerts:
+    name: "Сповіщення в Telegram"
+    description: "Увімкнути або вимкнути відправку повідомлень у Telegram-бот"
+  enable_equipment_scanner:
+    name: "Сканер спорядження (зброя та броня)"
+    description: "Шукає вигідні лоти спорядження за статами та топ-роли"
+  enable_web_dashboard:
+    name: "Веб-дашборд у бічній панелі (Ingress)"
+    description: "Вбудований інтерфейс WarEra прямо в меню Home Assistant"
+  pricing_mode:
+    name: "Режим оцінки вартості"
+    description: "live (поточні відкриті ордери) або history (3-денна історія угод з БД)"
+  equipment_scan_interval:
+    name: "Частота сканування спорядження (секунди)"
+    description: "Інтервал між перевірками ринку зброї та броні (за замовчуванням 1 сек)"
+  min_discount_pct:
+    name: "Мінімальна знижка на спорядження (%)"
+    description: "Поріг вигоди для надсилання сповіщення про знайдену річ"
+  god_roll_threshold:
+    name: "Поріг якості топ-ролу (%)"
+    description: "Відсоток від максимуму характеристик для маркування ТОП РОЛ"
+  monitor_mythic:
+    name: "Міфічні речі Т6 (Jet, Helmet VI...)"
+    description: "Моніторити категорію Т6"
+  monitor_legendary:
+    name: "Легендарні речі Т5 (Tank, Helmet V...)"
+    description: "Моніторити категорію Т5"
+  monitor_epic:
+    name: "Епічні речі Т4 (Sniper, Helmet IV...)"
+    description: "Моніторити категорію Т4"
+  monitor_rare:
+    name: "Рідкісні речі Т3 (Rifle, Helmet III...)"
+    description: "Моніторити категорію Т3"
+  monitor_uncommon:
+    name: "Незвичайні речі Т2 (Gun, Helmet II...)"
+    description: "Моніторити категорію Т2"
+  monitor_common:
+    name: "Звичайні речі Т1 (Knife, Helmet I...)"
+    description: "Моніторити категорію Т1"
+  telegram_bot_token:
+    name: "Токен Telegram-бота"
+    description: "Токен від @BotFather"
+  telegram_chat_id:
+    name: "Telegram Chat ID"
+    description: "Ваш числовий Telegram Chat ID для особистих сповіщень"
+  warera_api_key:
+    name: "WarEra API Key"
+    description: "Ключ API гри WarEra (формату wae_...)"
+  warera_cookie:
+    name: "Сесійні Cookies WarEra"
+    description: "Повний рядок cookie браузера (містить jwt та cf_clearance)"
+  warera_x_vid:
+    name: "Заголовок x-vid"
+    description: "Ідентифікатор браузера x-vid"
+  warera_x_gr:
+    name: "Заголовок x-gr"
+    description: "Графічний рендерер x-gr"

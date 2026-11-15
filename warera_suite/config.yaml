@@ -1,0 +1,58 @@
+name: "WarEra Suite"
+slug: "warera_suite"
+version: "1.2.0"
+description: "Автономний сканер ринку спорядження WarEra з пошуком вигідних цін, Web UI в Home Assistant та Telegram сповіщеннями"
+url: "https://warera.io"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - armhf
+  - i386
+startup: services
+boot: auto
+init: false
+ingress: true
+ingress_port: 8080
+panel_icon: "mdi:sword-cross"
+panel_title: "WarEra"
+options:
+  enable_telegram_alerts: true
+  enable_equipment_scanner: true
+  enable_web_dashboard: true
+  pricing_mode: "live"
+  equipment_scan_interval: 1
+  min_discount_pct: 5.0
+  god_roll_threshold: 80.0
+  monitor_mythic: true
+  monitor_legendary: true
+  monitor_epic: true
+  monitor_rare: true
+  monitor_uncommon: false
+  monitor_common: false
+  telegram_bot_token: ""
+  telegram_chat_id: ""
+  warera_api_key: ""
+  warera_cookie: ""
+  warera_x_vid: ""
+  warera_x_gr: ""
+schema:
+  enable_telegram_alerts: bool
+  enable_equipment_scanner: bool
+  enable_web_dashboard: bool
+  pricing_mode: list(live|history)
+  equipment_scan_interval: int(1,60)
+  min_discount_pct: float(1.0,100.0)
+  god_roll_threshold: float(50.0,100.0)
+  monitor_mythic: bool
+  monitor_legendary: bool
+  monitor_epic: bool
+  monitor_rare: bool
+  monitor_uncommon: bool
+  monitor_common: bool
+  telegram_bot_token: password?
+  telegram_chat_id: str?
+  warera_api_key: password?
+  warera_cookie: str?
+  warera_x_vid: str?
+  warera_x_gr: str?

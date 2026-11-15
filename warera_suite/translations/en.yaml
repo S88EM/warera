@@ -1,0 +1,58 @@
+configuration:
+  enable_telegram_alerts:
+    name: "Telegram Alerts"
+    description: "Enable or disable sending notifications to Telegram"
+  enable_equipment_scanner:
+    name: "Equipment Scanner (Weapons & Armor)"
+    description: "Monitors market offers for stat bargains and god-rolls"
+  enable_web_dashboard:
+    name: "Web Dashboard in Sidebar (Ingress)"
+    description: "Embedded WarEra dashboard in the Home Assistant sidebar"
+  pricing_mode:
+    name: "Pricing Calculation Mode"
+    description: "live (active open orders) or history (3-day completed transactions DB)"
+  equipment_scan_interval:
+    name: "Equipment Scan Interval (seconds)"
+    description: "Delay between equipment market scans (default: 1 sec)"
+  min_discount_pct:
+    name: "Min Equipment Discount (%)"
+    description: "Discount threshold to trigger an equipment alert"
+  god_roll_threshold:
+    name: "God-Roll Threshold (%)"
+    description: "Percentage of maximum stats to mark as TOP ROLL"
+  monitor_mythic:
+    name: "Mythic T6 Items (Jet, Helmet VI...)"
+    description: "Monitor T6 items"
+  monitor_legendary:
+    name: "Legendary T5 Items (Tank, Helmet V...)"
+    description: "Monitor T5 items"
+  monitor_epic:
+    name: "Epic T4 Items (Sniper, Helmet IV...)"
+    description: "Monitor T4 items"
+  monitor_rare:
+    name: "Rare T3 Items (Rifle, Helmet III...)"
+    description: "Monitor T3 items"
+  monitor_uncommon:
+    name: "Uncommon T2 Items (Gun, Helmet II...)"
+    description: "Monitor T2 items"
+  monitor_common:
+    name: "Common T1 Items (Knife, Helmet I...)"
+    description: "Monitor T1 items"
+  telegram_bot_token:
+    name: "Telegram Bot Token"
+    description: "Telegram Bot API Token from @BotFather"
+  telegram_chat_id:
+    name: "Telegram Chat ID"
+    description: "Your personal Telegram chat ID"
+  warera_api_key:
+    name: "WarEra API Key"
+    description: "WarEra Game API Key (wae_...)"
+  warera_cookie:
+    name: "WarEra Session Cookies"
+    description: "Full browser cookie string (including jwt and cf_clearance)"
+  warera_x_vid:
+    name: "Header x-vid"
+    description: "Browser fingerprint x-vid"
+  warera_x_gr:
+    name: "Header x-gr"
+    description: "Graphics renderer fingerprint x-gr"
