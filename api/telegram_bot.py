@@ -246,6 +246,10 @@ class TelegramBotController:
                 [
                     {"text": f"⏱ {label(10)}", "callback_data": "set_int_10"},
                     {"text": f"⏱ {label(15)}", "callback_data": "set_int_15"},
+                    {"text": f"⏱ {label(20)}", "callback_data": "set_int_20"},
+                ],
+                [
+                    {"text": f"⏱ {label(25)}", "callback_data": "set_int_25"},
                     {"text": f"⏱ {label(30)}", "callback_data": "set_int_30"},
                 ],
                 [

@@ -410,12 +410,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <!-- Scan Interval -->
                 <div>
                     <label class="block font-semibold text-gray-300 mb-1.5">Частота сканування:</label>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="setScanInterval(1)" id="btnInterval-1" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">1 сек</button>
-                        <button onclick="setScanInterval(2)" id="btnInterval-2" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">2 сек</button>
-                        <button onclick="setScanInterval(3)" id="btnInterval-3" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">3 сек</button>
-                        <button onclick="setScanInterval(5)" id="btnInterval-5" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">5 сек</button>
-                        <button onclick="setScanInterval(10)" id="btnInterval-10" class="flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono">10 сек</button>
+                    <div class="grid grid-cols-5 gap-1.5 mb-1.5">
+                        <button onclick="setScanInterval(1)" id="btnInterval-1" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">1 сек</button>
+                        <button onclick="setScanInterval(2)" id="btnInterval-2" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">2 сек</button>
+                        <button onclick="setScanInterval(3)" id="btnInterval-3" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">3 сек</button>
+                        <button onclick="setScanInterval(5)" id="btnInterval-5" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">5 сек</button>
+                        <button onclick="setScanInterval(10)" id="btnInterval-10" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">10 сек</button>
+                    </div>
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <button onclick="setScanInterval(15)" id="btnInterval-15" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">15 сек</button>
+                        <button onclick="setScanInterval(20)" id="btnInterval-20" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">20 сек</button>
+                        <button onclick="setScanInterval(25)" id="btnInterval-25" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">25 сек</button>
+                        <button onclick="setScanInterval(30)" id="btnInterval-30" class="py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center">30 сек</button>
                     </div>
                 </div>
 
@@ -602,13 +608,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             document.getElementById('settingGodRoll').value = currentStatus.god_roll_threshold || 80.0;
 
             // Update interval buttons highlight
-            [1, 2, 3, 5, 10].forEach(sec => {
+            [1, 2, 3, 5, 10, 15, 20, 25, 30].forEach(sec => {
                 const btn = document.getElementById(`btnInterval-${sec}`);
                 if (btn) {
                     if (currentStatus.scan_interval === sec) {
-                        btn.className = 'flex-1 py-1.5 rounded-lg border border-blue-500 bg-blue-900/60 text-blue-300 font-mono font-bold';
+                        btn.className = 'py-1.5 rounded-lg border border-blue-500 bg-blue-900/60 text-blue-300 font-mono font-bold text-center';
                     } else {
-                        btn.className = 'flex-1 py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono';
+                        btn.className = 'py-1.5 rounded-lg border border-bordercolor bg-gray-800 text-gray-300 hover:bg-gray-700 font-mono text-center';
                     }
                 }
             });
