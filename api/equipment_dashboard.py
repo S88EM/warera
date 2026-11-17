@@ -439,54 +439,135 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <div id="workerRecentChips" class="flex items-center gap-1.5"></div>
             </div>
 
-            <!-- Top Stat Cards -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
-                    <div class="text-xs text-gray-400 flex items-center justify-between">
-                        <span>Чистий прибуток</span>
+            <!-- Top Stat Cards (Arcana-Style 9 Cards) -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3.5">
+                <!-- 1. Підприємства -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Підприємства</span>
+                        <i class="fa-solid fa-industry text-blue-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-white" id="statCompaniesCount">--</div>
+                    <div class="text-xs text-gray-400 mt-1" id="statCompaniesSub">-- з робітниками · 0 з менеджером</div>
+                </div>
+
+                <!-- 2. Виробіток на добу -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Виробіток</span>
+                        <i class="fa-solid fa-bolt text-yellow-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-yellow-300" id="statTotalOutput">-- PP</div>
+                    <div class="text-xs text-gray-400 mt-1" id="statOutputSub">очок виробітку на добу</div>
+                </div>
+
+                <!-- 3. Скрині з інструментами -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Скрині з інструментами</span>
+                        <i class="fa-solid fa-toolbox text-teal-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-teal-300" id="statToolboxes">--</div>
+                    <div class="text-xs text-gray-400 mt-1">очікуваних знахідок на добу</div>
+                </div>
+
+                <!-- 4. Вартість товару -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Вартість товару</span>
+                        <i class="fa-solid fa-box-open text-indigo-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-indigo-300" id="statGoodsValue">--</div>
+                    <div class="text-xs text-gray-400 mt-1">за ринковими цінами на добу</div>
+                </div>
+
+                <!-- 5. Зарплати персоналу -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Зарплати персоналу</span>
+                        <i class="fa-solid fa-money-bill-wave text-rose-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-rose-400" id="statWagesDaily">--</div>
+                    <div class="text-xs text-gray-400 mt-1">витрат на добу за ставками</div>
+                </div>
+
+                <!-- 6. Менеджери -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Менеджери</span>
+                        <i class="fa-solid fa-user-tie text-purple-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-gray-300" id="statManagersDaily">0.00</div>
+                    <div class="text-xs text-gray-400 mt-1">витрат на керуючих на добу</div>
+                </div>
+
+                <!-- 7. Ігровий прибуток -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Ігровий прибуток</span>
+                        <i class="fa-solid fa-gamepad text-purple-400"></i>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-purple-300" id="statInGameProfit">--</div>
+                    <div class="text-xs text-gray-400 mt-1">як показує панель Workforce</div>
+                </div>
+
+                <!-- 8. Чистий прибуток (NET) -->
+                <div class="bg-cardbg p-4 rounded-xl border border-emerald-500/30 shadow-md bg-gradient-to-br from-emerald-950/20 to-cardbg hover:border-emerald-500/50 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+                        <span>Чистий прибуток (NET)</span>
                         <i class="fa-solid fa-coins text-yellow-400"></i>
                     </div>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="statDailyProfit" class="text-2xl font-black text-green-400">--</span>
-                        <span class="text-xs text-gray-400">Coins/добу</span>
-                    </div>
-                    <div id="statHourlyProfit" class="text-xs text-gray-400 mt-1">-- Coins/год</div>
+                    <div class="mt-2 text-2xl font-black text-emerald-400" id="statDailyProfit">--</div>
+                    <div class="text-xs text-gray-400 mt-1" id="statDailyProfitWithSelf">-- з власною працею</div>
                 </div>
 
-                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
-                    <div class="text-xs text-gray-400 flex items-center justify-between">
-                        <span>Підприємства</span>
-                        <i class="fa-solid fa-building text-blue-400"></i>
+                <!-- 9. Робоча сила -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+                        <span>Робоча сила</span>
+                        <i class="fa-solid fa-users text-sky-400"></i>
                     </div>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="statCompaniesCount" class="text-2xl font-black text-white">--</span>
-                        <span class="text-xs text-gray-400">фабрик</span>
+                    <div class="mt-2 text-2xl font-black text-sky-300" id="statStaffCount">--</div>
+                    <div class="text-xs text-gray-400 mt-1" id="statStaffSub">-- доступні для тренування</div>
+                </div>
+            </div>
+
+            <!-- Beginner Insights: Lowest Tax Countries & Best Products Right Now -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <!-- Lowest Tax Countries -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Країни з найнижчими податками</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-700/40" title="Будуйте фабрики в цих країнах, щоб зберігати 100% прибутку">0% Податку</span>
+                        </div>
+                        <i class="fa-solid fa-earth-americas text-blue-400"></i>
                     </div>
-                    <div id="statStaffCount" class="text-xs text-gray-400 mt-1">Персонал: -- чол</div>
+                    <div id="workerLowestTaxList" class="flex flex-wrap gap-2 text-xs">
+                        <span class="text-gray-500 text-xs">Завантаження країн...</span>
+                    </div>
+                    <div class="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info text-blue-400 shrink-0"></i>
+                        <span>💡 Новачкам: Регіональні податки сплачуються з прибутку. Фабрики в зонах 0% приносять максимум!</span>
+                    </div>
                 </div>
 
-                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
-                    <div class="text-xs text-gray-400 flex items-center justify-between">
-                        <span>Кадрові рокіровки</span>
-                        <i class="fa-solid fa-shuffle text-indigo-400"></i>
+                <!-- Best Products Right Now -->
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-md">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Найприбутковіші товари прямо зараз</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700/40" title="Товари з найвищою віддачею Coins на 100 очок виробітку">Топ ринку</span>
+                        </div>
+                        <i class="fa-solid fa-arrow-trend-up text-amber-400"></i>
                     </div>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="statRelocateCount" class="text-2xl font-black text-blue-400">--</span>
-                        <span class="text-xs text-gray-400">кандидатів</span>
+                    <div id="workerBestProductsList" class="flex flex-wrap gap-2 text-xs">
+                        <span class="text-gray-500 text-xs">Завантаження аналітики ринку...</span>
                     </div>
-                    <div class="text-xs text-blue-400/80 mt-1">на прибутковіші фабрики</div>
-                </div>
-
-                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
-                    <div class="text-xs text-gray-400 flex items-center justify-between">
-                        <span>Ризики / Пенсія</span>
-                        <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+                    <div class="text-[11px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info text-amber-400 shrink-0"></i>
+                        <span>💡 Новачкам: Показує, який товар генерує найбільше Coins за 100 очок виробітку робітників.</span>
                     </div>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="statRiskCount" class="text-2xl font-black text-amber-400">--</span>
-                        <span class="text-xs text-gray-400">потребують уваги</span>
-                    </div>
-                    <div id="statToxicCount" class="text-xs text-red-400 mt-1">Збиткових: 0</div>
                 </div>
             </div>
 
@@ -502,8 +583,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <span id="workerPlayerLevel" class="text-xs px-2 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-semibold">Lv.--</span>
                         </div>
                         <div class="text-xs text-gray-400 flex items-center gap-3 mt-1 flex-wrap">
-                            <span id="workerPlayerProdSkill"><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: --</span>
                             <span id="workerPlayerCountry"><i class="fa-solid fa-globe text-blue-400 mr-1"></i>Країна: --</span>
+                            <span id="workerPlayerProdSkill"><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: --</span>
                         </div>
                     </div>
                 </div>
@@ -535,13 +616,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             <!-- Sub-Tabs Navigation -->
             <div class="flex items-center border-b border-bordercolor gap-6 text-sm overflow-x-auto">
-                <button onclick="switchWorkerSubTab('workers')" id="wtabWorkers" class="pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Працівники фабрик</span>
-                </button>
-                <button onclick="switchWorkerSubTab('companies')" id="wtabCompanies" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
+                <button onclick="switchWorkerSubTab('companies')" id="wtabCompanies" class="pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400 font-semibold">
                     <i class="fa-solid fa-industry"></i>
                     <span>Огляд підприємств</span>
+                </button>
+                <button onclick="switchWorkerSubTab('workers')" id="wtabWorkers" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Працівники фабрик</span>
                 </button>
                 <button onclick="switchWorkerSubTab('relocation')" id="wtabRelocation" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
                     <i class="fa-solid fa-arrows-split-up-and-left"></i>
@@ -553,8 +634,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </button>
             </div>
 
-            <!-- SUB-TAB 1: WORKERS TABLE -->
-            <div id="wcontentWorkers" class="space-y-4">
+            <!-- SUB-TAB 1: COMPANIES CARDS (Default active) -->
+            <div id="wcontentCompanies" class="space-y-4"></div>
+
+            <!-- SUB-TAB 2: WORKERS TABLE -->
+            <div id="wcontentWorkers" class="hidden space-y-4">
                 <div class="bg-cardbg rounded-xl overflow-hidden shadow-xl border border-bordercolor">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
@@ -583,9 +667,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     </div>
                 </div>
             </div>
-
-            <!-- SUB-TAB 2: COMPANIES CARDS -->
-            <div id="wcontentCompanies" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
             <!-- SUB-TAB 3: RELOCATION MATRIX -->
             <div id="wcontentRelocation" class="hidden space-y-4">
@@ -1378,6 +1459,104 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }, 3000);
         }
 
+        // Workforce Mappings & State
+        let workerExpandedCompanies = new Set();
+
+        const TRAIT_MAP = {
+            'sociable': { name: 'Товариський', icon: 'fa-users', color: 'bg-emerald-950/50 text-emerald-300 border-emerald-700/50', desc: '+50% бонус виробітку' },
+            'lateBloomer': { name: 'Пізній розквіт', icon: 'fa-chart-line', color: 'bg-blue-950/50 text-blue-300 border-blue-700/50', desc: '+2 до характеристик з віком' },
+            'laborer': { name: 'Роботяга', icon: 'fa-hammer', color: 'bg-amber-950/50 text-amber-300 border-amber-700/50', desc: '+1 до виробітку' },
+            'oldFriends': { name: 'Старі друзі', icon: 'fa-handshake', color: 'bg-purple-950/50 text-purple-300 border-purple-700/50', desc: '+15% бонус за знайомого колегу' },
+            'specialist': { name: 'Спеціаліст', icon: 'fa-graduation-cap', color: 'bg-indigo-950/50 text-indigo-300 border-indigo-700/50', desc: '+20% бонус та щастя на спеціалізації' },
+            'luckyCharm': { name: 'Талісман удачі', icon: 'fa-clover', color: 'bg-green-950/50 text-green-300 border-green-700/50', desc: 'Частіше знаходить скрині з інструментами' },
+            'salvager': { name: 'Шукач скринь', icon: 'fa-toolbox', color: 'bg-teal-950/50 text-teal-300 border-teal-700/50', desc: 'Підвищений шанс знайти інструмент' },
+            'cosmopolitan': { name: 'Космополіт', icon: 'fa-earth-americas', color: 'bg-sky-950/50 text-sky-300 border-sky-700/50', desc: 'Не втрачає щастя за кордоном' },
+            'bandOfBrothers': { name: 'Браття по зброї', icon: 'fa-shield-halved', color: 'bg-amber-950/50 text-amber-300 border-amber-700/50', desc: '+30% бонус до виробітку в команді' },
+            'loyal': { name: 'Відданий', icon: 'fa-heart', color: 'bg-rose-950/50 text-rose-300 border-rose-700/50', desc: 'Не вимагає підвищення і не звільняється' },
+            'expat': { name: 'Експат', icon: 'fa-plane', color: 'bg-indigo-950/50 text-indigo-300 border-indigo-700/50', desc: 'Бонус до роботи за кордоном' },
+            'modest': { name: 'Скромний', icon: 'fa-coins', color: 'bg-emerald-950/50 text-emerald-300 border-emerald-700/50', desc: 'Знижені вимоги до зарплати' },
+            'scavenger': { name: 'Збирач', icon: 'fa-magnifying-glass', color: 'bg-cyan-950/50 text-cyan-300 border-cyan-700/50', desc: 'Знаходить додаткові ресурси' },
+            'trainer': { name: 'Тренер', icon: 'fa-dumbbell', color: 'bg-violet-950/50 text-violet-300 border-violet-700/50', desc: 'Підвищує ефективність тренувань' },
+            'diamondInTheRough': { name: 'Необроблений алмаз', icon: 'fa-gem', color: 'bg-cyan-950/50 text-cyan-300 border-cyan-700/50', desc: 'Високий прихований потенціал' },
+            'handy': { name: 'Майстер', icon: 'fa-wrench', color: 'bg-stone-800 text-stone-300 border-stone-600', desc: 'Повільніше зношує інструменти' },
+            'anchor': { name: 'Якір', icon: 'fa-anchor', color: 'bg-slate-800 text-slate-300 border-slate-600', desc: 'Стабілізує щастя колективу' },
+            'recruiter': { name: 'Рекрутер', icon: 'fa-bullhorn', color: 'bg-orange-950/50 text-orange-300 border-orange-700/50', desc: 'Допомагає наймати персонал' },
+            'stockpiler': { name: 'Завскладом', icon: 'fa-boxes-stacked', color: 'bg-yellow-950/50 text-yellow-300 border-yellow-700/50', desc: 'Збільшує місткість сховища' },
+            'comic': { name: 'Комік', icon: 'fa-masks-theater', color: 'bg-pink-950/50 text-pink-300 border-pink-700/50', desc: 'Підвищує настрій колег на фабриці' },
+            'improviser': { name: 'Імпровізатор', icon: 'fa-wand-magic-sparkles', color: 'bg-fuchsia-950/50 text-fuchsia-300 border-fuchsia-700/50', desc: 'Швидше звикає до нових товарів' },
+            'creatureOfHabit': { name: 'Людина звички', icon: 'fa-clock', color: 'bg-blue-950/50 text-blue-300 border-blue-700/50', desc: 'Бонус за тривалий стаж на фабриці' },
+            'patriot': { name: 'Патріот', icon: 'fa-flag', color: 'bg-yellow-950/50 text-yellow-300 border-yellow-700/50', desc: 'Бонус виробітку в рідній країні' },
+            'nationalist': { name: 'Націоналіст', icon: 'fa-landmark', color: 'bg-amber-950/50 text-amber-300 border-amber-700/50', desc: 'Бонус серед співвітчизників' },
+            'loner': { name: 'Одинак', icon: 'fa-user', color: 'bg-gray-800 text-gray-300 border-gray-600', desc: 'Краще працює наодинці' },
+            'envious': { name: 'Заздрісний', icon: 'fa-triangle-exclamation', color: 'bg-red-950/50 text-red-300 border-red-700/50', desc: 'Втрачає настрій через чужі зарплати' },
+            'earlyBloomer': { name: 'Ранній розквіт', icon: 'fa-sun', color: 'bg-amber-950/50 text-amber-300 border-amber-700/50', desc: 'Швидко розвивається в молодому віці' }
+        };
+
+        const ITEM_TRANSLATIONS = {
+            'cocain': { name: 'Кокаїн', icon: '💊', color: 'text-rose-400' },
+            'coca': { name: 'Листя коки', icon: '🌿', color: 'text-emerald-400' },
+            'cookedFish': { name: 'Смажена риба', icon: '🍱', color: 'text-amber-400' },
+            'fish': { name: 'Риба', icon: '🐟', color: 'text-sky-400' },
+            'lightAmmo': { name: 'Легкі набої', icon: '🎯', color: 'text-yellow-400' },
+            'heavyAmmo': { name: 'Важкі набої', icon: '🚀', color: 'text-red-400' },
+            'lead': { name: 'Свинець', icon: '🔘', color: 'text-gray-400' },
+            'steel': { name: 'Сталь', icon: '🏗️', color: 'text-cyan-400' },
+            'iron': { name: 'Залізна руда', icon: '⛏️', color: 'text-orange-400' },
+            'concrete': { name: 'Бетон', icon: '🧱', color: 'text-stone-400' },
+            'limestone': { name: 'Вапняк', icon: '🪨', color: 'text-stone-300' },
+            'paper': { name: 'Папір', icon: '📜', color: 'text-yellow-200' },
+            'wood': { name: 'Деревина', icon: '🪵', color: 'text-amber-700' },
+            'oil': { name: 'Нафта', icon: '🛢️', color: 'text-purple-400' },
+            'fuel': { name: 'Паливо', icon: '⛽', color: 'text-rose-500' },
+            'aluminum': { name: 'Алюміній', icon: '🪙', color: 'text-zinc-300' },
+            'bauxite': { name: 'Боксити', icon: '🏔️', color: 'text-stone-500' },
+            'medkit': { name: 'Аптечка', icon: '🩹', color: 'text-emerald-300' }
+        };
+
+        const COUNTRY_FLAGS = {
+            'ua': '🇺🇦', 'bo': '🇧🇴', 'tt': '🇹🇹', 'mt': '🇲🇹', 'rw': '🇷🇼',
+            'us': '🇺🇸', 'gb': '🇬🇧', 'de': '🇩🇪', 'pl': '🇵🇱', 'fr': '🇫🇷',
+            'es': '🇪🇸', 'it': '🇮🇹', 'ca': '🇨🇦', 'br': '🇧🇷', 'jp': '🇯🇵'
+        };
+
+        function getItemMeta(code) {
+            if (!code) return { name: 'Невідомо', icon: '📦', color: 'text-gray-400' };
+            const lower = code.toLowerCase();
+            for (const [k, v] of Object.entries(ITEM_TRANSLATIONS)) {
+                if (k.toLowerCase() === lower) return v;
+            }
+            return { name: code, icon: '📦', color: 'text-gray-400' };
+        }
+
+        function getCountryFlag(code) {
+            if (!code) return '🌐';
+            const lower = code.toLowerCase();
+            if (COUNTRY_FLAGS[lower]) return COUNTRY_FLAGS[lower];
+            if (code.length === 2) {
+                return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
+            }
+            return '🌐';
+        }
+
+        function toggleCompanyAccordion(cid) {
+            if (workerExpandedCompanies.has(cid)) {
+                workerExpandedCompanies.delete(cid);
+            } else {
+                workerExpandedCompanies.add(cid);
+            }
+            renderWorkerCompanies();
+        }
+
+        function toggleAllWorkerCompanies(expand) {
+            if (!workerCurrentData || !workerCurrentData.companies) return;
+            if (expand) {
+                workerCurrentData.companies.forEach(c => workerExpandedCompanies.add(c.company_id));
+            } else {
+                workerExpandedCompanies.clear();
+            }
+            renderWorkerCompanies();
+        }
+
         async function fetchWorkerData() {
             const input = document.getElementById('workerSearchInput');
             const nick = (input ? input.value.trim() : '') || 'Luc1fer';
@@ -1402,6 +1581,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 }
                 workerCurrentData = await res.json();
                 workerDataLoaded = true;
+                if (workerCurrentData.companies && workerCurrentData.companies.length > 0 && workerExpandedCompanies.size === 0) {
+                    workerExpandedCompanies.add(workerCurrentData.companies[0].company_id);
+                }
                 renderWorkerAll();
             } catch (err) {
                 showWorkerToast(`Помилка: ${err.message}`);
@@ -1415,29 +1597,99 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             const u = workerCurrentData.user;
             const s = workerCurrentData.summary;
 
+            // Player Profile Banner
             document.getElementById('workerPlayerUsername').innerText = u.username;
             document.getElementById('workerPlayerAvatarLetter').innerText = u.username.charAt(0).toUpperCase();
             document.getElementById('workerPlayerLevel').innerText = `Lv.${u.level}`;
-            document.getElementById('workerPlayerProdSkill').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: Lv.${u.production_skill.level || 0} (${u.production_skill.value || 0} PP)`;
-            document.getElementById('workerPlayerCountry').innerHTML = `<i class="fa-solid fa-globe text-blue-400 mr-1"></i>Країна: ${u.country.slice(-6)}`;
+            const flag = getCountryFlag(u.country_code);
+            document.getElementById('workerPlayerCountry').innerHTML = `<span class="mr-1">${flag}</span>${u.country_name || 'Україна'}`;
+            
+            const prodSkill = u.production_skill || {};
+            const mgmtPts = u.management_pts || 0;
+            const mgmtBonus = u.management_bonus_pct || 0;
+            document.getElementById('workerPlayerProdSkill').innerHTML = `
+                <span class="inline-flex items-center gap-1"><i class="fa-solid fa-bolt text-yellow-400"></i> Виробіток: ${prodSkill.value || 0} PP</span>
+                <span class="inline-flex items-center gap-1 ml-2 text-indigo-300"><i class="fa-solid fa-user-tie text-indigo-400"></i> Менеджмент: ${mgmtPts} очок (+${mgmtBonus}% бонус)</span>
+            `;
 
-            document.getElementById('statDailyProfit').innerText = (s.total_daily_profit >= 0 ? '+' : '') + s.total_daily_profit.toFixed(2);
-            document.getElementById('statDailyProfit').className = s.total_daily_profit >= 0 ? 'text-2xl font-black text-green-400' : 'text-2xl font-black text-red-400';
-            document.getElementById('statHourlyProfit').innerText = `${(s.total_hourly_profit >= 0 ? '+' : '') + s.total_hourly_profit.toFixed(4)} Coins/год`;
+            // 9 Summary Cards
+            if (document.getElementById('statCompaniesCount')) {
+                document.getElementById('statCompaniesCount').innerText = s.total_companies;
+                document.getElementById('statCompaniesSub').innerText = `${s.companies_with_staff || s.total_companies} з робітниками · ${s.companies_with_manager || 0} з менеджером`;
+            }
+            if (document.getElementById('statTotalOutput')) {
+                document.getElementById('statTotalOutput').innerText = `${(s.total_daily_output || 0).toLocaleString('uk-UA', {maximumFractionDigits: 1})} PP`;
+                document.getElementById('statOutputSub').innerText = `${(s.total_employee_output || 0).toFixed(0)} персонал · ${(s.total_engine_output || 0).toFixed(0)} двигуни`;
+            }
+            if (document.getElementById('statToolboxes')) {
+                document.getElementById('statToolboxes').innerText = `~${(s.total_toolboxes_daily || 0).toFixed(1)} шт`;
+            }
+            if (document.getElementById('statGoodsValue')) {
+                document.getElementById('statGoodsValue').innerText = `+${(s.total_goods_value_daily || 0).toFixed(2)}`;
+            }
+            if (document.getElementById('statWagesDaily')) {
+                document.getElementById('statWagesDaily').innerText = `-${(s.total_wages_daily || 0).toFixed(2)}`;
+            }
+            if (document.getElementById('statManagersDaily')) {
+                document.getElementById('statManagersDaily').innerText = `${(s.total_manager_daily || 0).toFixed(2)}`;
+            }
+            if (document.getElementById('statInGameProfit')) {
+                const igp = s.in_game_profit_daily || 0;
+                document.getElementById('statInGameProfit').innerText = (igp >= 0 ? '+' : '') + igp.toFixed(2);
+                document.getElementById('statInGameProfit').className = igp >= 0 ? 'mt-2 text-2xl font-black text-purple-300' : 'mt-2 text-2xl font-black text-rose-400';
+            }
+            if (document.getElementById('statDailyProfit')) {
+                const np = s.total_daily_profit || 0;
+                document.getElementById('statDailyProfit').innerText = (np >= 0 ? '+' : '') + np.toFixed(2);
+                document.getElementById('statDailyProfit').className = np >= 0 ? 'mt-2 text-2xl font-black text-emerald-400' : 'mt-2 text-2xl font-black text-rose-400';
+                if (document.getElementById('statDailyProfitWithSelf')) {
+                    const withSelf = s.total_daily_profit_with_self || np;
+                    document.getElementById('statDailyProfitWithSelf').innerText = `+${withSelf.toFixed(2)} з власною працею`;
+                }
+            }
+            if (document.getElementById('statStaffCount')) {
+                document.getElementById('statStaffCount').innerText = `${s.total_workforce} робітників`;
+                if (document.getElementById('statStaffSub')) {
+                    document.getElementById('statStaffSub').innerText = `${s.trainable_count || 0} готові до тренування`;
+                }
+            }
 
-            document.getElementById('statCompaniesCount').innerText = s.total_companies;
-            document.getElementById('statStaffCount').innerText = `Персонал: ${s.total_workforce} чол`;
-            document.getElementById('statRelocateCount').innerText = s.relocate_count;
-            document.getElementById('statRiskCount').innerText = s.underperformer_count + s.toxic_count;
-            document.getElementById('statToxicCount').innerText = `Збиткових: ${s.toxic_count}`;
+            // Render Insights (Lowest Tax Countries)
+            const taxListEl = document.getElementById('workerLowestTaxList');
+            if (taxListEl && s.lowest_tax_countries) {
+                taxListEl.innerHTML = s.lowest_tax_countries.map(c => `
+                    <div class="px-2.5 py-1 rounded-lg bg-gray-900/80 border border-bordercolor flex items-center gap-1.5 hover:border-gray-600 transition-colors">
+                        <span>${getCountryFlag(c.code)}</span>
+                        <span class="font-medium text-gray-200">${c.name}</span>
+                        <span class="text-[10px] text-emerald-400 font-mono ml-1">прибутковий ${c.income_tax}% · ринок ${c.market_tax}%</span>
+                    </div>
+                `).join('');
+            }
 
+            // Render Insights (Best Products Right Now)
+            const prodListEl = document.getElementById('workerBestProductsList');
+            if (prodListEl && s.best_products) {
+                prodListEl.innerHTML = s.best_products.map((p, idx) => {
+                    const meta = getItemMeta(p.code);
+                    return `
+                        <div class="px-2.5 py-1 rounded-lg bg-gray-900/80 border border-bordercolor flex items-center gap-1.5 hover:border-gray-600 transition-colors">
+                            <span class="font-bold text-amber-400 text-[11px]">#${idx + 1}</span>
+                            <span>${meta.icon}</span>
+                            <span class="font-medium text-gray-200">${meta.name}</span>
+                            <span class="text-[10px] text-yellow-300 font-mono ml-1">${p.margin_per_100.toFixed(2)} Coins/100 PP</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Counts for category filter pills
             document.getElementById('wcntAll').innerText = s.total_workforce;
             document.getElementById('wcntKeep').innerText = s.keep_count;
             document.getElementById('wcntRelocate').innerText = s.relocate_count;
             document.getElementById('wcntUnder').innerText = s.underperformer_count;
             document.getElementById('wcntToxic').innerText = s.toxic_count;
 
-            // Auth & Warning Banner state
+            // Auth Alert Banner
             const auth = workerCurrentData.auth || {};
             const alertBanner = document.getElementById('workerAuthAlertBanner');
             const alertTitle = document.getElementById('workerAuthAlertTitle');
@@ -1447,7 +1699,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 if (auth.auth_failed && !auth.is_community_key) {
                     alertBanner.className = 'bg-rose-950/60 border border-rose-500/60 rounded-xl p-3.5 flex items-center justify-between text-rose-200 shadow-lg';
                     alertTitle.innerText = 'Помилка авторизації WarEra API (401 Unauthorized)';
-                    alertMsg.innerText = 'Сервер WarEra відхилив токен (API token required). Оновіть його в грі або видаліть для використання автоматичного ключа спільноти.';
+                    alertMsg.innerText = 'Сервер WarEra відхилив токен. Перевірте його в грі або використовуйте автоматичний ключ спільноти.';
                 } else if (workerCurrentData.employees_flat.length === 0 && workerCurrentData.companies.length > 0) {
                     alertBanner.className = 'bg-blue-950/50 border border-blue-500/50 rounded-xl p-3.5 flex items-center justify-between text-blue-200';
                     alertTitle.innerText = 'На фабриках немає робітників';
@@ -1591,60 +1843,430 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             if (!container || !workerCurrentData) return;
             container.innerHTML = '';
 
-            workerCurrentData.companies.forEach(comp => {
+            const comps = workerCurrentData.companies || [];
+            if (comps.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-gray-400 bg-cardbg rounded-xl border border-bordercolor">Підприємств не знайдено.</div>`;
+                return;
+            }
+
+            // Top control bar (Collapse/Expand All + Filter)
+            const controlBar = document.createElement('div');
+            controlBar.className = 'flex items-center justify-between pb-1 flex-wrap gap-2 text-xs';
+            controlBar.innerHTML = `
+                <div class="text-xs text-gray-400">
+                    Всього підприємств: <span class="font-bold text-white">${comps.length}</span> · 
+                    З персоналом: <span class="font-bold text-emerald-400">${comps.filter(c => c.staff_count > 0).length}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleAllWorkerCompanies(true)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors flex items-center gap-1.5 shadow">
+                        <i class="fa-solid fa-angles-down text-blue-400"></i> Розгорнути всі
+                    </button>
+                    <button onclick="toggleAllWorkerCompanies(false)" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition-colors flex items-center gap-1.5 shadow">
+                        <i class="fa-solid fa-angles-up text-gray-400"></i> Згорнути всі
+                    </button>
+                </div>
+            `;
+            container.appendChild(controlBar);
+
+            comps.forEach(comp => {
+                const isExpanded = workerExpandedCompanies.has(comp.company_id);
+                const itemMeta = getItemMeta(comp.item_code);
+                const flag = getCountryFlag(comp.country_code);
+
                 const card = document.createElement('div');
-                card.className = 'bg-cardbg p-5 rounded-xl space-y-4 hover:border-gray-600 transition-all shadow-lg flex flex-col justify-between border border-bordercolor';
-                const profitClass = comp.daily_net_profit >= 0 ? 'text-emerald-400' : 'text-red-400';
+                card.className = 'bg-cardbg rounded-2xl border border-bordercolor overflow-hidden shadow-lg transition-all hover:border-gray-600/80';
 
-                card.innerHTML = `
-                    <div class="space-y-2">
-                        <div class="flex items-start justify-between gap-2">
+                // Badges
+                const rawSupplyBadge = comp.raw_from_own 
+                    ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/50" title="Сировина надходить з ваших шахт/ферм, тому не купується з ринку"><i class="fa-solid fa-leaf mr-1"></i>Власна сировина</span>` 
+                    : '';
+                const incomeTax = comp.taxes ? (comp.taxes.income || 0) : 20;
+                const taxBadgeClass = incomeTax > 0 
+                    ? 'bg-amber-950/60 text-amber-300 border-amber-700/50' 
+                    : 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
+                const taxBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${taxBadgeClass}">${incomeTax}% прибутковий</span>`;
+                const managerBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-700/50">Менеджер: рівень 10</span>`;
+
+                const totalDailyPp = comp.total_daily_pp || (comp.daily_pp + (comp.engine_daily_pp || 0));
+                const totalDailyUnits = comp.total_daily_units || comp.daily_units;
+                const empSharePct = comp.employees_share_pct || 0;
+                const engLv = comp.engine_level || 0;
+                const wagesDaily = comp.wages_daily || 0;
+                const netDaily = comp.daily_net_profit || 0;
+                const withSelfDaily = comp.net_daily_with_self_work || netDaily;
+
+                // Header HTML
+                const headerHtml = `
+                    <div onclick="toggleCompanyAccordion('${comp.company_id}')" class="p-4 sm:p-5 cursor-pointer flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 select-none hover:bg-gray-800/30 transition-colors">
+                        <!-- Left: Item Icon + Company Name & Subtitle + Badges -->
+                        <div class="flex items-start gap-3.5 min-w-[280px]">
+                            <div class="w-12 h-12 rounded-xl bg-gray-900 border border-gray-700 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                                ${itemMeta.icon}
+                            </div>
                             <div>
-                                <h4 class="text-base font-bold text-white">${comp.name}</h4>
-                                <span class="text-xs px-2 py-0.5 rounded bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 font-mono uppercase">${comp.item_code}</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="text-base font-black text-white tracking-wide uppercase">${comp.name}</h4>
+                                </div>
+                                <div class="text-xs text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                    <span class="font-medium text-gray-300">${itemMeta.name}</span>
+                                    <span>·</span>
+                                    <span>${flag}</span>
+                                    <span>${comp.region_name || 'Центральна Україна'}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+                                    ${managerBadge}
+                                    ${taxBadge}
+                                    ${rawSupplyBadge}
+                                </div>
                             </div>
-                            <span class="text-xs px-2.5 py-1 rounded-full ${comp.staff_count >= comp.staff_cap ? 'bg-amber-900/40 text-amber-300 border border-amber-700/50' : 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'}">
-                                ${comp.staff_count} / ${comp.staff_cap} місць
+                        </div>
+
+                        <!-- 5 Metric Columns (Arcana Style) -->
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full lg:w-auto text-xs shrink-0 py-1">
+                            <!-- 1. Output / Day -->
+                            <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800/80 min-w-[110px]">
+                                <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Випуск / добу</div>
+                                <div class="font-extrabold text-white text-sm mt-0.5">${totalDailyPp.toFixed(1)} <span class="text-[11px] font-normal text-gray-400">PP</span></div>
+                                <div class="text-[10px] text-gray-400">${totalDailyUnits.toFixed(2)} ${itemMeta.name}</div>
+                            </div>
+
+                            <!-- 2. By Employees -->
+                            <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800/80 min-w-[110px]">
+                                <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Робітниками</div>
+                                <div class="font-extrabold text-sky-400 text-sm mt-0.5">${empSharePct.toFixed(0)}%</div>
+                                <div class="text-[10px] text-gray-400">${(comp.daily_pp || 0).toFixed(1)} PP · двигун ${engLv}</div>
+                            </div>
+
+                            <!-- 3. Costs / Day -->
+                            <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800/80 min-w-[110px]">
+                                <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Витрати / добу</div>
+                                <div class="font-extrabold text-rose-400 text-sm mt-0.5">-${wagesDaily.toFixed(2)}</div>
+                                <div class="text-[10px] text-gray-400">зарплати ${wagesDaily.toFixed(2)} · mgr 0.00</div>
+                            </div>
+
+                            <!-- 4. Manager -->
+                            <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800/80 min-w-[110px]">
+                                <div class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Менеджер</div>
+                                <div class="font-bold text-gray-300 text-sm mt-0.5">Найм</div>
+                                <div class="text-[10px] text-gray-400">до 0.143/год</div>
+                            </div>
+
+                            <!-- 5. Net / Day -->
+                            <div class="bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-800/40 min-w-[110px]">
+                                <div class="text-emerald-400 text-[10px] uppercase font-bold tracking-wider">Чистий / добу</div>
+                                <div class="font-black text-emerald-400 text-sm mt-0.5">+${netDaily.toFixed(2)}</div>
+                                <div class="text-[10px] text-gray-400">+${withSelfDaily.toFixed(2)} з роботою</div>
+                            </div>
+                        </div>
+
+                        <!-- Chevron button -->
+                        <div class="flex items-center gap-2 self-end lg:self-center shrink-0">
+                            <span class="text-xs px-2.5 py-1 rounded-full ${comp.staff_count >= comp.staff_cap ? 'bg-amber-950/70 text-amber-300 border border-amber-700/50' : 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/50'}">
+                                ${comp.staff_count} / ${comp.staff_cap} робітників
                             </span>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2 text-xs pt-2">
-                            <div class="bg-gray-800/60 p-2 rounded-lg">
-                                <div class="text-gray-400 text-[10px]">Випуск (PP/год)</div>
-                                <div class="font-bold text-white text-sm mt-0.5">${comp.hourly_pp.toFixed(2)} PP</div>
-                                <div class="text-[10px] text-gray-400">${comp.hourly_units.toFixed(2)} од/год</div>
+                            <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-all transform ${isExpanded ? 'rotate-180 bg-blue-600 text-white' : ''}">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
-                            <div class="bg-gray-800/60 p-2 rounded-lg">
-                                <div class="text-gray-400 text-[10px]">Маржа ресурсу</div>
-                                <div class="font-bold text-yellow-400 text-sm mt-0.5">${comp.margin_per_pp.toFixed(5)}</div>
-                                <div class="text-[10px] text-gray-400">Coins за 1 PP</div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-1 text-xs pt-1">
-                            <div class="flex justify-between text-gray-300">
-                                <span>Зарплатний фонд:</span>
-                                <span class="font-mono text-gray-200">${comp.hourly_wage_cost.toFixed(4)}/год (${(comp.hourly_wage_cost*24).toFixed(2)}/д)</span>
-                            </div>
-                            <div class="flex justify-between text-gray-300">
-                                <span>Середня ставка:</span>
-                                <span class="font-mono text-gray-200">${comp.avg_wage.toFixed(4)}/год</span>
-                            </div>
-                            <div class="flex justify-between text-gray-300">
-                                <span>Рекоменд. макс. ставка:</span>
-                                <span class="font-mono text-yellow-400">&le; ${comp.recommended_max_wage.toFixed(4)}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-bordercolor pt-3 flex items-center justify-between">
-                        <span class="text-xs text-gray-400 font-medium">Чистий прибуток:</span>
-                        <div class="text-right">
-                            <span class="text-base font-black ${profitClass}">${comp.daily_net_profit >= 0 ? '+' : ''}${comp.daily_net_profit.toFixed(2)}</span>
-                            <span class="text-xs text-gray-400">Coins/добу</span>
                         </div>
                     </div>
                 `;
+
+                // Expanded Section HTML
+                let bodyHtml = '';
+                if (isExpanded) {
+                    const balanceTip = (comp.goods_value_daily || 0) >= wagesDaily
+                        ? `Товар (+${(comp.goods_value_daily || 0).toFixed(2)}) повністю покриває зарплати (-${wagesDaily.toFixed(2)}). Фабрика стабільно генерує прибуток!`
+                        : `Увага: зарплати робітників перевищують ринкову вартість готової продукції! Знизьте ставки або змініть товар.`;
+
+                    // Employees list cards
+                    let employeesCardsHtml = '';
+                    if (!comp.employees || comp.employees.length === 0) {
+                        employeesCardsHtml = `
+                            <div class="p-6 text-center text-gray-400 bg-gray-900/50 rounded-xl border border-gray-800">
+                                <i class="fa-solid fa-user-slash text-xl mb-2 text-gray-500"></i>
+                                <div>На цьому підприємстві наразі немає найнятих працівників.</div>
+                                <div class="text-xs text-gray-500 mt-1">Кімната відпочинку ${comp.break_room_level} ур. дозволяє найняти до ${comp.staff_cap} робітників.</div>
+                            </div>
+                        `;
+                    } else {
+                        employeesCardsHtml = comp.employees.map(emp => {
+                            let statusBadge = '';
+                            if (emp.status === 'KEEP') {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/50">💎 Ядро</span>`;
+                            } else if (emp.status === 'RELOCATE') {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-950/70 text-blue-300 border border-blue-700/50">🔄 На переведення</span>`;
+                            } else if (emp.status === 'UNDERPERFORMER') {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-700/50">⚠️ Слабкий</span>`;
+                            } else {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-950/70 text-rose-300 border border-rose-700/50">🚨 Збитковий</span>`;
+                            }
+
+                            const pensionBadge = emp.retire_in_days <= 30 
+                                ? `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950/40 text-rose-300 border border-rose-700/40"><i class="fa-solid fa-hourglass-half mr-1"></i>Пенсія: ${emp.retire_in_days} дн.</span>` 
+                                : '';
+
+                            const traitChips = (emp.traits || []).map(t => {
+                                const code = t.code;
+                                const tr = TRAIT_MAP[code] || { name: code, icon: 'fa-tag', color: 'bg-gray-800 text-gray-300 border-gray-700', desc: '' };
+                                const argLabel = t.arg ? ` (${t.arg})` : '';
+                                return `<span class="px-2 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 ${tr.color}" title="${tr.desc}"><i class="fa-solid ${tr.icon} text-[9px]"></i> ${tr.name}${argLabel}</span>`;
+                            }).join('');
+
+                            const specChips = Object.entries(emp.specializations || {}).map(([sItem, sDays]) => {
+                                const sMeta = getItemMeta(sItem);
+                                return `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950/60 text-indigo-300 border border-indigo-700/40">${sMeta.icon} ${sItem} ${sDays}д</span>`;
+                            }).join('');
+
+                            const bonusBreakdownText = (emp.bonus_contributions || []).map(bc => `${bc.source}: +${bc.percent}%`).join(' · ');
+                            const potPct = emp.potential_max > 0 ? Math.min(100, (emp.potential / emp.potential_max) * 100) : 100;
+
+                            const trainedProd = emp.trained_stats ? (emp.trained_stats.production || 0) : 0;
+                            const trainedLuck = emp.trained_stats ? (emp.trained_stats.luck || 0) : 0;
+                            const trainedResp = emp.trained_stats ? (emp.trained_stats.responsibility || 0) : 0;
+                            const trainedLine = `+${trainedProd} виробіток · +${trainedLuck} удача · +${trainedResp} відпов.`;
+
+                            const inGameVal = (emp.daily_net_profit * 1.13).toFixed(2);
+
+                            return `
+                                <div class="bg-gray-900/70 p-4 rounded-xl border border-gray-800/90 space-y-3 hover:border-gray-700 transition-all shadow-md">
+                                    <!-- Worker Top: Name, Age, Training Status, Status & Pension -->
+                                    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-gray-800/60">
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <h5 class="text-sm font-bold text-white uppercase tracking-wider">${emp.name}</h5>
+                                                ${statusBadge}
+                                                ${pensionBadge}
+                                            </div>
+                                            <div class="text-xs text-gray-400 mt-0.5">
+                                                <span>${emp.age} років</span>
+                                                <span class="mx-1.5">·</span>
+                                                <span class="text-sky-300">${emp.trainings_left || 0} тренувань залишилось сьогодні</span>
+                                                <span class="mx-1.5">·</span>
+                                                <span>Стаж: <strong class="text-gray-200">${emp.spec_days} дн.</strong></span>
+                                            </div>
+                                        </div>
+                                        <div class="text-right text-xs">
+                                            <span class="text-gray-400">Очікувана зарплата:</span>
+                                            <span class="font-mono text-gray-200 ml-1 font-semibold">${(emp.wage_expectation || 0).toFixed(3)}/год</span>
+                                            <span class="text-gray-500 text-[10px]">(факт: ${emp.wage.toFixed(4)})</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Main Stats Grid (Production, Bonus, Happiness, Potential, Points, Wage, Net, In Game) -->
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 text-xs">
+                                        <!-- 1. Production -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400">Виробіток</div>
+                                            <div class="text-base font-black text-white mt-0.5">${emp.total_prod}</div>
+                                            <div class="text-[10px] text-gray-400 font-mono">${emp.base_prod}+${emp.trained_prod}</div>
+                                        </div>
+
+                                        <!-- 2. Bonus -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40 cursor-help" title="${bonusBreakdownText}">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400 flex items-center justify-between">
+                                                <span>Бонус</span>
+                                                <i class="fa-solid fa-circle-info text-[9px] text-gray-500"></i>
+                                            </div>
+                                            <div class="text-base font-black text-yellow-400 mt-0.5">+${emp.bonus_total_pct.toFixed(1)}%</div>
+                                            <div class="text-[10px] text-gray-400 truncate">${bonusBreakdownText || 'Базовий'}</div>
+                                        </div>
+
+                                        <!-- 3. Happiness -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400">Щастя</div>
+                                            <div class="text-base font-black text-sky-400 mt-0.5">${emp.happiness.toFixed(0)}%</div>
+                                            <div class="text-[10px] text-gray-400">настрій робітника</div>
+                                        </div>
+
+                                        <!-- 4. Potential -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400 flex items-center justify-between">
+                                                <span>Потенціал</span>
+                                                <span class="font-mono text-gray-300">${emp.potential}/${emp.potential_max}</span>
+                                            </div>
+                                            <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden mt-1.5">
+                                                <div class="bg-teal-500 h-full rounded-full transition-all" style="width: ${potPct}%"></div>
+                                            </div>
+                                            <div class="text-[9px] text-gray-400 mt-1">шкала розвитку</div>
+                                        </div>
+
+                                        <!-- 5. Points -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400">Очки (PP)</div>
+                                            <div class="text-base font-black text-yellow-300 mt-0.5">${emp.daily_pp.toFixed(1)}</div>
+                                            <div class="text-[10px] text-gray-400 font-mono">${emp.hourly_pp.toFixed(2)}/год</div>
+                                        </div>
+
+                                        <!-- 6. Wage -->
+                                        <div class="bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/40">
+                                            <div class="text-[10px] uppercase font-bold text-gray-400">Зарплата</div>
+                                            <div class="text-base font-black text-rose-400 mt-0.5">-${emp.daily_wage.toFixed(2)}</div>
+                                            <div class="text-[10px] text-gray-400 font-mono">${emp.wage.toFixed(4)}/год</div>
+                                        </div>
+
+                                        <!-- 7. Net Profit -->
+                                        <div class="bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-800/50">
+                                            <div class="text-[10px] uppercase font-bold text-emerald-400">Чистий (NET)</div>
+                                            <div class="text-base font-black text-emerald-400 mt-0.5">+${emp.daily_net_profit.toFixed(2)}</div>
+                                            <div class="text-[10px] text-emerald-400/80 font-mono">+${emp.hourly_net_profit.toFixed(4)}/год</div>
+                                        </div>
+
+                                        <!-- 8. In Game -->
+                                        <div class="bg-purple-950/30 p-2.5 rounded-lg border border-purple-800/50">
+                                            <div class="text-[10px] uppercase font-bold text-purple-300">В грі</div>
+                                            <div class="text-base font-black text-purple-300 mt-0.5">+${inGameVal}</div>
+                                            <div class="text-[10px] text-gray-400">ігрова оцінка</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Traits & Tools & Training Info -->
+                                    <div class="bg-gray-800/40 p-3 rounded-lg border border-gray-700/30 text-xs space-y-2">
+                                        <!-- Traits & Spec Chips -->
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            ${traitChips}
+                                            ${specChips}
+                                            ${emp.tool_name ? `<span class="px-2 py-0.5 rounded text-[10px] bg-teal-950/70 text-teal-300 border border-teal-700/50"><i class="fa-solid fa-wrench mr-1"></i>${emp.tool_name} (${emp.tool_state_pct.toFixed(0)}%)</span>` : ''}
+                                        </div>
+
+                                        <!-- Training Progression details -->
+                                        <div class="flex flex-wrap items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-700/40 gap-2">
+                                            <div>
+                                                <span class="text-gray-300 font-medium">Ймовірності при тренуванні:</span>
+                                                <span class="text-gray-400 ml-1">Зниження очікувань зарплати 67% · Більше потенціалу 20% · Новий перк 11%</span>
+                                            </div>
+                                            <div class="text-gray-300">
+                                                <span>Натреновано:</span>
+                                                <span class="font-mono text-yellow-300 ml-1">${trainedLine}</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Break-even & AI Tip -->
+                                        <div class="flex items-start gap-2 pt-1 text-[11px] text-gray-300">
+                                            <i class="fa-solid fa-lightbulb text-yellow-400 mt-0.5 shrink-0"></i>
+                                            <div>
+                                                <span class="font-bold text-yellow-300">Порада новачку:</span> 
+                                                <span>${emp.recommendation}</span>
+                                                <span class="text-gray-400 ml-1 font-mono">(Поріг беззбитковості: ${emp.breakeven_wage.toFixed(4)} Coins/год)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+
+                    bodyHtml = `
+                        <div class="p-4 sm:p-5 border-t border-bordercolor bg-gray-950/50 space-y-5">
+                            <!-- Top Row: Daily Balance + Upgrades & Limits -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <!-- Card 1: Daily Balance -->
+                                <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor space-y-3 shadow-md">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-scale-balanced text-yellow-400"></i>
+                                            <h5 class="text-xs font-bold uppercase tracking-wider text-gray-300">Денний баланс фабрики (Daily Balance)</h5>
+                                        </div>
+                                        <span class="text-xs font-bold text-emerald-400 font-mono">+${netDaily.toFixed(2)} Coins/д</span>
+                                    </div>
+
+                                    <div class="space-y-1.5 text-xs divide-y divide-gray-800/80">
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Випуск продукції:</span>
+                                            <span class="font-mono font-semibold text-white">${totalDailyPp.toFixed(1)} PP · ${totalDailyUnits.toFixed(2)} од.</span>
+                                        </div>
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Ігровий прибуток робітників:</span>
+                                            <span class="font-mono text-purple-300 font-semibold">+${(comp.in_game_profit || 0).toFixed(2)} Coins</span>
+                                        </div>
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Сировина:</span>
+                                            <span class="font-mono ${comp.raw_from_own ? 'text-emerald-400' : 'text-gray-400'} font-semibold">
+                                                ${comp.raw_from_own ? 'Власна з ваших підприємств (економія)' : `-${(comp.raw_cost_daily || 0).toFixed(2)} Coins`}
+                                            </span>
+                                        </div>
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Вартість готового товару:</span>
+                                            <span class="font-mono text-indigo-300 font-semibold">+${(comp.goods_value_daily || 0).toFixed(2)} Coins</span>
+                                        </div>
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Зарплати персоналу:</span>
+                                            <span class="font-mono text-rose-400 font-semibold">-${wagesDaily.toFixed(2)} Coins</span>
+                                        </div>
+                                        <div class="flex justify-between py-1 text-gray-300">
+                                            <span>Витрати на менеджера:</span>
+                                            <span class="font-mono text-gray-400 font-semibold">0.00 Coins</span>
+                                        </div>
+                                        <div class="flex justify-between py-1.5 font-bold text-white bg-gray-800/40 px-2 rounded-lg mt-1">
+                                            <span class="text-emerald-400">ЧИСТИЙ ПРИБУТОК (NET):</span>
+                                            <span class="font-mono text-emerald-400 text-sm">+${netDaily.toFixed(2)} Coins/добу</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="text-[11px] text-gray-400 flex items-center justify-between pt-1">
+                                        <span>З вашою працею: <strong class="text-yellow-300">+${withSelfDaily.toFixed(2)} Coins</strong></span>
+                                        <span class="text-[10px] text-emerald-400">💡 ${balanceTip}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Card 2: Upgrades & Limits -->
+                                <div class="bg-cardbg p-4 sm:p-5 rounded-xl border border-bordercolor space-y-3 shadow-md flex flex-col justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fa-solid fa-gears text-blue-400"></i>
+                                        <h5 class="text-xs font-bold uppercase tracking-wider text-gray-300">Покращення та ліміти</h5>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-2 text-xs">
+                                        <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700/50">
+                                            <div class="text-[10px] text-gray-400 font-bold uppercase">Авто-двигун</div>
+                                            <div class="font-bold text-white text-sm mt-0.5">${comp.engine_level || 0} рівень</div>
+                                            <div class="text-[10px] text-emerald-400 font-mono">+${comp.engine_daily_pp || 0} PP/добу</div>
+                                        </div>
+                                        <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700/50">
+                                            <div class="text-[10px] text-gray-400 font-bold uppercase">Склад</div>
+                                            <div class="font-bold text-white text-sm mt-0.5">${comp.storage_level || 0} рівень</div>
+                                            <div class="text-[10px] text-gray-400 font-mono">до ${(comp.storage_level || 0) * 200} од.</div>
+                                        </div>
+                                        <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700/50">
+                                            <div class="text-[10px] text-gray-400 font-bold uppercase">Кімната відпочинку</div>
+                                            <div class="font-bold text-white text-sm mt-0.5">${comp.break_room_level || 0} рівень</div>
+                                            <div class="text-[10px] text-sky-400 font-mono">до ${comp.staff_cap || 1} робітників</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Regional Taxes -->
+                                    <div class="bg-gray-800/40 p-2.5 rounded-lg border border-gray-700/40 text-xs flex items-center justify-between">
+                                        <span class="text-gray-300"><i class="fa-solid fa-receipt text-amber-400 mr-1.5"></i>Податки регіону:</span>
+                                        <span class="font-mono text-gray-200">прибутковий <strong class="text-amber-300">${incomeTax}%</strong> · ринок ${(comp.taxes && comp.taxes.market) || 0}% · менеджер ${(comp.taxes && comp.taxes.manager) || 0}%</span>
+                                    </div>
+
+                                    <!-- Looking for Manager -->
+                                    <div class="bg-gray-800/40 p-2.5 rounded-lg border border-gray-700/40 text-xs flex items-center justify-between">
+                                        <span class="text-gray-300"><i class="fa-solid fa-user-tie text-indigo-400 mr-1.5"></i>Пошук менеджера:</span>
+                                        <span class="font-mono text-indigo-300">0.013/год за очко навички (до 0.143/год)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Employees Section Header -->
+                            <div class="flex items-center justify-between pt-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-users text-blue-400"></i>
+                                    <h5 class="text-xs font-bold uppercase tracking-wider text-gray-200">
+                                        Працівники фабрики (${comp.staff_count} з ${comp.staff_cap})
+                                    </h5>
+                                </div>
+                                <span class="text-[11px] text-gray-400">Очки (PP), зарплата та чистий дохід розраховані за добу.</span>
+                            </div>
+
+                            <!-- Employees Cards List -->
+                            <div class="space-y-3">
+                                ${employeesCardsHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = headerHtml + bodyHtml;
                 container.appendChild(card);
             });
         }

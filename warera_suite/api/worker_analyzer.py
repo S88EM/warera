@@ -67,8 +67,17 @@ class EmployeeAnalysis:
     tool_state_pct: float
     retire_in_days: int
     quit_chance: float
-    status: str  # 'TOXIC', 'RELOCATE', 'UNDERPERFORMER', 'KEEP'
-    recommendation: str
+    potential: int = 0
+    potential_max: int = 0
+    happiness: float = 50.0
+    traits: List[Dict[str, Any]] = field(default_factory=list)
+    trained_stats: Dict[str, Any] = field(default_factory=dict)
+    wage_expectation: float = 0.0
+    trainings_left: int = 0
+    specializations: Dict[str, int] = field(default_factory=dict)
+    nationality: str = ""
+    status: str = "KEEP"  # 'TOXIC', 'RELOCATE', 'UNDERPERFORMER', 'KEEP'
+    recommendation: str = ""
     relocation_target: Optional[Dict[str, Any]] = None
 
 
@@ -78,19 +87,38 @@ class CompanyAnalysis:
     name: str
     item_code: str
     region_id: str
-    is_full: bool
-    upgrades: Dict[str, int]
-    staff_count: int
-    staff_cap: int
-    hourly_pp: float
-    hourly_units: float
-    hourly_revenue: float
-    hourly_raw_cost: float
-    hourly_wage_cost: float
-    hourly_net_profit: float
-    daily_net_profit: float
-    avg_wage: float
-    recommended_max_wage: float
+    region_name: str = ""
+    country_name: str = ""
+    country_code: str = ""
+    is_full: bool = False
+    upgrades: Dict[str, int] = field(default_factory=dict)
+    staff_count: int = 0
+    staff_cap: int = 0
+    hourly_pp: float = 0.0
+    daily_pp: float = 0.0
+    hourly_units: float = 0.0
+    daily_units: float = 0.0
+    engine_daily_pp: float = 0.0
+    engine_daily_units: float = 0.0
+    total_daily_pp: float = 0.0
+    total_daily_units: float = 0.0
+    employees_share_pct: float = 0.0
+    engine_share_pct: float = 0.0
+    hourly_revenue: float = 0.0
+    hourly_raw_cost: float = 0.0
+    hourly_wage_cost: float = 0.0
+    hourly_net_profit: float = 0.0
+    daily_net_profit: float = 0.0
+    goods_value_daily: float = 0.0
+    wages_daily: float = 0.0
+    raw_cost_daily: float = 0.0
+    in_game_profit: float = 0.0
+    self_work_daily_net: float = 0.0
+    net_daily_with_self_work: float = 0.0
+    raw_from_own: bool = False
+    taxes: Dict[str, int] = field(default_factory=dict)
+    avg_wage: float = 0.0
+    recommended_max_wage: float = 0.0
     employees: List[EmployeeAnalysis] = field(default_factory=list)
 
 
@@ -141,6 +169,8 @@ class WarEraWorkerAnalyzer:
         self._client: Optional[httpx.AsyncClient] = None
         self._cached_config: Optional[Dict[str, Any]] = None
         self._cached_prices: Optional[Dict[str, float]] = None
+        self._cached_regions: Optional[Dict[str, Any]] = None
+        self._cached_countries: Optional[List[Dict[str, Any]]] = None
 
     def _get_headers(self, key_override: Optional[str] = None) -> Dict[str, str]:
         headers = {
@@ -253,6 +283,18 @@ class WarEraWorkerAnalyzer:
             self._cached_prices = data or {}
         return self._cached_prices
 
+    async def get_regions(self) -> Dict[str, Any]:
+        if self._cached_regions is None:
+            data = await self._call_trpc("region.getRegionsObject", {})
+            self._cached_regions = data or {}
+        return self._cached_regions
+
+    async def get_countries(self) -> List[Dict[str, Any]]:
+        if self._cached_countries is None:
+            data = await self._call_trpc("country.getAllCountries", {})
+            self._cached_countries = data or []
+        return self._cached_countries
+
     async def find_user_by_name(self, nickname: str) -> Optional[Dict[str, Any]]:
         """Search user by username or nick and return their user object."""
         search_res = await self._call_trpc("search.searchAnything", {"searchText": nickname})
@@ -316,8 +358,12 @@ class WarEraWorkerAnalyzer:
         # 1. Fetch game config & prices concurrently
         cfg_task = asyncio.create_task(self.get_game_config())
         prices_task = asyncio.create_task(self.get_market_prices())
-        cfg, prices = await asyncio.gather(cfg_task, prices_task)
+        reg_task = asyncio.create_task(self.get_regions())
+        country_task = asyncio.create_task(self.get_countries())
+        cfg, prices, regions_obj, countries_list = await asyncio.gather(cfg_task, prices_task, reg_task, country_task)
         items_cfg = cfg.get("items", {})
+        country_dict = {c.get("_id"): c for c in (countries_list or []) if isinstance(c, dict)}
+        country_map = {cid: c.get("name", "Україна") for cid, c in country_dict.items()}
 
         # 2. Resolve user
         user_data = None
@@ -361,9 +407,12 @@ class WarEraWorkerAnalyzer:
 
         # 5. Build Item Economics Cache for all factory items
         item_econ_cache: Dict[str, ItemEconomics] = {}
+        user_items = set()
         for _, c_info, _ in raw_companies:
             if c_info:
                 icode = c_info.get("itemCode", "")
+                if icode:
+                    user_items.add(icode)
                 if icode and icode not in item_econ_cache:
                     item_econ_cache[icode] = self.compute_item_economics(icode, items_cfg, prices)
 
@@ -389,22 +438,49 @@ class WarEraWorkerAnalyzer:
             roster_emps = c_roster.get("employees", []) if c_roster else []
             roster_hourly = c_roster.get("hourly", {}) if c_roster else {}
 
+            reg_info = regions_obj.get(region_id, {}) if isinstance(regions_obj, dict) else {}
+            reg_name = reg_info.get("name", "Україна")
+            c_country_id = reg_info.get("country", "")
+            c_country_obj = country_dict.get(c_country_id, {})
+            c_country_name = c_country_obj.get("name", "Україна")
+            c_country_code = c_country_obj.get("code", "ua")
+            c_country_taxes = c_country_obj.get("taxes", {"income": 20, "market": 0, "manager": 0})
+
             comp_analysis = CompanyAnalysis(
                 company_id=cid,
                 name=c_name,
                 item_code=item_code,
                 region_id=region_id,
+                region_name=reg_name,
+                country_name=c_country_name,
+                country_code=c_country_code,
                 is_full=is_full,
                 upgrades=upgrades,
+                taxes=c_country_taxes,
                 staff_count=len(roster_emps),
                 staff_cap=int(roster_hourly.get("cap", len(roster_emps))),
                 hourly_pp=0.0,
+                daily_pp=0.0,
                 hourly_units=0.0,
+                daily_units=0.0,
+                engine_daily_pp=0.0,
+                engine_daily_units=0.0,
+                total_daily_pp=0.0,
+                total_daily_units=0.0,
+                employees_share_pct=0.0,
+                engine_share_pct=0.0,
                 hourly_revenue=0.0,
                 hourly_raw_cost=0.0,
                 hourly_wage_cost=0.0,
                 hourly_net_profit=0.0,
                 daily_net_profit=0.0,
+                goods_value_daily=0.0,
+                wages_daily=0.0,
+                raw_cost_daily=0.0,
+                in_game_profit=0.0,
+                self_work_daily_net=0.0,
+                net_daily_with_self_work=0.0,
+                raw_from_own=False,
                 avg_wage=0.0,
                 recommended_max_wage=0.0,
                 employees=[]
@@ -451,9 +527,20 @@ class WarEraWorkerAnalyzer:
                 tool_bonus_pct = float(t_status.get("bonusPercent", 0.0))
                 tool_state_pct = float(t_item.get("state", 0.0)) if t_item else 0.0
 
-                # Risks
+                # Risks & Extra fields
                 retire_in_days = int(emp.get("retireInDays", 999))
                 quit_chance = float(emp.get("happinessBreakdown", {}).get("quitChance", 0.0))
+                potential = int(emp.get("potential", 0))
+                potential_max = int(emp.get("potentialMax", 0))
+                happiness = float(emp.get("happinessBreakdown", {}).get("value", 50.0))
+                traits = emp.get("traits", [])
+                trained_stats = emp.get("trained", {})
+                wage_expectation = float(emp.get("wageExpectation", 0.0))
+                trainings_per_day = int(emp.get("trainingsPerDay", 1))
+                trainings_today = int(emp.get("trainingsToday", 0))
+                trainings_left = max(0, trainings_per_day - trainings_today)
+                specializations = emp.get("specializations", {})
+                nationality = emp.get("nationality", "")
 
                 emp_analysis = EmployeeAnalysis(
                     employee_id=emp_id,
@@ -484,6 +571,15 @@ class WarEraWorkerAnalyzer:
                     tool_state_pct=tool_state_pct,
                     retire_in_days=retire_in_days,
                     quit_chance=quit_chance,
+                    potential=potential,
+                    potential_max=potential_max,
+                    happiness=happiness,
+                    traits=traits,
+                    trained_stats=trained_stats,
+                    wage_expectation=wage_expectation,
+                    trainings_left=trainings_left,
+                    specializations=specializations,
+                    nationality=nationality,
                     status="KEEP",
                     recommendation=""
                 )
@@ -498,7 +594,55 @@ class WarEraWorkerAnalyzer:
                 comp_analysis.hourly_wage_cost += ewage
                 comp_analysis.hourly_net_profit += hourly_net_profit
 
-            comp_analysis.daily_net_profit = comp_analysis.hourly_net_profit * 24.0
+            # Engine & daily metrics
+            engine_level = int(upgrades.get("automatedEngine", 0))
+            engine_daily_pp = float(engine_level * 24.0)
+            engine_daily_units = (engine_daily_pp / item_econ.pp_per_item) if item_econ.pp_per_item > 0 else 0.0
+
+            staff_daily_pp = comp_analysis.hourly_pp * 24.0
+            staff_daily_units = comp_analysis.hourly_units * 24.0
+
+            total_daily_pp = staff_daily_pp + engine_daily_pp
+            total_daily_units = staff_daily_units + engine_daily_units
+
+            employees_share_pct = round((staff_daily_pp / total_daily_pp * 100), 1) if total_daily_pp > 0 else 0.0
+            engine_share_pct = round(100.0 - employees_share_pct, 1)
+
+            # Check if raw supplies are produced by player's other factories
+            raw_needs = item_econ.raw_needs or {}
+            raw_from_own = bool(raw_needs and any(req in user_items for req in raw_needs))
+
+            goods_value_daily = total_daily_units * item_econ.market_price
+            wages_daily = comp_analysis.hourly_wage_cost * 24.0
+            raw_cost_daily = total_daily_units * item_econ.raw_cost
+
+            daily_net_profit = goods_value_daily - wages_daily - (0.0 if raw_from_own else raw_cost_daily)
+            in_game_employee_profit = (staff_daily_units * item_econ.market_price) - wages_daily
+
+            # Self work calculation
+            user_prod_skill = user_data.get("skills", {}).get("production", {})
+            user_prod_val = float(user_prod_skill.get("value", 50))
+            self_work_pp = user_prod_val + (user_prod_skill.get("level", 0) * 1.0)
+            self_work_daily_net = (self_work_pp / item_econ.pp_per_item) * item_econ.unit_margin if item_econ.pp_per_item > 0 else 0.0
+            net_daily_with_self_work = daily_net_profit + self_work_daily_net
+
+            comp_analysis.engine_daily_pp = engine_daily_pp
+            comp_analysis.engine_daily_units = engine_daily_units
+            comp_analysis.total_daily_pp = total_daily_pp
+            comp_analysis.total_daily_units = total_daily_units
+            comp_analysis.employees_share_pct = employees_share_pct
+            comp_analysis.engine_share_pct = engine_share_pct
+            comp_analysis.daily_pp = staff_daily_pp
+            comp_analysis.daily_units = staff_daily_units
+            comp_analysis.goods_value_daily = goods_value_daily
+            comp_analysis.wages_daily = wages_daily
+            comp_analysis.raw_cost_daily = raw_cost_daily
+            comp_analysis.daily_net_profit = daily_net_profit
+            comp_analysis.in_game_profit = in_game_employee_profit
+            comp_analysis.self_work_daily_net = self_work_daily_net
+            comp_analysis.net_daily_with_self_work = net_daily_with_self_work
+            comp_analysis.raw_from_own = raw_from_own
+
             if comp_analysis.staff_count > 0:
                 comp_analysis.avg_wage = comp_analysis.hourly_wage_cost / comp_analysis.staff_count
                 comp_analysis.recommended_max_wage = (comp_analysis.hourly_pp * item_econ.margin_per_pp) / comp_analysis.staff_count
@@ -593,19 +737,73 @@ class WarEraWorkerAnalyzer:
 
         # 8. Totals and Summary
         total_hourly_profit = sum(c.hourly_net_profit for c in companies_list)
-        total_daily_profit = total_hourly_profit * 24.0
+        total_daily_profit = sum(c.daily_net_profit for c in companies_list)
+        total_daily_output = sum(c.total_daily_pp for c in companies_list)
+        total_employee_output = sum(c.daily_pp for c in companies_list)
+        total_engine_output = sum(c.engine_daily_pp for c in companies_list)
+        total_goods_value_daily = sum(c.goods_value_daily for c in companies_list)
+        total_wages_daily = sum(c.wages_daily for c in companies_list)
+        in_game_profit_daily = sum(c.in_game_profit for c in companies_list)
+        total_daily_profit_with_self = total_daily_profit + sum(c.self_work_daily_net for c in companies_list[:1])
+
         total_workforce = len(all_employees)
         toxic_count = sum(1 for e in all_employees if e.status == "TOXIC")
         relocate_count = sum(1 for e in all_employees if e.status == "RELOCATE")
         underperformer_count = sum(1 for e in all_employees if e.status == "UNDERPERFORMER")
         keep_count = sum(1 for e in all_employees if e.status == "KEEP")
 
+        # Toolboxes expectation: base ~0.10/worker/day + perks + luck
+        total_toolboxes_daily = round(sum(
+            0.10 + 
+            (0.08 if any(t.get("code") in ("luckyCharm", "salvager") for t in e.traits) else 0.0) +
+            (float(e.trained_stats.get("luck", 0)) * 0.01)
+            for e in all_employees
+        ), 1)
+
+        trainable_count = sum(1 for e in all_employees if e.potential < e.potential_max or e.trained_prod < 5 or e.trainings_left > 0)
+
+        # Lowest tax countries (top 3-4)
+        valid_countries = [c for c in (countries_list or []) if isinstance(c, dict) and "taxes" in c and c.get("name")]
+        valid_countries.sort(key=lambda c: (c["taxes"].get("income", 100), c["taxes"].get("market", 100)))
+        lowest_tax_countries = [
+            {
+                "name": c.get("name", ""),
+                "code": c.get("code", ""),
+                "income_tax": c.get("taxes", {}).get("income", 0),
+                "market_tax": c.get("taxes", {}).get("market", 0),
+                "manager_tax": c.get("taxes", {}).get("manager", 0),
+            }
+            for c in valid_countries[:4]
+        ]
+
+        # Best products right now (top 3 by margin_per_pp * 100)
+        sorted_econ_items = sorted(item_econ_cache.values(), key=lambda x: x.margin_per_pp, reverse=True)
+        best_products = [
+            {
+                "code": it.code,
+                "name": it.name,
+                "margin_per_100": round(it.margin_per_pp * 100, 3),
+                "daily_at_output": round(total_daily_output * it.margin_per_pp, 2),
+                "price": round(it.market_price, 4),
+            }
+            for it in sorted_econ_items[:4]
+        ]
+
+        user_country_id = user_data.get("country", "")
+        user_country_obj = country_dict.get(user_country_id, {})
+        mgmt_skill = user_data.get("skills", {}).get("management", {})
+        mgmt_val = mgmt_skill.get("value", 0)
+
         return {
             "user": {
                 "user_id": user_id,
                 "username": username,
                 "level": user_data.get("leveling", {}).get("level", 0),
-                "country": user_data.get("country", ""),
+                "country_id": user_country_id,
+                "country_name": user_country_obj.get("name", "Україна"),
+                "country_code": user_country_obj.get("code", "ua"),
+                "management_pts": mgmt_val,
+                "management_bonus_pct": mgmt_val * 2.0,
                 "production_skill": user_data.get("skills", {}).get("production", {}),
             },
             "auth": {
@@ -616,13 +814,27 @@ class WarEraWorkerAnalyzer:
             },
             "summary": {
                 "total_companies": len(companies_list),
+                "companies_with_staff": sum(1 for c in companies_list if c.staff_count > 0),
+                "companies_with_manager": 0,
                 "total_workforce": total_workforce,
+                "total_daily_output": total_daily_output,
+                "total_employee_output": total_employee_output,
+                "total_engine_output": total_engine_output,
+                "total_goods_value_daily": total_goods_value_daily,
+                "total_wages_daily": total_wages_daily,
+                "total_manager_daily": 0.0,
+                "in_game_profit_daily": in_game_profit_daily,
                 "total_hourly_profit": total_hourly_profit,
                 "total_daily_profit": total_daily_profit,
+                "total_daily_profit_with_self": total_daily_profit_with_self,
+                "total_toolboxes_daily": total_toolboxes_daily,
+                "trainable_count": trainable_count,
                 "toxic_count": toxic_count,
                 "relocate_count": relocate_count,
                 "underperformer_count": underperformer_count,
                 "keep_count": keep_count,
+                "lowest_tax_countries": lowest_tax_countries,
+                "best_products": best_products,
             },
             "economics_by_item": {k: vars(v) for k, v in item_econ_cache.items()},
             "companies": [
@@ -631,17 +843,39 @@ class WarEraWorkerAnalyzer:
                     "name": c.name,
                     "item_code": c.item_code,
                     "region_id": c.region_id,
+                    "region_name": c.region_name,
+                    "country_name": c.country_name,
+                    "country_code": c.country_code,
                     "is_full": c.is_full,
                     "upgrades": c.upgrades,
+                    "engine_level": c.upgrades.get("automatedEngine", 0),
+                    "storage_level": c.upgrades.get("storage", 0),
+                    "break_room_level": c.upgrades.get("breakRoom", 0),
                     "staff_count": c.staff_count,
                     "staff_cap": c.staff_cap,
                     "hourly_pp": c.hourly_pp,
+                    "daily_pp": c.daily_pp,
                     "hourly_units": c.hourly_units,
+                    "daily_units": c.daily_units,
+                    "engine_daily_pp": c.engine_daily_pp,
+                    "engine_daily_units": c.engine_daily_units,
+                    "total_daily_pp": c.total_daily_pp,
+                    "total_daily_units": c.total_daily_units,
+                    "employees_share_pct": c.employees_share_pct,
+                    "engine_share_pct": c.engine_share_pct,
                     "hourly_revenue": c.hourly_revenue,
+                    "goods_value_daily": c.goods_value_daily,
                     "hourly_raw_cost": c.hourly_raw_cost,
+                    "raw_cost_daily": c.raw_cost_daily,
                     "hourly_wage_cost": c.hourly_wage_cost,
+                    "wages_daily": c.wages_daily,
                     "hourly_net_profit": c.hourly_net_profit,
                     "daily_net_profit": c.daily_net_profit,
+                    "in_game_profit": c.in_game_profit,
+                    "self_work_daily_net": c.self_work_daily_net,
+                    "net_daily_with_self_work": c.net_daily_with_self_work,
+                    "raw_from_own": c.raw_from_own,
+                    "taxes": c.taxes,
                     "avg_wage": c.avg_wage,
                     "recommended_max_wage": c.recommended_max_wage,
                     "margin_per_pp": item_econ_cache[c.item_code].margin_per_pp,
