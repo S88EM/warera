@@ -2622,7 +2622,10 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             return
 
         # Clan Standalone HTML Dashboard (Public, Zero-Auth)
-        if (clean_path.endswith("/clan") or clean_path.endswith("/clan.html")) and not clean_path.endswith("/api/clan"):
+        host_header = (self.headers.get("Host") or "").lower()
+        is_clan_domain = host_header.startswith("mace.") or host_header.startswith("clan.")
+        
+        if (clean_path.endswith("/clan") or clean_path.endswith("/clan.html") or (is_clan_domain and clean_path in ("", "/"))) and not clean_path.endswith("/api/clan"):
             import clan_dashboard
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
