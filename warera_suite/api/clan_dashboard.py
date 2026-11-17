@@ -122,7 +122,11 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer" title="Теоретичний щоденний дамаг усіх вар-бійців під таблеткою з мінімальним фіол-сетом (з урахуванням броні та увороту)"></i>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-white mt-0.5" id="statClanSalvo">--</div>
-                        <div class="text-[11px] text-gray-400">під таблеткою + мін. фіол-сет IV</div>
+                        <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
+                            <span>Факт сьогодні: <b id="statClanToday" class="text-emerald-400 font-extrabold">--</b></span>
+                            <span class="text-gray-600">|</span>
+                            <span>Вчора: <b id="statClanYesterday" class="text-indigo-300 font-bold">--</b></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -213,14 +217,16 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('defense')" title="Ефективна броня та уворот з урахуванням фіол-сету та софткапу">Захист (Фіол) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('hits')" title="Кількість ударів на добу з пулу здоров'я з урахуванням зниження втрати HP">Ударів/добу <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')">Очікуваний дамаг/день <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний розрахунок під таблеткою з фіол-сетом">Очікуваний дамаг/день <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('weekly')">Дамаг тижня <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('online')">Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                         </tr>
                     </thead>
                     <tbody id="clanTableBody" class="divide-y divide-bordercolor/60">
                         <tr>
-                            <td colspan="9" class="p-8 text-center text-gray-400">
+                            <td colspan="11" class="p-8 text-center text-gray-400">
                                 <i class="fa-solid fa-spinner fa-spin text-xl mb-2 text-blue-500"></i>
                                 <div>Завантаження бойового складу клану...</div>
                             </td>
@@ -329,6 +335,14 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             const maxM = (s.clan_daily_salvo_max / 1000000).toFixed(1);
             document.getElementById('statClanSalvo').innerText = `~${minM}M – ${maxM}M`;
 
+            const todayClanM = formatMillions(s.clan_today_damage || 0);
+            document.getElementById('statClanToday').innerText = `+${todayClanM}`;
+            if (s.clan_yesterday_damage !== null && s.clan_yesterday_damage !== undefined) {
+                document.getElementById('statClanYesterday').innerText = formatMillions(s.clan_yesterday_damage);
+            } else {
+                document.getElementById('statClanYesterday').innerText = 'з 02:00';
+            }
+
             // KPI Cards
             document.getElementById('statWarCount').innerText = s.war_count;
             document.getElementById('statWarSub').innerText = `${Math.round((s.war_count / s.total_members) * 100)}% складу клану (≥70% вар)`;
@@ -408,7 +422,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
                 return;
             }
 
@@ -421,6 +435,8 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 else if (sortField === 'pill') { vA = a.pill_status; vB = b.pill_status; }
                 else if (sortField === 'defense') { vA = a.effective_armor + a.effective_dodge; vB = b.effective_armor + b.effective_dodge; }
                 else if (sortField === 'hits') { vA = a.hits_per_day_max; vB = b.hits_per_day_max; }
+                else if (sortField === 'today') { vA = a.today_damage || 0; vB = b.today_damage || 0; }
+                else if (sortField === 'yesterday') { vA = a.yesterday_damage || 0; vB = b.yesterday_damage || 0; }
                 else if (sortField === 'weekly') { vA = a.weekly_damage; vB = b.weekly_damage; }
                 else if (sortField === 'online') { vA = a.hours_offline; vB = b.hours_offline; }
                 else { vA = a.theoretical_daily_dmg_max; vB = b.theoretical_daily_dmg_max; }
@@ -517,6 +533,22 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <div class="text-[10px] text-gray-400">${m.hits_per_day_natural} без їжі</div>
                         </td>
 
+                        <!-- Дамаг сьогодні (з 02:00) -->
+                        <td class="p-3 whitespace-nowrap text-right">
+                            <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
+                                ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
+                            </div>
+                            <div class="text-[10px] text-gray-500">з 02:00</div>
+                        </td>
+
+                        <!-- Дамаг вчора -->
+                        <td class="p-3 whitespace-nowrap text-right">
+                            <div class="font-bold text-xs ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'}" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку 02:00'}">
+                                ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                            </div>
+                            <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                        </td>
+
                         <!-- Очікуваний дамаг -->
                         <td class="p-3 whitespace-nowrap text-right">
                             <div class="font-black text-rose-400 text-sm">~${dmgMaxM}</div>
@@ -552,13 +584,19 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
             text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
             text += `💊 Бойова готовність: ${s.pill_active_count} під таблеткою | ${s.pill_ready_count} готові пити | ${s.pill_cooldown_count} на відкаті\n`;
-            text += `💥 **Очікуваний щоденний залп клану (фіол-сет + таблетка): ~${minM}M – ${maxM}M дамагу**\n\n`;
+            text += `💥 **Очікуваний залп клану (теорія): ~${minM}M – ${maxM}M дамагу**\n`;
+            text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
+            if (s.clan_yesterday_damage) {
+                text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;
+            }
+            text += `\n`;
             
-            text += `📋 **Топ бійців за очікуваним дамагом сьогодні:**\n`;
+            text += `📋 **Топ бійців клану (Сьогодні факт / Очікувано):**\n`;
             const warMembers = clanData.members.filter(m => m.build_type !== 'ECO').slice(0, 10);
             warMembers.forEach((m, idx) => {
                 const maxDmg = formatMillions(m.theoretical_daily_dmg_max);
-                text += `${idx + 1}. **${m.username}** (Lv.${m.level}) — ${m.pill_label} | ~${maxDmg} дамагу (${m.last_seen_label})\n`;
+                const todayDmg = m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0';
+                text += `${idx + 1}. **${m.username}** — Сьогодні: **${todayDmg}** | План: ~${maxDmg} (${m.pill_label})\n`;
             });
 
             if (s.afk_count > 0) {

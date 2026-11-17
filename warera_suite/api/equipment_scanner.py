@@ -219,6 +219,21 @@ class EquipmentScannerApp:
                 except Exception:
                     pass
 
+    async def _background_clan_snapshot(self):
+        """Silently snapshot clan damage every 15 minutes and at 02:00 rollover."""
+        while self.running:
+            try:
+                from clan_analyzer import WarEraClanAnalyzer
+                analyzer = WarEraClanAnalyzer()
+                await analyzer.analyze_clan()
+            except Exception:
+                pass
+
+            for _ in range(900):  # 15 minutes
+                if not self.running:
+                    return
+                await asyncio.sleep(1)
+
     async def run_scan_cycle(self, cycle_num: int) -> int:
         now_str = datetime.now().strftime("%H:%M:%S")
         self.last_scan_time = now_str
@@ -339,6 +354,9 @@ class EquipmentScannerApp:
 
         # Start background sync task (active when in history mode)
         sync_task = asyncio.create_task(self._background_db_sync())
+
+        # Start periodic clan damage tracker (snapshots every 15 min & 02:00 rollover)
+        clan_task = asyncio.create_task(self._background_clan_snapshot())
 
         # Start Telegram bot controller
         tg_task = None

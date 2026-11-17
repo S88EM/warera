@@ -19,6 +19,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import httpx
 import config
+from clan_history_db import ClanHistoryDB
 
 logger = logging.getLogger("WarEraClanAnalyzer")
 
@@ -28,6 +29,7 @@ class WarEraClanAnalyzer:
         self.base_url = (base_url or getattr(config, "API_BASE_URL", "https://api2.warera.io").replace("/trpc", "")).rstrip("/")
         self.proxy_url = "https://arcana.warera.wiki/api/proxy"
         self._client: Optional[httpx.AsyncClient] = None
+        self.history_db = ClanHistoryDB()
         self._cached_config: Optional[Dict[str, Any]] = None
         self.is_community_key = False
         self.api_key = self.user_api_key
@@ -429,8 +431,32 @@ class WarEraClanAnalyzer:
                 "is_afk": is_afk,
             })
 
-        # Sort members by theoretical damage descending
-        analyzed_members.sort(key=lambda x: (x["build_type"] != "WAR", -x["theoretical_daily_dmg_max"], -x["weekly_damage"]))
+        # Save snapshot & calculate actual daily damage deltas
+        game_date = self.history_db.get_game_date()
+        yesterday_game_date = self.history_db.get_yesterday_game_date(game_date)
+        try:
+            self.history_db.record_members_snapshot(analyzed_members, game_date=game_date)
+        except Exception as e:
+            logger.warning(f"Failed to record clan snapshot: {e}")
+
+        for m in analyzed_members:
+            try:
+                dmg_stats = self.history_db.get_damage_stats(
+                    user_id=m["user_id"],
+                    current_total_dmg=m["total_damage"],
+                    current_weekly_dmg=m["weekly_damage"],
+                    game_date=game_date
+                )
+                m["today_damage"] = dmg_stats["today_damage"]
+                m["yesterday_damage"] = dmg_stats["yesterday_damage"]
+                m["has_yesterday"] = dmg_stats["has_yesterday"]
+            except Exception:
+                m["today_damage"] = 0
+                m["yesterday_damage"] = None
+                m["has_yesterday"] = False
+
+        # Sort members: War builds first, then by today's damage (or theoretical max damage)
+        analyzed_members.sort(key=lambda x: (x["build_type"] != "WAR", -x["theoretical_daily_dmg_max"], -x["today_damage"], -x["weekly_damage"]))
 
         # Aggregate clan metrics
         war_count = sum(1 for m in analyzed_members if m["build_type"] == "WAR")
@@ -444,6 +470,10 @@ class WarEraClanAnalyzer:
 
         total_clan_daily_salvo_min = sum(m["theoretical_daily_dmg_min"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
         total_clan_daily_salvo_max = sum(m["theoretical_daily_dmg_max"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
+
+        total_clan_today_damage = sum(m["today_damage"] for m in analyzed_members)
+        has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
+        total_clan_yesterday_damage = sum(m["yesterday_damage"] or 0 for m in analyzed_members if m["has_yesterday"]) if has_any_yesterday else None
 
         return {
             "status": "ok",
@@ -474,6 +504,10 @@ class WarEraClanAnalyzer:
                 "afk_count": afk_count,
                 "clan_daily_salvo_min": total_clan_daily_salvo_min,
                 "clan_daily_salvo_max": total_clan_daily_salvo_max,
+                "clan_today_damage": total_clan_today_damage,
+                "clan_yesterday_damage": total_clan_yesterday_damage,
+                "game_date": game_date,
+                "yesterday_game_date": yesterday_game_date,
             },
             "members": analyzed_members,
             "updated_at": now_utc.isoformat(),
