@@ -470,6 +470,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }, 3000);
         }
 
+        // Auto-detect Ingress / Reverse Proxy base URL
+        const BASE_PATH = window.location.pathname.replace(/\/+$/, '');
+        function getApiUrl(endpoint) {
+            const cleanEndpoint = endpoint.replace(/^\/+/, '');
+            return BASE_PATH ? `${BASE_PATH}/${cleanEndpoint}` : `/${cleanEndpoint}`;
+        }
+
         async function fetchData() {
             const nick = document.getElementById('userSearchInput').value.trim() || 'Luc1fer';
             addRecentSearch(nick);
@@ -489,7 +496,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
 
             try {
-                const res = await fetch(`/api/analyze?nick=${encodeURIComponent(nick)}`, { headers });
+                const res = await fetch(getApiUrl(`api/analyze?nick=${encodeURIComponent(nick)}`), { headers });
                 if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.error || 'Помилка завантаження даних');

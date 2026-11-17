@@ -60,6 +60,549 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 }
             }
         }
+
+        // =====================================================================
+        // UNIFIED VIEW SWITCHER & WORKFORCE INTELLIGENCE (INGRESS COMPATIBLE)
+        // =====================================================================
+        let currentMainView = 'market';
+        let workerDataLoaded = false;
+        let workerCurrentData = null;
+        let workerCurrentFilter = 'ALL';
+        let workerSortField = 'profit';
+        let workerSortAsc = false;
+
+        const LS_WORKER_KEY = 'warera_user_api_key';
+        const LS_WORKER_RECENTS = 'warera_recent_nicks';
+
+        function switchMainView(view) {
+            currentMainView = view;
+            const btnMarket = document.getElementById('navBtnMarket');
+            const btnWorkers = document.getElementById('navBtnWorkers');
+            const viewMarket = document.getElementById('viewMarket');
+            const viewWorkers = document.getElementById('viewWorkers');
+
+            if (view === 'workers') {
+                viewMarket.classList.add('hidden');
+                viewWorkers.classList.remove('hidden');
+                btnWorkers.className = 'px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium text-xs flex items-center space-x-1.5 transition shadow';
+                btnMarket.className = 'px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white font-medium text-xs flex items-center space-x-1.5 transition';
+                if (!workerDataLoaded) {
+                    fetchWorkerData();
+                }
+            } else {
+                viewWorkers.classList.add('hidden');
+                viewMarket.classList.remove('hidden');
+                btnMarket.className = 'px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium text-xs flex items-center space-x-1.5 transition shadow';
+                btnWorkers.className = 'px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white font-medium text-xs flex items-center space-x-1.5 transition';
+            }
+        }
+
+        function getWorkerUserApiKey() {
+            return localStorage.getItem(LS_WORKER_KEY) || '';
+        }
+
+        function updateWorkerApiKeyUI() {
+            const key = getWorkerUserApiKey();
+            const badgeText = document.getElementById('workerApiKeyStatusText');
+            const icon = document.getElementById('workerApiKeyIcon');
+            if (!badgeText) return;
+            if (key) {
+                badgeText.innerText = 'Ваш ключ (Активний)';
+                badgeText.className = 'text-emerald-400 font-semibold';
+                icon.className = 'fa-solid fa-key text-emerald-400';
+            } else {
+                badgeText.innerText = 'Власний API-ключ';
+                badgeText.className = 'text-gray-300';
+                icon.className = 'fa-solid fa-key text-yellow-400';
+            }
+        }
+
+        function openWorkerApiKeyModal() {
+            document.getElementById('workerModalApiKeyInput').value = getWorkerUserApiKey();
+            document.getElementById('workerApiKeyModal').classList.remove('hidden');
+        }
+
+        function closeWorkerApiKeyModal() {
+            document.getElementById('workerApiKeyModal').classList.add('hidden');
+        }
+
+        function toggleWorkerApiKeyVisibility() {
+            const input = document.getElementById('workerModalApiKeyInput');
+            const icon = document.getElementById('workerApiKeyEyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function saveWorkerApiKey() {
+            const key = document.getElementById('workerModalApiKeyInput').value.trim();
+            if (key) {
+                localStorage.setItem(LS_WORKER_KEY, key);
+                showWorkerToast('API ключ збережено в браузері!');
+            } else {
+                localStorage.removeItem(LS_WORKER_KEY);
+                showWorkerToast('Використовується системний ключ.');
+            }
+            updateWorkerApiKeyUI();
+            closeWorkerApiKeyModal();
+            fetchWorkerData();
+        }
+
+        function clearWorkerApiKey() {
+            localStorage.removeItem(LS_WORKER_KEY);
+            document.getElementById('workerModalApiKeyInput').value = '';
+            updateWorkerApiKeyUI();
+            closeWorkerApiKeyModal();
+            showWorkerToast('Ключ очищено. Використовується публічний режим.');
+            fetchWorkerData();
+        }
+
+        function getWorkerRecentSearches() {
+            try {
+                return JSON.parse(localStorage.getItem(LS_WORKER_RECENTS)) || ['Luc1fer'];
+            } catch {
+                return ['Luc1fer'];
+            }
+        }
+
+        function addWorkerRecentSearch(nick) {
+            if (!nick) return;
+            let recents = getWorkerRecentSearches().filter(n => n.toLowerCase() !== nick.toLowerCase());
+            recents.unshift(nick);
+            if (recents.length > 6) recents = recents.slice(0, 6);
+            localStorage.setItem(LS_WORKER_RECENTS, JSON.stringify(recents));
+            renderWorkerRecentChips();
+        }
+
+        function renderWorkerRecentChips() {
+            const container = document.getElementById('workerRecentChips');
+            if (!container) return;
+            container.innerHTML = '';
+            const recents = getWorkerRecentSearches();
+            recents.forEach(nick => {
+                const chip = document.createElement('button');
+                chip.className = 'px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[11px] text-gray-300 border border-gray-700 transition-colors flex items-center gap-1';
+                chip.innerHTML = `<span>${nick}</span>`;
+                chip.onclick = () => {
+                    document.getElementById('workerSearchInput').value = nick;
+                    fetchWorkerData();
+                };
+                container.appendChild(chip);
+            });
+        }
+
+        function showWorkerToast(msg) {
+            const toast = document.getElementById('workerToast');
+            if (!toast) return;
+            document.getElementById('workerToastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function fetchWorkerData() {
+            const input = document.getElementById('workerSearchInput');
+            const nick = (input ? input.value.trim() : '') || 'Luc1fer';
+            addWorkerRecentSearch(nick);
+
+            const refreshIcon = document.getElementById('workerRefreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            const headers = {};
+            const userKey = getWorkerUserApiKey();
+            if (userKey) {
+                headers['X-User-API-Key'] = userKey;
+            }
+
+            try {
+                // Ingress-safe URL resolution
+                const apiUrl = getApiUrl(`api/analyze?nick=${encodeURIComponent(nick)}`);
+                const res = await fetch(apiUrl, { headers });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Помилка завантаження даних');
+                }
+                workerCurrentData = await res.json();
+                workerDataLoaded = true;
+                renderWorkerAll();
+            } catch (err) {
+                showWorkerToast(`Помилка: ${err.message}`);
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        function renderWorkerAll() {
+            if (!workerCurrentData) return;
+            const u = workerCurrentData.user;
+            const s = workerCurrentData.summary;
+
+            document.getElementById('workerPlayerUsername').innerText = u.username;
+            document.getElementById('workerPlayerAvatarLetter').innerText = u.username.charAt(0).toUpperCase();
+            document.getElementById('workerPlayerLevel').innerText = `Lv.${u.level}`;
+            document.getElementById('workerPlayerProdSkill').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: Lv.${u.production_skill.level || 0} (${u.production_skill.value || 0} PP)`;
+            document.getElementById('workerPlayerCountry').innerHTML = `<i class="fa-solid fa-globe text-blue-400 mr-1"></i>Країна: ${u.country.slice(-6)}`;
+
+            document.getElementById('statDailyProfit').innerText = (s.total_daily_profit >= 0 ? '+' : '') + s.total_daily_profit.toFixed(2);
+            document.getElementById('statDailyProfit').className = s.total_daily_profit >= 0 ? 'text-2xl font-black text-green-400' : 'text-2xl font-black text-red-400';
+            document.getElementById('statHourlyProfit').innerText = `${(s.total_hourly_profit >= 0 ? '+' : '') + s.total_hourly_profit.toFixed(4)} Coins/год`;
+
+            document.getElementById('statCompaniesCount').innerText = s.total_companies;
+            document.getElementById('statStaffCount').innerText = `Персонал: ${s.total_workforce} чол`;
+            document.getElementById('statRelocateCount').innerText = s.relocate_count;
+            document.getElementById('statRiskCount').innerText = s.underperformer_count + s.toxic_count;
+            document.getElementById('statToxicCount').innerText = `Збиткових: ${s.toxic_count}`;
+
+            document.getElementById('wcntAll').innerText = s.total_workforce;
+            document.getElementById('wcntKeep').innerText = s.keep_count;
+            document.getElementById('wcntRelocate').innerText = s.relocate_count;
+            document.getElementById('wcntUnder').innerText = s.underperformer_count;
+            document.getElementById('wcntToxic').innerText = s.toxic_count;
+
+            renderWorkerTable();
+            renderWorkerCompanies();
+            renderWorkerRelocation();
+            renderWorkerOptimizer();
+        }
+
+        function setWorkerFilter(f) {
+            workerCurrentFilter = f;
+            ['ALL', 'KEEP', 'RELOCATE', 'UNDERPERFORMER', 'TOXIC'].forEach(id => {
+                const el = document.getElementById(`wfilter${id}`);
+                if (!el) return;
+                if (id === f) {
+                    el.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition-colors shadow-lg';
+                } else {
+                    el.className = 'px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors';
+                }
+            });
+            renderWorkerTable();
+        }
+
+        function sortWorkerList(field) {
+            if (workerSortField === field) {
+                workerSortAsc = !workerSortAsc;
+            } else {
+                workerSortField = field;
+                workerSortAsc = false;
+            }
+            renderWorkerTable();
+        }
+
+        function renderWorkerTable() {
+            const tbody = document.getElementById('workerTableBody');
+            if (!tbody || !workerCurrentData) return;
+            tbody.innerHTML = '';
+
+            let list = [...workerCurrentData.employees_flat];
+            if (workerCurrentFilter !== 'ALL') {
+                list = list.filter(e => e.status === workerCurrentFilter);
+            }
+
+            list.sort((a, b) => {
+                let vA, vB;
+                if (workerSortField === 'name') { vA = a.name; vB = b.name; }
+                else if (workerSortField === 'company') { vA = a.company_name; vB = b.company_name; }
+                else if (workerSortField === 'pp') { vA = a.hourly_pp; vB = b.hourly_pp; }
+                else if (workerSortField === 'wage') { vA = a.wage; vB = b.wage; }
+                else if (workerSortField === 'spec') { vA = a.spec_days; vB = b.spec_days; }
+                else if (workerSortField === 'retire') { vA = a.retire_in_days; vB = b.retire_in_days; }
+                else { vA = a.hourly_net_profit; vB = b.hourly_net_profit; }
+
+                if (vA < vB) return workerSortAsc ? -1 : 1;
+                if (vA > vB) return workerSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">Немає працівників у цій категорії</td></tr>`;
+                return;
+            }
+
+            list.forEach(emp => {
+                let statusBadge = '<span class="px-2 py-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-semibold text-[10px]"><i class="fa-solid fa-check mr-1"></i>ЯДРО</span>';
+                if (emp.status === 'TOXIC') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-red-900/60 text-red-300 border border-red-700/60 font-semibold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>ЗБИТКОВИЙ</span>';
+                } else if (emp.status === 'RELOCATE') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-700/60 font-semibold text-[10px]"><i class="fa-solid fa-shuffle mr-1"></i>ПЕРЕВОД</span>';
+                } else if (emp.status === 'UNDERPERFORMER') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-semibold text-[10px]"><i class="fa-solid fa-hourglass-half mr-1"></i>СЛАБКИЙ</span>';
+                }
+
+                const profitClass = emp.hourly_net_profit >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-bold';
+                const retireClass = emp.retire_in_days <= 4 ? 'text-amber-400 font-bold animate-pulse' : 'text-gray-300';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-hoverbg/60 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+                    <td class="p-3 font-medium text-white whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <span>${emp.name}</span>
+                            ${emp.tool_name ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-blue-300 border border-gray-700" title="Інструмент: +${emp.tool_bonus_pct}%"><i class="fa-solid fa-wrench mr-1"></i>${emp.tool_name}</span>` : ''}
+                        </div>
+                        <div class="text-[10px] text-gray-400">Prod: ${emp.total_prod} (баз ${emp.base_prod} + трен ${emp.trained_prod})</div>
+                    </td>
+                    <td class="p-3 whitespace-nowrap">
+                        <div class="text-gray-200 font-medium">${emp.company_name}</div>
+                        <div class="text-[10px] text-indigo-400 font-mono">${emp.item_code.toUpperCase()}</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="font-bold text-gray-100">${emp.hourly_pp.toFixed(2)} PP/год</div>
+                        <div class="text-[10px] text-gray-400">${emp.daily_pp.toFixed(1)} PP/добу</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="text-gray-200 font-mono">${emp.wage.toFixed(4)}</div>
+                        <div class="text-[10px] text-gray-400 font-mono">${emp.daily_wage.toFixed(2)}/д</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="${profitClass} font-mono">${emp.hourly_net_profit >= 0 ? '+' : ''}${emp.hourly_net_profit.toFixed(4)}/г</div>
+                        <div class="text-[10px] ${profitClass} font-mono">${emp.daily_net_profit >= 0 ? '+' : ''}${emp.daily_net_profit.toFixed(2)}/д</div>
+                    </td>
+                    <td class="p-3 text-right font-mono text-yellow-400/90 whitespace-nowrap">
+                        &le; ${emp.breakeven_wage.toFixed(4)}
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        <div class="font-semibold text-gray-200">${emp.spec_days} дн.</div>
+                        <div class="text-[10px] text-emerald-400">+${emp.bonus_total_pct.toFixed(1)}%</div>
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        <div class="${retireClass}">${emp.retire_in_days} дн.</div>
+                        ${emp.quit_chance > 0 ? `<div class="text-[10px] text-red-400">ризик ${emp.quit_chance}%</div>` : '<div class="text-[10px] text-gray-500">стабільний</div>'}
+                    </td>
+                    <td class="p-3 text-xs text-gray-300 max-w-xs leading-tight">
+                        ${emp.recommendation}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderWorkerCompanies() {
+            const container = document.getElementById('wcontentCompanies');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = '';
+
+            workerCurrentData.companies.forEach(comp => {
+                const card = document.createElement('div');
+                card.className = 'bg-cardbg p-5 rounded-xl space-y-4 hover:border-gray-600 transition-all shadow-lg flex flex-col justify-between border border-bordercolor';
+                const profitClass = comp.daily_net_profit >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+                card.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <h4 class="text-base font-bold text-white">${comp.name}</h4>
+                                <span class="text-xs px-2 py-0.5 rounded bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 font-mono uppercase">${comp.item_code}</span>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full ${comp.staff_count >= comp.staff_cap ? 'bg-amber-900/40 text-amber-300 border border-amber-700/50' : 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'}">
+                                ${comp.staff_count} / ${comp.staff_cap} місць
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-xs pt-2">
+                            <div class="bg-gray-800/60 p-2 rounded-lg">
+                                <div class="text-gray-400 text-[10px]">Випуск (PP/год)</div>
+                                <div class="font-bold text-white text-sm mt-0.5">${comp.hourly_pp.toFixed(2)} PP</div>
+                                <div class="text-[10px] text-gray-400">${comp.hourly_units.toFixed(2)} од/год</div>
+                            </div>
+                            <div class="bg-gray-800/60 p-2 rounded-lg">
+                                <div class="text-gray-400 text-[10px]">Маржа ресурсу</div>
+                                <div class="font-bold text-yellow-400 text-sm mt-0.5">${comp.margin_per_pp.toFixed(5)}</div>
+                                <div class="text-[10px] text-gray-400">Coins за 1 PP</div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1 text-xs pt-1">
+                            <div class="flex justify-between text-gray-300">
+                                <span>Зарплатний фонд:</span>
+                                <span class="font-mono text-gray-200">${comp.hourly_wage_cost.toFixed(4)}/год (${(comp.hourly_wage_cost*24).toFixed(2)}/д)</span>
+                            </div>
+                            <div class="flex justify-between text-gray-300">
+                                <span>Середня ставка:</span>
+                                <span class="font-mono text-gray-200">${comp.avg_wage.toFixed(4)}/год</span>
+                            </div>
+                            <div class="flex justify-between text-gray-300">
+                                <span>Рекоменд. макс. ставка:</span>
+                                <span class="font-mono text-yellow-400">&le; ${comp.recommended_max_wage.toFixed(4)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-bordercolor pt-3 flex items-center justify-between">
+                        <span class="text-xs text-gray-400 font-medium">Чистий прибуток:</span>
+                        <div class="text-right">
+                            <span class="text-base font-black ${profitClass}">${comp.daily_net_profit >= 0 ? '+' : ''}${comp.daily_net_profit.toFixed(2)}</span>
+                            <span class="text-xs text-gray-400">Coins/добу</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderWorkerRelocation() {
+            const container = document.getElementById('workerRelocationCards');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = '';
+
+            const relocates = workerCurrentData.employees_flat.filter(e => e.status === 'RELOCATE' && e.relocation_target);
+
+            if (relocates.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-2 bg-cardbg p-8 text-center text-gray-400 rounded-xl shadow-lg border border-bordercolor">
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-3xl mb-2"></i>
+                        <p class="text-sm font-medium text-white">Всі працівники оптимально розміщені на своїх фабриках!</p>
+                        <p class="text-xs text-gray-500 mt-1">Немає вигідних кандидатів на переведення без втрати значної лояльності.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            relocates.forEach(emp => {
+                const t = emp.relocation_target;
+                const card = document.createElement('div');
+                card.className = 'bg-cardbg p-5 rounded-xl space-y-4 border border-blue-500/40 relative overflow-hidden shadow-lg';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${emp.name}</h4>
+                                <div class="text-[10px] text-gray-400">Prod: ${emp.hourly_pp.toFixed(2)} PP/год | Спеціалізація: ${emp.spec_days} дн.</div>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded bg-blue-900/60 text-blue-300 text-xs font-bold border border-blue-600">
+                            +${t.daily_gain.toFixed(2)} Coins/добу
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs bg-gray-900/80 p-3 rounded-lg border border-bordercolor">
+                        <div>
+                            <span class="text-[10px] text-gray-400 uppercase font-semibold">Поточна фабрика</span>
+                            <div class="font-bold text-gray-200 mt-1">${emp.company_name}</div>
+                            <div class="text-indigo-400 font-mono text-[10px]">${emp.item_code.toUpperCase()}</div>
+                            <div class="text-gray-400 font-mono mt-1">+${(t.current_hourly_profit * 24).toFixed(2)} Coins/добу</div>
+                        </div>
+                        <div class="border-l border-bordercolor pl-3">
+                            <span class="text-[10px] text-blue-400 uppercase font-semibold">Цільова фабрика 🚀</span>
+                            <div class="font-bold text-white mt-1">${t.target_company_name}</div>
+                            <div class="text-blue-300 font-mono text-[10px]">${t.target_item.toUpperCase()}</div>
+                            <div class="text-emerald-400 font-mono font-bold mt-1">+${(t.simulated_hourly_profit * 24).toFixed(2)} Coins/добу</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-gray-300 leading-relaxed bg-blue-950/30 p-2.5 rounded border border-blue-900/40">
+                        💡 <strong class="text-white">Чому це вигідно:</strong> На фабриці "${t.target_company_name}" ресурс ${t.target_item.toUpperCase()} має вищу маржинальність. Оскільки працівник відпрацював на поточному місці лише ${emp.spec_days} дні(в), втрата прогресу спеціалізації незначна та компенсується з перших годин.
+                    </p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderWorkerOptimizer() {
+            const container = document.getElementById('workerOptimizerTable');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = `
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-900/80 text-gray-400 uppercase text-[10px] tracking-wider border-b border-bordercolor">
+                        <tr>
+                            <th class="p-3">Фабрика</th>
+                            <th class="p-3">Товар</th>
+                            <th class="p-3 text-right">Ціна товару</th>
+                            <th class="p-3 text-right">Витрати сировини</th>
+                            <th class="p-3 text-right">Чиста маржа / 1 PP</th>
+                            <th class="p-3 text-right">Поточна середня ставка</th>
+                            <th class="p-3 text-right text-yellow-400">Break-even (0% маржі)</th>
+                            <th class="p-3 text-right text-emerald-400">Реком. ставка (20% маржі)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-bordercolor">
+                        ${workerCurrentData.companies.map(c => `
+                            <tr class="hover:bg-hoverbg/50">
+                                <td class="p-3 font-semibold text-white">${c.name}</td>
+                                <td class="p-3 font-mono text-indigo-400">${c.item_code.toUpperCase()}</td>
+                                <td class="p-3 text-right font-mono">${workerCurrentData.economics_by_item[c.item_code].market_price.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono text-gray-400">${workerCurrentData.economics_by_item[c.item_code].raw_cost.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono text-white font-bold">${c.margin_per_pp.toFixed(5)}</td>
+                                <td class="p-3 text-right font-mono text-gray-300">${c.avg_wage.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono font-bold text-yellow-400">&le; ${c.margin_per_pp.toFixed(4)} / PP</td>
+                                <td class="p-3 text-right font-mono font-bold text-emerald-400">&le; ${(c.margin_per_pp * 0.8).toFixed(4)} / PP</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function switchWorkerSubTab(t) {
+            ['workers', 'companies', 'relocation', 'optimizer'].forEach(tabName => {
+                const btn = document.getElementById(`wtab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+                const content = document.getElementById(`wcontent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+                if (!btn || !content) return;
+                if (tabName === t) {
+                    btn.className = 'pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400 font-semibold';
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = 'pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap';
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function copyWorkerReportToClipboard() {
+            if (!workerCurrentData) return;
+            const u = workerCurrentData.user;
+            const s = workerCurrentData.summary;
+
+            let text = `🏰 *WarEra Workforce Intel Report* — ${u.username} (Lv.${u.level})\n`;
+            text += `🏭 Фабрик: ${s.total_companies} | 👥 Персонал: ${s.total_workforce}\n`;
+            text += `💰 Чистий прибуток: ${s.total_hourly_profit >= 0 ? '+' : ''}${s.total_hourly_profit.toFixed(4)}/год (${s.total_daily_profit >= 0 ? '+' : ''}${s.total_daily_profit.toFixed(2)} Coins/добу)\n`;
+            text += `📊 Статуси: 💎 Ядро: ${s.keep_count} | 🔄 Переведення: ${s.relocate_count} | ⚠️ Слабкі/Пенсія: ${s.underperformer_count} | 🚨 Збиткові: ${s.toxic_count}\n\n`;
+
+            const alerts = workerCurrentData.employees_flat.filter(e => e.status !== 'KEEP');
+            if (alerts.length > 0) {
+                text += `⚠️ *Рекомендації до уваги:*\n`;
+                alerts.forEach(e => {
+                    text += `• [${e.status}] ${e.name} (${e.company_name}): ${e.recommendation}\n`;
+                });
+            } else {
+                text += `✅ Всі працівники оптимально розподілені, фабрики працюють без збитків!\n`;
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showWorkerToast('Звіт скопійовано в буфер обміну!');
+            });
+        }
+
+        function downloadWorkerJsonReport() {
+            if (!workerCurrentData) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workerCurrentData, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `warera_workforce_${workerCurrentData.user.username}.json`);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showWorkerToast('JSON звіт збережено!');
+        }
+
+        // Initialize view & recents
+        window.addEventListener('DOMContentLoaded', () => {
+            updateWorkerApiKeyUI();
+            renderWorkerRecentChips();
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === 'workers' || window.location.pathname.endsWith('/workers')) {
+                switchMainView('workers');
+            }
+        });
+
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
@@ -105,11 +648,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <span id="pricingModeText" class="font-mono text-[11px]">⚡ Live</span>
                 </div>
 
-                <!-- Workforce Intelligence Switcher -->
-                <a href="/workers" class="px-3 py-1.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700/60 text-xs font-semibold rounded-lg text-indigo-300 transition flex items-center space-x-1.5" title="Аналізатор фабрик та працівників">
-                    <i class="fa-solid fa-industry text-blue-400"></i>
-                    <span class="hidden sm:inline">Фабрики & Кадри</span>
-                </a>
+                <!-- Unified View Switcher (100% Ingress Safe - No Page Reload) -->
+                <div class="flex items-center bg-gray-900/90 p-0.5 rounded-lg border border-gray-700">
+                    <button id="navBtnMarket" onclick="switchMainView('market')" class="px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium text-xs flex items-center space-x-1.5 transition shadow">
+                        <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                        <span class="hidden sm:inline">⚔️ Спорядження</span>
+                    </button>
+                    <button id="navBtnWorkers" onclick="switchMainView('workers')" class="px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white font-medium text-xs flex items-center space-x-1.5 transition">
+                        <i class="fa-solid fa-industry text-blue-400"></i>
+                        <span class="hidden sm:inline">🏭 Фабрики & Кадри</span>
+                    </button>
+                </div>
 
                 <!-- Immediate Scan Button -->
                 <button id="btnScanNow" onclick="triggerScan()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5" title="Сканувати ринок прямо зараз">
@@ -132,6 +681,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+
+        <!-- VIEW 1: MARKET SCANNER (Active by default) -->
+        <div id="viewMarket" class="space-y-6">
 
         <!-- KPI Summary Cards -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -381,6 +933,216 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </table>
             </div>
         </section>
+
+        </div>
+        <!-- END VIEW 1: MARKET SCANNER -->
+
+        <!-- VIEW 2: WORKFORCE & FACTORY INTELLIGENCE (100% Ingress Compatible) -->
+        <div id="viewWorkers" class="space-y-6 hidden">
+
+            <!-- Controls: Nickname Search, API Key, Export -->
+            <div class="glass-panel p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 border border-bordercolor shadow-lg">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="relative flex items-center">
+                        <i class="fa-solid fa-user absolute left-3 text-gray-400 text-xs"></i>
+                        <input id="workerSearchInput" type="text" placeholder="Нікнейм гравця..." value="Luc1fer"
+                            onkeydown="if(event.key === 'Enter') fetchWorkerData()"
+                            class="bg-gray-800/90 border border-bordercolor rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors w-40 sm:w-52">
+                    </div>
+                    <button onclick="fetchWorkerData()" id="btnWorkerAnalyze"
+                        class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md shadow-blue-600/30 transition-all">
+                        <i class="fa-solid fa-arrows-rotate" id="workerRefreshIcon"></i>
+                        <span>Аналіз</span>
+                    </button>
+                    <!-- Personal API Key Button -->
+                    <button onclick="openWorkerApiKeyModal()" id="workerApiKeyBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs text-gray-300 transition-colors">
+                        <i class="fa-solid fa-key text-yellow-400" id="workerApiKeyIcon"></i>
+                        <span id="workerApiKeyStatusText">Власний API-ключ</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="copyWorkerReportToClipboard()" title="Скопіювати звіт для Telegram / Discord"
+                        class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs border border-gray-700 transition-colors flex items-center gap-1">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Копіювати звіт</span>
+                    </button>
+                    <button onclick="downloadWorkerJsonReport()" title="Завантажити JSON звіт"
+                        class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs border border-gray-700 transition-colors flex items-center gap-1">
+                        <i class="fa-solid fa-download"></i>
+                        <span>JSON</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent Search Chips -->
+            <div id="workerRecentRow" class="flex items-center gap-2 text-xs text-gray-400 overflow-x-auto pb-1">
+                <span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left"></i> Нещодавні:</span>
+                <div id="workerRecentChips" class="flex items-center gap-1.5"></div>
+            </div>
+
+            <!-- Top Stat Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
+                    <div class="text-xs text-gray-400 flex items-center justify-between">
+                        <span>Чистий прибуток</span>
+                        <i class="fa-solid fa-coins text-yellow-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="statDailyProfit" class="text-2xl font-black text-green-400">--</span>
+                        <span class="text-xs text-gray-400">Coins/добу</span>
+                    </div>
+                    <div id="statHourlyProfit" class="text-xs text-gray-400 mt-1">-- Coins/год</div>
+                </div>
+
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
+                    <div class="text-xs text-gray-400 flex items-center justify-between">
+                        <span>Підприємства</span>
+                        <i class="fa-solid fa-building text-blue-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="statCompaniesCount" class="text-2xl font-black text-white">--</span>
+                        <span class="text-xs text-gray-400">фабрик</span>
+                    </div>
+                    <div id="statStaffCount" class="text-xs text-gray-400 mt-1">Персонал: -- чол</div>
+                </div>
+
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
+                    <div class="text-xs text-gray-400 flex items-center justify-between">
+                        <span>Кадрові рокіровки</span>
+                        <i class="fa-solid fa-shuffle text-indigo-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="statRelocateCount" class="text-2xl font-black text-blue-400">--</span>
+                        <span class="text-xs text-gray-400">кандидатів</span>
+                    </div>
+                    <div class="text-xs text-blue-400/80 mt-1">на прибутковіші фабрики</div>
+                </div>
+
+                <div class="bg-cardbg p-4 rounded-xl border border-bordercolor shadow-lg relative overflow-hidden">
+                    <div class="text-xs text-gray-400 flex items-center justify-between">
+                        <span>Ризики / Пенсія</span>
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="statRiskCount" class="text-2xl font-black text-amber-400">--</span>
+                        <span class="text-xs text-gray-400">потребують уваги</span>
+                    </div>
+                    <div id="statToxicCount" class="text-xs text-red-400 mt-1">Збиткових: 0</div>
+                </div>
+            </div>
+
+            <!-- Player Profile Banner -->
+            <div id="workerPlayerBanner" class="bg-cardbg p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 border-l-4 border-l-blue-500 shadow-lg border border-bordercolor">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-blue-900/60 flex items-center justify-center text-xl font-bold text-blue-300 border border-blue-500/30">
+                        <span id="workerPlayerAvatarLetter">?</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="workerPlayerUsername" class="text-lg font-bold text-white">Завантаження...</span>
+                            <span id="workerPlayerLevel" class="text-xs px-2 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-semibold">Lv.--</span>
+                        </div>
+                        <div class="text-xs text-gray-400 flex items-center gap-3 mt-1 flex-wrap">
+                            <span id="workerPlayerProdSkill"><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: --</span>
+                            <span id="workerPlayerCountry"><i class="fa-solid fa-globe text-blue-400 mr-1"></i>Країна: --</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Category Filter Pills -->
+                <div class="flex items-center gap-1.5 flex-wrap text-xs">
+                    <button onclick="setWorkerFilter('ALL')" id="wfilterALL" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition-colors">Всі (<span id="wcntAll">0</span>)</button>
+                    <button onclick="setWorkerFilter('KEEP')" id="wfilterKEEP" class="px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors">💎 Ядро (<span id="wcntKeep">0</span>)</button>
+                    <button onclick="setWorkerFilter('RELOCATE')" id="wfilterRELOCATE" class="px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors">🔄 Переведення (<span id="wcntRelocate">0</span>)</button>
+                    <button onclick="setWorkerFilter('UNDERPERFORMER')" id="wfilterUNDERPERFORMER" class="px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors">⚠️ Слабкі / Пенсія (<span id="wcntUnder">0</span>)</button>
+                    <button onclick="setWorkerFilter('TOXIC')" id="wfilterTOXIC" class="px-3 py-1.5 rounded-lg bg-gray-800 text-red-400 hover:bg-gray-700 transition-colors">🚨 Збиткові (<span id="wcntToxic">0</span>)</button>
+                </div>
+            </div>
+
+            <!-- Sub-Tabs Navigation -->
+            <div class="flex items-center border-b border-bordercolor gap-6 text-sm overflow-x-auto">
+                <button onclick="switchWorkerSubTab('workers')" id="wtabWorkers" class="pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Працівники фабрик</span>
+                </button>
+                <button onclick="switchWorkerSubTab('companies')" id="wtabCompanies" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-industry"></i>
+                    <span>Огляд підприємств</span>
+                </button>
+                <button onclick="switchWorkerSubTab('relocation')" id="wtabRelocation" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                    <span>Матриця переведень</span>
+                </button>
+                <button onclick="switchWorkerSubTab('optimizer')" id="wtabOptimizer" class="pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>Калькулятор зарплат</span>
+                </button>
+            </div>
+
+            <!-- SUB-TAB 1: WORKERS TABLE -->
+            <div id="wcontentWorkers" class="space-y-4">
+                <div class="bg-cardbg rounded-xl overflow-hidden shadow-xl border border-bordercolor">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-gray-900/90 text-gray-400 uppercase text-[10px] tracking-wider border-b border-bordercolor">
+                                <tr>
+                                    <th class="p-3">Статус</th>
+                                    <th class="p-3 cursor-pointer hover:text-white" onclick="sortWorkerList('name')">Працівник <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 cursor-pointer hover:text-white" onclick="sortWorkerList('company')">Фабрика / Товар <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 text-right cursor-pointer hover:text-white" onclick="sortWorkerList('pp')">Виробіток <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 text-right cursor-pointer hover:text-white" onclick="sortWorkerList('wage')">Зарплата <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 text-right cursor-pointer hover:text-white" onclick="sortWorkerList('profit')">Чистий прибуток <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 text-right">Break-even Wage</th>
+                                    <th class="p-3 text-center cursor-pointer hover:text-white" onclick="sortWorkerList('spec')">Стаж / Бонус <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3 text-center cursor-pointer hover:text-white" onclick="sortWorkerList('retire')">Пенсія / Ризик <i class="fa-solid fa-sort ml-1 text-gray-600"></i></th>
+                                    <th class="p-3">Рекомендація</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workerTableBody" class="divide-y divide-bordercolor">
+                                <tr>
+                                    <td colspan="10" class="p-8 text-center text-gray-400">
+                                        <i class="fa-solid fa-spinner fa-spin text-xl mr-2 text-blue-500"></i> Завантаження даних аналізу...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-TAB 2: COMPANIES CARDS -->
+            <div id="wcontentCompanies" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+            <!-- SUB-TAB 3: RELOCATION MATRIX -->
+            <div id="wcontentRelocation" class="hidden space-y-4">
+                <div class="bg-cardbg p-5 rounded-xl space-y-3 border-l-4 border-l-blue-500 shadow-lg border border-bordercolor">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-turn-to-dots text-blue-400"></i>
+                        Розумний симулятор переведень між фабриками
+                    </h3>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        Правило економіки WarEra: якщо працівник має високу базову продуктивність, але ще не накопичив високий бонус спеціалізації (&le; 3 дні), переведення його на фабрику з вищою маржею на 1 PP дасть більше чистого прибутку, ніж збереження на менш рентабельній фабриці.
+                    </p>
+                </div>
+                <div id="workerRelocationCards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- SUB-TAB 4: WAGE OPTIMIZER & BREAK-EVEN -->
+            <div id="wcontentOptimizer" class="hidden space-y-4">
+                <div class="bg-cardbg p-5 rounded-xl space-y-4 shadow-lg border border-bordercolor">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i>
+                        Оптимізатор ставок заробітної плати (Break-even & Target Margin)
+                    </h3>
+                    <p class="text-xs text-gray-400">
+                        Максимально допустима ставка зарплати (<span class="text-yellow-400">Break-even Wage</span>) показує межу, вище якої працівник починає приносити прямий збиток власнику фабрики.
+                    </p>
+                    <div id="workerOptimizerTable" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+        </div>
+        <!-- END VIEW 2: WORKFORCE -->
 
     </main>
 
@@ -985,7 +1747,596 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 fetchDeals();
             }
         }, 2500);
+
+        // =====================================================================
+        // UNIFIED VIEW SWITCHER & WORKFORCE INTELLIGENCE (INGRESS COMPATIBLE)
+        // =====================================================================
+        let currentMainView = 'market';
+        let workerDataLoaded = false;
+        let workerCurrentData = null;
+        let workerCurrentFilter = 'ALL';
+        let workerSortField = 'profit';
+        let workerSortAsc = false;
+
+        const LS_WORKER_KEY = 'warera_user_api_key';
+        const LS_WORKER_RECENTS = 'warera_recent_nicks';
+
+        function switchMainView(view) {
+            currentMainView = view;
+            const btnMarket = document.getElementById('navBtnMarket');
+            const btnWorkers = document.getElementById('navBtnWorkers');
+            const viewMarket = document.getElementById('viewMarket');
+            const viewWorkers = document.getElementById('viewWorkers');
+
+            if (view === 'workers') {
+                viewMarket.classList.add('hidden');
+                viewWorkers.classList.remove('hidden');
+                btnWorkers.className = 'px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium text-xs flex items-center space-x-1.5 transition shadow';
+                btnMarket.className = 'px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white font-medium text-xs flex items-center space-x-1.5 transition';
+                if (!workerDataLoaded) {
+                    fetchWorkerData();
+                }
+            } else {
+                viewWorkers.classList.add('hidden');
+                viewMarket.classList.remove('hidden');
+                btnMarket.className = 'px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium text-xs flex items-center space-x-1.5 transition shadow';
+                btnWorkers.className = 'px-2.5 py-1.5 rounded-md text-gray-400 hover:text-white font-medium text-xs flex items-center space-x-1.5 transition';
+            }
+        }
+
+        function getWorkerUserApiKey() {
+            return localStorage.getItem(LS_WORKER_KEY) || '';
+        }
+
+        function updateWorkerApiKeyUI() {
+            const key = getWorkerUserApiKey();
+            const badgeText = document.getElementById('workerApiKeyStatusText');
+            const icon = document.getElementById('workerApiKeyIcon');
+            if (!badgeText) return;
+            if (key) {
+                badgeText.innerText = 'Ваш ключ (Активний)';
+                badgeText.className = 'text-emerald-400 font-semibold';
+                icon.className = 'fa-solid fa-key text-emerald-400';
+            } else {
+                badgeText.innerText = 'Власний API-ключ';
+                badgeText.className = 'text-gray-300';
+                icon.className = 'fa-solid fa-key text-yellow-400';
+            }
+        }
+
+        function openWorkerApiKeyModal() {
+            document.getElementById('workerModalApiKeyInput').value = getWorkerUserApiKey();
+            document.getElementById('workerApiKeyModal').classList.remove('hidden');
+        }
+
+        function closeWorkerApiKeyModal() {
+            document.getElementById('workerApiKeyModal').classList.add('hidden');
+        }
+
+        function toggleWorkerApiKeyVisibility() {
+            const input = document.getElementById('workerModalApiKeyInput');
+            const icon = document.getElementById('workerApiKeyEyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function saveWorkerApiKey() {
+            const key = document.getElementById('workerModalApiKeyInput').value.trim();
+            if (key) {
+                localStorage.setItem(LS_WORKER_KEY, key);
+                showWorkerToast('API ключ збережено в браузері!');
+            } else {
+                localStorage.removeItem(LS_WORKER_KEY);
+                showWorkerToast('Використовується системний ключ.');
+            }
+            updateWorkerApiKeyUI();
+            closeWorkerApiKeyModal();
+            fetchWorkerData();
+        }
+
+        function clearWorkerApiKey() {
+            localStorage.removeItem(LS_WORKER_KEY);
+            document.getElementById('workerModalApiKeyInput').value = '';
+            updateWorkerApiKeyUI();
+            closeWorkerApiKeyModal();
+            showWorkerToast('Ключ очищено. Використовується публічний режим.');
+            fetchWorkerData();
+        }
+
+        function getWorkerRecentSearches() {
+            try {
+                return JSON.parse(localStorage.getItem(LS_WORKER_RECENTS)) || ['Luc1fer'];
+            } catch {
+                return ['Luc1fer'];
+            }
+        }
+
+        function addWorkerRecentSearch(nick) {
+            if (!nick) return;
+            let recents = getWorkerRecentSearches().filter(n => n.toLowerCase() !== nick.toLowerCase());
+            recents.unshift(nick);
+            if (recents.length > 6) recents = recents.slice(0, 6);
+            localStorage.setItem(LS_WORKER_RECENTS, JSON.stringify(recents));
+            renderWorkerRecentChips();
+        }
+
+        function renderWorkerRecentChips() {
+            const container = document.getElementById('workerRecentChips');
+            if (!container) return;
+            container.innerHTML = '';
+            const recents = getWorkerRecentSearches();
+            recents.forEach(nick => {
+                const chip = document.createElement('button');
+                chip.className = 'px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[11px] text-gray-300 border border-gray-700 transition-colors flex items-center gap-1';
+                chip.innerHTML = `<span>${nick}</span>`;
+                chip.onclick = () => {
+                    document.getElementById('workerSearchInput').value = nick;
+                    fetchWorkerData();
+                };
+                container.appendChild(chip);
+            });
+        }
+
+        function showWorkerToast(msg) {
+            const toast = document.getElementById('workerToast');
+            if (!toast) return;
+            document.getElementById('workerToastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function fetchWorkerData() {
+            const input = document.getElementById('workerSearchInput');
+            const nick = (input ? input.value.trim() : '') || 'Luc1fer';
+            addWorkerRecentSearch(nick);
+
+            const refreshIcon = document.getElementById('workerRefreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            const headers = {};
+            const userKey = getWorkerUserApiKey();
+            if (userKey) {
+                headers['X-User-API-Key'] = userKey;
+            }
+
+            try {
+                // Ingress-safe URL resolution
+                const apiUrl = getApiUrl(`api/analyze?nick=${encodeURIComponent(nick)}`);
+                const res = await fetch(apiUrl, { headers });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Помилка завантаження даних');
+                }
+                workerCurrentData = await res.json();
+                workerDataLoaded = true;
+                renderWorkerAll();
+            } catch (err) {
+                showWorkerToast(`Помилка: ${err.message}`);
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        function renderWorkerAll() {
+            if (!workerCurrentData) return;
+            const u = workerCurrentData.user;
+            const s = workerCurrentData.summary;
+
+            document.getElementById('workerPlayerUsername').innerText = u.username;
+            document.getElementById('workerPlayerAvatarLetter').innerText = u.username.charAt(0).toUpperCase();
+            document.getElementById('workerPlayerLevel').innerText = `Lv.${u.level}`;
+            document.getElementById('workerPlayerProdSkill').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400 mr-1"></i>Prod Skill: Lv.${u.production_skill.level || 0} (${u.production_skill.value || 0} PP)`;
+            document.getElementById('workerPlayerCountry').innerHTML = `<i class="fa-solid fa-globe text-blue-400 mr-1"></i>Країна: ${u.country.slice(-6)}`;
+
+            document.getElementById('statDailyProfit').innerText = (s.total_daily_profit >= 0 ? '+' : '') + s.total_daily_profit.toFixed(2);
+            document.getElementById('statDailyProfit').className = s.total_daily_profit >= 0 ? 'text-2xl font-black text-green-400' : 'text-2xl font-black text-red-400';
+            document.getElementById('statHourlyProfit').innerText = `${(s.total_hourly_profit >= 0 ? '+' : '') + s.total_hourly_profit.toFixed(4)} Coins/год`;
+
+            document.getElementById('statCompaniesCount').innerText = s.total_companies;
+            document.getElementById('statStaffCount').innerText = `Персонал: ${s.total_workforce} чол`;
+            document.getElementById('statRelocateCount').innerText = s.relocate_count;
+            document.getElementById('statRiskCount').innerText = s.underperformer_count + s.toxic_count;
+            document.getElementById('statToxicCount').innerText = `Збиткових: ${s.toxic_count}`;
+
+            document.getElementById('wcntAll').innerText = s.total_workforce;
+            document.getElementById('wcntKeep').innerText = s.keep_count;
+            document.getElementById('wcntRelocate').innerText = s.relocate_count;
+            document.getElementById('wcntUnder').innerText = s.underperformer_count;
+            document.getElementById('wcntToxic').innerText = s.toxic_count;
+
+            renderWorkerTable();
+            renderWorkerCompanies();
+            renderWorkerRelocation();
+            renderWorkerOptimizer();
+        }
+
+        function setWorkerFilter(f) {
+            workerCurrentFilter = f;
+            ['ALL', 'KEEP', 'RELOCATE', 'UNDERPERFORMER', 'TOXIC'].forEach(id => {
+                const el = document.getElementById(`wfilter${id}`);
+                if (!el) return;
+                if (id === f) {
+                    el.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition-colors shadow-lg';
+                } else {
+                    el.className = 'px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors';
+                }
+            });
+            renderWorkerTable();
+        }
+
+        function sortWorkerList(field) {
+            if (workerSortField === field) {
+                workerSortAsc = !workerSortAsc;
+            } else {
+                workerSortField = field;
+                workerSortAsc = false;
+            }
+            renderWorkerTable();
+        }
+
+        function renderWorkerTable() {
+            const tbody = document.getElementById('workerTableBody');
+            if (!tbody || !workerCurrentData) return;
+            tbody.innerHTML = '';
+
+            let list = [...workerCurrentData.employees_flat];
+            if (workerCurrentFilter !== 'ALL') {
+                list = list.filter(e => e.status === workerCurrentFilter);
+            }
+
+            list.sort((a, b) => {
+                let vA, vB;
+                if (workerSortField === 'name') { vA = a.name; vB = b.name; }
+                else if (workerSortField === 'company') { vA = a.company_name; vB = b.company_name; }
+                else if (workerSortField === 'pp') { vA = a.hourly_pp; vB = b.hourly_pp; }
+                else if (workerSortField === 'wage') { vA = a.wage; vB = b.wage; }
+                else if (workerSortField === 'spec') { vA = a.spec_days; vB = b.spec_days; }
+                else if (workerSortField === 'retire') { vA = a.retire_in_days; vB = b.retire_in_days; }
+                else { vA = a.hourly_net_profit; vB = b.hourly_net_profit; }
+
+                if (vA < vB) return workerSortAsc ? -1 : 1;
+                if (vA > vB) return workerSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">Немає працівників у цій категорії</td></tr>`;
+                return;
+            }
+
+            list.forEach(emp => {
+                let statusBadge = '<span class="px-2 py-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-semibold text-[10px]"><i class="fa-solid fa-check mr-1"></i>ЯДРО</span>';
+                if (emp.status === 'TOXIC') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-red-900/60 text-red-300 border border-red-700/60 font-semibold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>ЗБИТКОВИЙ</span>';
+                } else if (emp.status === 'RELOCATE') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-700/60 font-semibold text-[10px]"><i class="fa-solid fa-shuffle mr-1"></i>ПЕРЕВОД</span>';
+                } else if (emp.status === 'UNDERPERFORMER') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-semibold text-[10px]"><i class="fa-solid fa-hourglass-half mr-1"></i>СЛАБКИЙ</span>';
+                }
+
+                const profitClass = emp.hourly_net_profit >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-bold';
+                const retireClass = emp.retire_in_days <= 4 ? 'text-amber-400 font-bold animate-pulse' : 'text-gray-300';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-hoverbg/60 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+                    <td class="p-3 font-medium text-white whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <span>${emp.name}</span>
+                            ${emp.tool_name ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-blue-300 border border-gray-700" title="Інструмент: +${emp.tool_bonus_pct}%"><i class="fa-solid fa-wrench mr-1"></i>${emp.tool_name}</span>` : ''}
+                        </div>
+                        <div class="text-[10px] text-gray-400">Prod: ${emp.total_prod} (баз ${emp.base_prod} + трен ${emp.trained_prod})</div>
+                    </td>
+                    <td class="p-3 whitespace-nowrap">
+                        <div class="text-gray-200 font-medium">${emp.company_name}</div>
+                        <div class="text-[10px] text-indigo-400 font-mono">${emp.item_code.toUpperCase()}</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="font-bold text-gray-100">${emp.hourly_pp.toFixed(2)} PP/год</div>
+                        <div class="text-[10px] text-gray-400">${emp.daily_pp.toFixed(1)} PP/добу</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="text-gray-200 font-mono">${emp.wage.toFixed(4)}</div>
+                        <div class="text-[10px] text-gray-400 font-mono">${emp.daily_wage.toFixed(2)}/д</div>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="${profitClass} font-mono">${emp.hourly_net_profit >= 0 ? '+' : ''}${emp.hourly_net_profit.toFixed(4)}/г</div>
+                        <div class="text-[10px] ${profitClass} font-mono">${emp.daily_net_profit >= 0 ? '+' : ''}${emp.daily_net_profit.toFixed(2)}/д</div>
+                    </td>
+                    <td class="p-3 text-right font-mono text-yellow-400/90 whitespace-nowrap">
+                        &le; ${emp.breakeven_wage.toFixed(4)}
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        <div class="font-semibold text-gray-200">${emp.spec_days} дн.</div>
+                        <div class="text-[10px] text-emerald-400">+${emp.bonus_total_pct.toFixed(1)}%</div>
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        <div class="${retireClass}">${emp.retire_in_days} дн.</div>
+                        ${emp.quit_chance > 0 ? `<div class="text-[10px] text-red-400">ризик ${emp.quit_chance}%</div>` : '<div class="text-[10px] text-gray-500">стабільний</div>'}
+                    </td>
+                    <td class="p-3 text-xs text-gray-300 max-w-xs leading-tight">
+                        ${emp.recommendation}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderWorkerCompanies() {
+            const container = document.getElementById('wcontentCompanies');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = '';
+
+            workerCurrentData.companies.forEach(comp => {
+                const card = document.createElement('div');
+                card.className = 'bg-cardbg p-5 rounded-xl space-y-4 hover:border-gray-600 transition-all shadow-lg flex flex-col justify-between border border-bordercolor';
+                const profitClass = comp.daily_net_profit >= 0 ? 'text-emerald-400' : 'text-red-400';
+
+                card.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <h4 class="text-base font-bold text-white">${comp.name}</h4>
+                                <span class="text-xs px-2 py-0.5 rounded bg-indigo-900/40 text-indigo-300 border border-indigo-700/50 font-mono uppercase">${comp.item_code}</span>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full ${comp.staff_count >= comp.staff_cap ? 'bg-amber-900/40 text-amber-300 border border-amber-700/50' : 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50'}">
+                                ${comp.staff_count} / ${comp.staff_cap} місць
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-xs pt-2">
+                            <div class="bg-gray-800/60 p-2 rounded-lg">
+                                <div class="text-gray-400 text-[10px]">Випуск (PP/год)</div>
+                                <div class="font-bold text-white text-sm mt-0.5">${comp.hourly_pp.toFixed(2)} PP</div>
+                                <div class="text-[10px] text-gray-400">${comp.hourly_units.toFixed(2)} од/год</div>
+                            </div>
+                            <div class="bg-gray-800/60 p-2 rounded-lg">
+                                <div class="text-gray-400 text-[10px]">Маржа ресурсу</div>
+                                <div class="font-bold text-yellow-400 text-sm mt-0.5">${comp.margin_per_pp.toFixed(5)}</div>
+                                <div class="text-[10px] text-gray-400">Coins за 1 PP</div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1 text-xs pt-1">
+                            <div class="flex justify-between text-gray-300">
+                                <span>Зарплатний фонд:</span>
+                                <span class="font-mono text-gray-200">${comp.hourly_wage_cost.toFixed(4)}/год (${(comp.hourly_wage_cost*24).toFixed(2)}/д)</span>
+                            </div>
+                            <div class="flex justify-between text-gray-300">
+                                <span>Середня ставка:</span>
+                                <span class="font-mono text-gray-200">${comp.avg_wage.toFixed(4)}/год</span>
+                            </div>
+                            <div class="flex justify-between text-gray-300">
+                                <span>Рекоменд. макс. ставка:</span>
+                                <span class="font-mono text-yellow-400">&le; ${comp.recommended_max_wage.toFixed(4)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-bordercolor pt-3 flex items-center justify-between">
+                        <span class="text-xs text-gray-400 font-medium">Чистий прибуток:</span>
+                        <div class="text-right">
+                            <span class="text-base font-black ${profitClass}">${comp.daily_net_profit >= 0 ? '+' : ''}${comp.daily_net_profit.toFixed(2)}</span>
+                            <span class="text-xs text-gray-400">Coins/добу</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderWorkerRelocation() {
+            const container = document.getElementById('workerRelocationCards');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = '';
+
+            const relocates = workerCurrentData.employees_flat.filter(e => e.status === 'RELOCATE' && e.relocation_target);
+
+            if (relocates.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-2 bg-cardbg p-8 text-center text-gray-400 rounded-xl shadow-lg border border-bordercolor">
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-3xl mb-2"></i>
+                        <p class="text-sm font-medium text-white">Всі працівники оптимально розміщені на своїх фабриках!</p>
+                        <p class="text-xs text-gray-500 mt-1">Немає вигідних кандидатів на переведення без втрати значної лояльності.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            relocates.forEach(emp => {
+                const t = emp.relocation_target;
+                const card = document.createElement('div');
+                card.className = 'bg-cardbg p-5 rounded-xl space-y-4 border border-blue-500/40 relative overflow-hidden shadow-lg';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${emp.name}</h4>
+                                <div class="text-[10px] text-gray-400">Prod: ${emp.hourly_pp.toFixed(2)} PP/год | Спеціалізація: ${emp.spec_days} дн.</div>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded bg-blue-900/60 text-blue-300 text-xs font-bold border border-blue-600">
+                            +${t.daily_gain.toFixed(2)} Coins/добу
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs bg-gray-900/80 p-3 rounded-lg border border-bordercolor">
+                        <div>
+                            <span class="text-[10px] text-gray-400 uppercase font-semibold">Поточна фабрика</span>
+                            <div class="font-bold text-gray-200 mt-1">${emp.company_name}</div>
+                            <div class="text-indigo-400 font-mono text-[10px]">${emp.item_code.toUpperCase()}</div>
+                            <div class="text-gray-400 font-mono mt-1">+${(t.current_hourly_profit * 24).toFixed(2)} Coins/добу</div>
+                        </div>
+                        <div class="border-l border-bordercolor pl-3">
+                            <span class="text-[10px] text-blue-400 uppercase font-semibold">Цільова фабрика 🚀</span>
+                            <div class="font-bold text-white mt-1">${t.target_company_name}</div>
+                            <div class="text-blue-300 font-mono text-[10px]">${t.target_item.toUpperCase()}</div>
+                            <div class="text-emerald-400 font-mono font-bold mt-1">+${(t.simulated_hourly_profit * 24).toFixed(2)} Coins/добу</div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-gray-300 leading-relaxed bg-blue-950/30 p-2.5 rounded border border-blue-900/40">
+                        💡 <strong class="text-white">Чому це вигідно:</strong> На фабриці "${t.target_company_name}" ресурс ${t.target_item.toUpperCase()} має вищу маржинальність. Оскільки працівник відпрацював на поточному місці лише ${emp.spec_days} дні(в), втрата прогресу спеціалізації незначна та компенсується з перших годин.
+                    </p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderWorkerOptimizer() {
+            const container = document.getElementById('workerOptimizerTable');
+            if (!container || !workerCurrentData) return;
+            container.innerHTML = `
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-900/80 text-gray-400 uppercase text-[10px] tracking-wider border-b border-bordercolor">
+                        <tr>
+                            <th class="p-3">Фабрика</th>
+                            <th class="p-3">Товар</th>
+                            <th class="p-3 text-right">Ціна товару</th>
+                            <th class="p-3 text-right">Витрати сировини</th>
+                            <th class="p-3 text-right">Чиста маржа / 1 PP</th>
+                            <th class="p-3 text-right">Поточна середня ставка</th>
+                            <th class="p-3 text-right text-yellow-400">Break-even (0% маржі)</th>
+                            <th class="p-3 text-right text-emerald-400">Реком. ставка (20% маржі)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-bordercolor">
+                        ${workerCurrentData.companies.map(c => `
+                            <tr class="hover:bg-hoverbg/50">
+                                <td class="p-3 font-semibold text-white">${c.name}</td>
+                                <td class="p-3 font-mono text-indigo-400">${c.item_code.toUpperCase()}</td>
+                                <td class="p-3 text-right font-mono">${workerCurrentData.economics_by_item[c.item_code].market_price.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono text-gray-400">${workerCurrentData.economics_by_item[c.item_code].raw_cost.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono text-white font-bold">${c.margin_per_pp.toFixed(5)}</td>
+                                <td class="p-3 text-right font-mono text-gray-300">${c.avg_wage.toFixed(4)}</td>
+                                <td class="p-3 text-right font-mono font-bold text-yellow-400">&le; ${c.margin_per_pp.toFixed(4)} / PP</td>
+                                <td class="p-3 text-right font-mono font-bold text-emerald-400">&le; ${(c.margin_per_pp * 0.8).toFixed(4)} / PP</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function switchWorkerSubTab(t) {
+            ['workers', 'companies', 'relocation', 'optimizer'].forEach(tabName => {
+                const btn = document.getElementById(`wtab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+                const content = document.getElementById(`wcontent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+                if (!btn || !content) return;
+                if (tabName === t) {
+                    btn.className = 'pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400 font-semibold';
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = 'pb-3 text-gray-400 hover:text-gray-200 flex items-center gap-2 transition-colors whitespace-nowrap';
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function copyWorkerReportToClipboard() {
+            if (!workerCurrentData) return;
+            const u = workerCurrentData.user;
+            const s = workerCurrentData.summary;
+
+            let text = `🏰 *WarEra Workforce Intel Report* — ${u.username} (Lv.${u.level})\n`;
+            text += `🏭 Фабрик: ${s.total_companies} | 👥 Персонал: ${s.total_workforce}\n`;
+            text += `💰 Чистий прибуток: ${s.total_hourly_profit >= 0 ? '+' : ''}${s.total_hourly_profit.toFixed(4)}/год (${s.total_daily_profit >= 0 ? '+' : ''}${s.total_daily_profit.toFixed(2)} Coins/добу)\n`;
+            text += `📊 Статуси: 💎 Ядро: ${s.keep_count} | 🔄 Переведення: ${s.relocate_count} | ⚠️ Слабкі/Пенсія: ${s.underperformer_count} | 🚨 Збиткові: ${s.toxic_count}\n\n`;
+
+            const alerts = workerCurrentData.employees_flat.filter(e => e.status !== 'KEEP');
+            if (alerts.length > 0) {
+                text += `⚠️ *Рекомендації до уваги:*\n`;
+                alerts.forEach(e => {
+                    text += `• [${e.status}] ${e.name} (${e.company_name}): ${e.recommendation}\n`;
+                });
+            } else {
+                text += `✅ Всі працівники оптимально розподілені, фабрики працюють без збитків!\n`;
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showWorkerToast('Звіт скопійовано в буфер обміну!');
+            });
+        }
+
+        function downloadWorkerJsonReport() {
+            if (!workerCurrentData) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(workerCurrentData, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `warera_workforce_${workerCurrentData.user.username}.json`);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showWorkerToast('JSON звіт збережено!');
+        }
+
+        // Initialize view & recents
+        window.addEventListener('DOMContentLoaded', () => {
+            updateWorkerApiKeyUI();
+            renderWorkerRecentChips();
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === 'workers' || window.location.pathname.endsWith('/workers')) {
+                switchMainView('workers');
+            }
+        });
+
     </script>
+
+    <!-- Worker API Key Modal -->
+    <div id="workerApiKeyModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-cardbg p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl border border-gray-700">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key text-yellow-400"></i>
+                    Особистий API-ключ WarEra
+                </h3>
+                <button onclick="closeWorkerApiKeyModal()" class="text-gray-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed">
+                Якщо ви хочете аналізувати приватні дані власних фабрик, введіть ваш персональний токен (<span class="text-blue-400">app.warera.io &rarr; Профіль &rarr; API Token</span>).
+            </p>
+            <div class="space-y-1.5">
+                <label class="text-[11px] text-gray-400 font-semibold uppercase">API Token (wae_...):</label>
+                <div class="relative">
+                    <input id="workerModalApiKeyInput" type="password" placeholder="wae_xxxxxxxxxxxxxxxxxxxxxxxx..."
+                        class="w-full bg-gray-900 border border-bordercolor rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
+                    <button type="button" onclick="toggleWorkerApiKeyVisibility()" class="absolute right-3 top-2.5 text-gray-400 hover:text-white text-xs">
+                        <i class="fa-solid fa-eye" id="workerApiKeyEyeIcon"></i>
+                    </button>
+                </div>
+                <p class="text-[10px] text-emerald-400 flex items-center gap-1 mt-1">
+                    <i class="fa-solid fa-shield-halved"></i> Зберігається тільки у вашому браузері (localStorage).
+                </p>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-bordercolor">
+                <button onclick="clearWorkerApiKey()" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-red-400 text-xs font-medium transition-colors">
+                    Видалити / Скинути
+                </button>
+                <button onclick="saveWorkerApiKey()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all">
+                    Зберегти ключ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Toast -->
+    <div id="workerToast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 border border-blue-500 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="workerToastMsg">Повідомлення</span>
+    </div>
+
 </body>
 </html>
 """
