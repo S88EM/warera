@@ -591,10 +591,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <!-- Category Filter Pills -->
                 <div class="flex items-center gap-1.5 flex-wrap text-xs">
                     <button onclick="setWorkerFilter('ALL')" id="wfilterALL" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition-colors">Всі (<span id="wcntAll">0</span>)</button>
-                    <button onclick="setWorkerFilter('KEEP')" id="wfilterKEEP" class="px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors">💎 Ядро (<span id="wcntKeep">0</span>)</button>
-                    <button onclick="setWorkerFilter('RELOCATE')" id="wfilterRELOCATE" class="px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors">🔄 Переведення (<span id="wcntRelocate">0</span>)</button>
-                    <button onclick="setWorkerFilter('UNDERPERFORMER')" id="wfilterUNDERPERFORMER" class="px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors">⚠️ Слабкі / Пенсія (<span id="wcntUnder">0</span>)</button>
-                    <button onclick="setWorkerFilter('TOXIC')" id="wfilterTOXIC" class="px-3 py-1.5 rounded-lg bg-gray-800 text-red-400 hover:bg-gray-700 transition-colors">🚨 Збиткові (<span id="wcntToxic">0</span>)</button>
+                    <button onclick="setWorkerFilter('KEEP')" id="wfilterKEEP" class="px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors">💎 Утримувати (<span id="wcntKeep">0</span>)</button>
+                    <button onclick="setWorkerFilter('RELOCATE')" id="wfilterRELOCATE" class="px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors">🔄 Перевести (<span id="wcntRelocate">0</span>)</button>
+                    <button onclick="setWorkerFilter('LOW_MORALE')" id="wfilterLOW_MORALE" class="px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors">⚠️ Низький настрій (<span id="wcntMorale">0</span>)</button>
+                    <button onclick="setWorkerFilter('RETIREMENT')" id="wfilterRETIREMENT" class="px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors">⏳ Скоро пенсія (<span id="wcntRetire">0</span>)</button>
+                    <button onclick="setWorkerFilter('TOXIC')" id="wfilterTOXIC" class="px-3 py-1.5 rounded-lg bg-gray-800 text-red-400 hover:bg-gray-700 transition-colors">🚨 Звільнити (<span id="wcntToxic">0</span>)</button>
                 </div>
             </div>
 
@@ -1683,11 +1684,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
 
             // Counts for category filter pills
-            document.getElementById('wcntAll').innerText = s.total_workforce;
-            document.getElementById('wcntKeep').innerText = s.keep_count;
-            document.getElementById('wcntRelocate').innerText = s.relocate_count;
-            document.getElementById('wcntUnder').innerText = s.underperformer_count;
-            document.getElementById('wcntToxic').innerText = s.toxic_count;
+            document.getElementById('wcntAll').innerText = s.total_workforce || 0;
+            document.getElementById('wcntKeep').innerText = s.keep_count || 0;
+            document.getElementById('wcntRelocate').innerText = s.relocate_count || 0;
+            if (document.getElementById('wcntMorale')) document.getElementById('wcntMorale').innerText = s.low_morale_count !== undefined ? s.low_morale_count : 0;
+            if (document.getElementById('wcntRetire')) document.getElementById('wcntRetire').innerText = s.retire_count !== undefined ? s.retire_count : 0;
+            document.getElementById('wcntToxic').innerText = s.toxic_count || 0;
 
             // Auth Alert Banner
             const auth = workerCurrentData.auth || {};
@@ -1718,16 +1720,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
         function setWorkerFilter(f) {
             workerCurrentFilter = f;
-            ['ALL', 'KEEP', 'RELOCATE', 'UNDERPERFORMER', 'TOXIC'].forEach(id => {
+            ['ALL', 'KEEP', 'RELOCATE', 'LOW_MORALE', 'RETIREMENT', 'TOXIC'].forEach(id => {
                 const el = document.getElementById(`wfilter${id}`);
                 if (!el) return;
                 if (id === f) {
                     el.className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium transition-colors shadow-lg';
                 } else {
-                    el.className = 'px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors';
+                    const colorClass = (id === 'KEEP') ? 'text-emerald-400' :
+                                       (id === 'RELOCATE') ? 'text-blue-400' :
+                                       (id === 'LOW_MORALE') ? 'text-amber-400' :
+                                       (id === 'RETIREMENT') ? 'text-purple-400' :
+                                       (id === 'TOXIC') ? 'text-red-400' : 'text-gray-300';
+                    el.className = `px-3 py-1.5 rounded-lg bg-gray-800 ${colorClass} hover:bg-gray-700 transition-colors`;
                 }
             });
             renderWorkerTable();
+            renderWorkerCompanies();
         }
 
         function sortWorkerList(field) {
@@ -1780,13 +1788,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
 
             list.forEach(emp => {
-                let statusBadge = '<span class="px-2 py-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-semibold text-[10px]"><i class="fa-solid fa-check mr-1"></i>ЯДРО</span>';
+                let statusBadge = '<span class="px-2 py-1 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 font-semibold text-[10px]"><i class="fa-solid fa-gem mr-1"></i>УТРИМУВАТИ</span>';
                 if (emp.status === 'TOXIC') {
-                    statusBadge = '<span class="px-2 py-1 rounded bg-red-900/60 text-red-300 border border-red-700/60 font-semibold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>ЗБИТКОВИЙ</span>';
+                    statusBadge = '<span class="px-2 py-1 rounded bg-rose-900/60 text-rose-300 border border-rose-700/60 font-semibold text-[10px]"><i class="fa-solid fa-ban mr-1"></i>ЗВІЛЬНИТИ</span>';
                 } else if (emp.status === 'RELOCATE') {
-                    statusBadge = '<span class="px-2 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-700/60 font-semibold text-[10px]"><i class="fa-solid fa-shuffle mr-1"></i>ПЕРЕВОД</span>';
+                    statusBadge = '<span class="px-2 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-700/60 font-semibold text-[10px]"><i class="fa-solid fa-shuffle mr-1"></i>ПЕРЕВЕСТИ</span>';
+                } else if (emp.status === 'LOW_MORALE') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-semibold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>НАСТРІЙ</span>';
+                } else if (emp.status === 'RETIREMENT') {
+                    statusBadge = '<span class="px-2 py-1 rounded bg-purple-900/60 text-purple-300 border border-purple-700/60 font-semibold text-[10px]"><i class="fa-solid fa-hourglass-half mr-1"></i>ПЕНСІЯ</span>';
                 } else if (emp.status === 'UNDERPERFORMER') {
-                    statusBadge = '<span class="px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-semibold text-[10px]"><i class="fa-solid fa-hourglass-half mr-1"></i>СЛАБКИЙ</span>';
+                    statusBadge = '<span class="px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700/60 font-semibold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>СЛАБКИЙ</span>';
                 }
 
                 const profitClass = emp.hourly_net_profit >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-bold';
@@ -1978,7 +1990,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         ? `Товар (+${(comp.goods_value_daily || 0).toFixed(2)}) повністю покриває зарплати (-${wagesDaily.toFixed(2)}). Фабрика стабільно генерує прибуток!`
                         : `Увага: зарплати робітників перевищують ринкову вартість готової продукції! Знизьте ставки або змініть товар.`;
 
-                    // Employees list cards
+                    // Employees list cards (filtered if filter active)
+                    let empList = comp.employees || [];
+                    if (workerCurrentFilter !== 'ALL') {
+                        empList = empList.filter(e => e.status === workerCurrentFilter);
+                    }
+
                     let employeesCardsHtml = '';
                     if (!comp.employees || comp.employees.length === 0) {
                         employeesCardsHtml = `
@@ -1988,21 +2005,31 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                                 <div class="text-xs text-gray-500 mt-1">Кімната відпочинку ${comp.break_room_level} ур. дозволяє найняти до ${comp.staff_cap} робітників.</div>
                             </div>
                         `;
+                    } else if (empList.length === 0) {
+                        employeesCardsHtml = `
+                            <div class="p-4 text-center text-gray-400 bg-gray-900/40 rounded-xl border border-gray-800 text-xs">
+                                Немає працівників за обраним фільтром на цій фабриці (всього працює: ${comp.employees.length}).
+                            </div>
+                        `;
                     } else {
-                        employeesCardsHtml = comp.employees.map(emp => {
+                        employeesCardsHtml = empList.map(emp => {
                             let statusBadge = '';
                             if (emp.status === 'KEEP') {
-                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/50">💎 Ядро</span>`;
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/50">💎 Утримувати</span>`;
                             } else if (emp.status === 'RELOCATE') {
-                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-950/70 text-blue-300 border border-blue-700/50">🔄 На переведення</span>`;
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-950/70 text-blue-300 border border-blue-700/50">🔄 Перевести</span>`;
+                            } else if (emp.status === 'LOW_MORALE') {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-700/50">⚠️ Низький настрій</span>`;
+                            } else if (emp.status === 'RETIREMENT') {
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-950/70 text-purple-300 border border-purple-700/50">⏳ Скоро пенсія</span>`;
                             } else if (emp.status === 'UNDERPERFORMER') {
                                 statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-700/50">⚠️ Слабкий</span>`;
                             } else {
-                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-950/70 text-rose-300 border border-rose-700/50">🚨 Збитковий</span>`;
+                                statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-950/70 text-rose-300 border border-rose-700/50">🚨 Звільнити</span>`;
                             }
 
                             const pensionBadge = emp.retire_in_days <= 30 
-                                ? `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950/40 text-rose-300 border border-rose-700/40"><i class="fa-solid fa-hourglass-half mr-1"></i>Пенсія: ${emp.retire_in_days} дн.</span>` 
+                                ? `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-950/40 text-purple-300 border border-purple-700/40" title="Робітника на пенсії можна утримувати й надалі, якщо він приносить прибуток"><i class="fa-solid fa-hourglass-half mr-1"></i>Пенсія: ${emp.retire_in_days} дн. (можна утримувати)</span>` 
                                 : '';
 
                             const traitChips = (emp.traits || []).map(t => {
@@ -2390,7 +2417,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             let text = `🏰 *WarEra Workforce Intel Report* — ${u.username} (Lv.${u.level})\n`;
             text += `🏭 Фабрик: ${s.total_companies} | 👥 Персонал: ${s.total_workforce}\n`;
             text += `💰 Чистий прибуток: ${s.total_hourly_profit >= 0 ? '+' : ''}${s.total_hourly_profit.toFixed(4)}/год (${s.total_daily_profit >= 0 ? '+' : ''}${s.total_daily_profit.toFixed(2)} Coins/добу)\n`;
-            text += `📊 Статуси: 💎 Ядро: ${s.keep_count} | 🔄 Переведення: ${s.relocate_count} | ⚠️ Слабкі/Пенсія: ${s.underperformer_count} | 🚨 Збиткові: ${s.toxic_count}\n\n`;
+            text += `📊 Статуси: 💎 Утримувати: ${s.keep_count} | 🔄 Перевести: ${s.relocate_count} | ⚠️ Низький настрій: ${s.low_morale_count || 0} | ⏳ Скоро пенсія: ${s.retire_count || 0} | 🚨 Звільнити: ${s.toxic_count}\n\n`;
 
             const alerts = workerCurrentData.employees_flat.filter(e => e.status !== 'KEEP');
             if (alerts.length > 0) {

@@ -76,7 +76,7 @@ class EmployeeAnalysis:
     trainings_left: int = 0
     specializations: Dict[str, int] = field(default_factory=dict)
     nationality: str = ""
-    status: str = "KEEP"  # 'TOXIC', 'RELOCATE', 'UNDERPERFORMER', 'KEEP'
+    status: str = "KEEP"  # 'TOXIC', 'RELOCATE', 'LOW_MORALE', 'RETIREMENT', 'KEEP'
     recommendation: str = ""
     relocation_target: Optional[Dict[str, Any]] = None
 
@@ -660,34 +660,34 @@ class WarEraWorkerAnalyzer:
         for emp in all_employees:
             current_econ = item_econ_cache[emp.item_code]
 
-            # Scenario 1: TOXIC
+            # Scenario 1: TOXIC (Збиткові - зарплата перевищує виручку)
             if emp.hourly_net_profit <= 0:
                 emp.status = "TOXIC"
                 emp.recommendation = (
-                    f"🚨 ЗБИТКОВИЙ: Зарплата ({emp.wage:.4f}) перевищує вартість продукції ({emp.breakeven_wage:.4f}). "
-                    f"Негайно звільнити або знизити ставку нижче {emp.breakeven_wage * 0.85:.4f} Coins/год."
+                    f"🚨 ЗВІЛЬНИТИ (ЗБИТОК): Зарплата ({emp.wage:.4f}) перевищує вартість продукції ({emp.breakeven_wage:.4f}). "
+                    f"Негайно звільніть робітника або знизьте ставку нижче {emp.breakeven_wage * 0.85:.4f} Coins/год."
                 )
                 continue
 
-            # Scenario 2: UNDERPERFORMER (Retirement or Quit risk or Low production)
-            if emp.retire_in_days <= 4:
-                emp.status = "UNDERPERFORMER"
-                emp.recommendation = (
-                    f"⚠️ ПЕНСІЯ ЧЕРЕЗ {emp.retire_in_days} ДН.: Працівник скоро завершує кар'єру. "
-                    f"Підготуйте заміну на ринку праці заздалегідь, щоб уникнути простою фабрики."
-                )
-                continue
-
+            # Scenario 2: LOW_MORALE (Низький настрій - високий ризик дезертирства)
             if emp.quit_chance >= 8.0:
-                emp.status = "UNDERPERFORMER"
+                emp.status = "LOW_MORALE"
                 emp.recommendation = (
-                    f"⚠️ РИЗИК ЗВІЛЬНЕННЯ {emp.quit_chance:.1f}%: Низьке щастя (happiness). "
-                    f"Підвищіть зарплату або підготуйте кандидата на заміну."
+                    f"⚠️ НИЗЬКИЙ НАСТРІЙ (Ризик звільнення {emp.quit_chance:.1f}%): Щастя становить лише {emp.happiness}%. "
+                    f"Підвищіть зарплату або прокачайте кімнату відпочинку (Break room), щоб робітник не пішов сам."
                 )
                 continue
 
-            # Scenario 3: RELOCATE (High skill, low fidelity, higher-margin destination exists)
-            # Check other companies owned by user
+            # Scenario 3: RETIREMENT (Скоро пенсія, але можна утримувати!)
+            if emp.retire_in_days <= 4:
+                emp.status = "RETIREMENT"
+                emp.recommendation = (
+                    f"⏳ СКОРО ПЕНСІЯ (через {emp.retire_in_days} дн.): Працівник прибутковий (+{emp.daily_net_profit:.2f} Coins/добу). "
+                    f"Утримуйте його й надалі, доки він дає прибуток! Паралельно підшукуйте заміну на біржі праці."
+                )
+                continue
+
+            # Scenario 4: RELOCATE (Вигідніше працювати на іншій вашій фабриці)
             best_relocation = None
             max_profit_diff = 0.0
 
@@ -728,11 +728,11 @@ class WarEraWorkerAnalyzer:
                 )
                 continue
 
-            # Scenario 4: KEEP
+            # Scenario 5: KEEP (Утримувати - стабільний кістяк виробництва)
             emp.status = "KEEP"
             emp.recommendation = (
-                f"💎 ЕФЕКТИВНИЙ (ЯДРО): Спеціалізація {emp.spec_days} дн., чистий прибуток +{emp.daily_net_profit:.2f}/добу. "
-                f"Утримувати та підтримувати інструмент у робочому стані."
+                f"💎 УТРИМУВАТИ (ОСНОВА): Спеціалізація {emp.spec_days} дн., чистий прибуток +{emp.daily_net_profit:.2f}/добу. "
+                f"Стабільний надійний робітник. Підтримуйте інструмент у робочому стані та проводьте тренування."
             )
 
         # 8. Totals and Summary
@@ -749,7 +749,9 @@ class WarEraWorkerAnalyzer:
         total_workforce = len(all_employees)
         toxic_count = sum(1 for e in all_employees if e.status == "TOXIC")
         relocate_count = sum(1 for e in all_employees if e.status == "RELOCATE")
-        underperformer_count = sum(1 for e in all_employees if e.status == "UNDERPERFORMER")
+        low_morale_count = sum(1 for e in all_employees if e.status == "LOW_MORALE")
+        retire_count = sum(1 for e in all_employees if e.status == "RETIREMENT")
+        underperformer_count = low_morale_count + retire_count
         keep_count = sum(1 for e in all_employees if e.status == "KEEP")
 
         # Toolboxes expectation: base ~0.10/worker/day + perks + luck
@@ -831,6 +833,8 @@ class WarEraWorkerAnalyzer:
                 "trainable_count": trainable_count,
                 "toxic_count": toxic_count,
                 "relocate_count": relocate_count,
+                "low_morale_count": low_morale_count,
+                "retire_count": retire_count,
                 "underperformer_count": underperformer_count,
                 "keep_count": keep_count,
                 "lowest_tax_countries": lowest_tax_countries,
@@ -914,7 +918,7 @@ def print_cli_report(data: Dict[str, Any]):
 
     print(f"🏭 Фабрик: {s['total_companies']} | 👥 Працівників: {s['total_workforce']}")
     print(f"💰 Чистий прибуток: {s['total_hourly_profit']:+.4f} Coins/год  ==>  {s['total_daily_profit']:+.2f} Coins/ДОБУ")
-    print(f"📊 Статуси кадрів: 💎 Ядро: {s['keep_count']} | 🔄 На переведення: {s['relocate_count']} | ⚠️ Слабкі: {s['underperformer_count']} | 🚨 Збиткові: {s['toxic_count']}")
+    print(f"📊 Статуси: 💎 Утримувати: {s['keep_count']} | 🔄 Перевести: {s['relocate_count']} | ⚠️ Низький настрій: {s.get('low_morale_count', 0)} | ⏳ Скоро пенсія: {s.get('retire_count', 0)} | 🚨 Звільнити: {s['toxic_count']}")
     print("-" * 80)
 
     for c in data["companies"]:
@@ -931,14 +935,16 @@ def print_cli_report(data: Dict[str, Any]):
 
         for e in c["employees"]:
             status_symbol = {
-                "TOXIC": "🚨 ЗБИТОК",
-                "RELOCATE": "🔄 ПЕРЕВОД",
+                "TOXIC": "🚨 ЗВІЛЬНИТИ",
+                "RELOCATE": "🔄 ПЕРЕВЕСТИ",
+                "LOW_MORALE": "⚠️ НАСТРІЙ",
+                "RETIREMENT": "⏳ ПЕНСІЯ",
                 "UNDERPERFORMER": "⚠️ СЛАБКИЙ",
-                "KEEP": "💎 ОК"
+                "KEEP": "💎 УТРИМУВАТИ"
             }.get(e["status"], e["status"])
 
             print(f"   {status_symbol:<8} | {e['name'][:18]:<18} | {e['hourly_pp']:6.2f} | {e['wage']:8.4f} | {e['hourly_net_profit']:+12.4f} | {e['daily_net_profit']:+7.2f} | {e['spec_days']:3}д | {e['retire_in_days']:4}д")
-            if e["status"] in ("TOXIC", "RELOCATE", "UNDERPERFORMER"):
+            if e["status"] in ("TOXIC", "RELOCATE", "LOW_MORALE", "RETIREMENT", "UNDERPERFORMER"):
                 print(f"            ↳ 💡 {e['recommendation']}")
 
     print("\n" + "=" * 80 + "\n")
