@@ -22,7 +22,9 @@ venv/
 ENV/
 
 # Temporary databases and logs
-*.db-journal
+*.db
+api/clan_history.db
+scratch/-journal
 *.log
 
 # Compressed bundles

@@ -274,37 +274,82 @@ class WarEraClanAnalyzer:
                 build_label = f"⚖️ Гібрид ({war_ratio:.0f}/{eco_ratio:.0f}%)"
                 build_color = "sky"
 
-            # 2. Pill Status ('cocain')
+            # 2. Pill Status ('cocain') and Timers
+            buffs = m.get("buffs") or {}
+            buff_end_at = buffs.get("buffEndAt")
+            debuff_end_at = buffs.get("debuffEndAt")
+
             atk_skill = skills.get("attack", {})
             buff_pct = float(atk_skill.get("buffsPercent", 0.0))
             debuff_pct = float(atk_skill.get("debuffsPercent", 0.0))
+
+            pill_remaining_sec = 0
+            pill_remaining_hours = 0.0
+            pill_time_label = "—"
+            pill_remaining_tip = ""
 
             if build_type == "ECO":
                 pill_status = "ECO_SUPPORT"
                 pill_label = "🚜 Еко-тил"
                 pill_color = "gray"
                 pill_tip = "Економічний білд. Таблетка для боїв зазвичай не потрібна."
-            elif buff_pct >= 50.0:
+                pill_time_label = "еко-тил"
+            elif buff_pct >= 50.0 or (buffs and "cocain" in buffs.get("buffCodes", [])):
                 pill_status = "ACTIVE"
                 pill_label = "💊 П'є зараз (+60%)"
                 pill_color = "emerald"
                 pill_tip = "Таблетка активна прямо зараз! Боєць на піку бойової атаки."
-            elif debuff_pct >= 50.0:
+
+                if buff_end_at:
+                    try:
+                        end_dt = datetime.fromisoformat(buff_end_at.replace("Z", "+00:00"))
+                        pill_remaining_sec = max(0, int((end_dt - now_utc).total_seconds()))
+                        pill_remaining_hours = pill_remaining_sec / 3600.0
+                        hrs = pill_remaining_sec // 3600
+                        mins = (pill_remaining_sec % 3600) // 60
+                        pill_time_label = f"ще {hrs}г {mins:02d}хв"
+                        pill_remaining_tip = f"Таблетка діє до {end_dt.strftime('%H:%M')} (залишилось {hrs}г {mins:02d}хв)"
+                    except Exception:
+                        pill_time_label = "активна"
+                else:
+                    pill_time_label = "активна"
+            elif debuff_pct >= 50.0 or (buffs and "cocain" in buffs.get("debuffCodes", [])):
                 pill_status = "COOLDOWN"
                 pill_label = "⏳ Відкат (-60%)"
                 pill_color = "rose"
-                pill_tip = "Дія таблетки завершилась, зараз діє дебафф штрафу. Повний дамаг тимчасово заблоковано."
+                pill_tip = "Дія таблетки завершилась, діє дебафф штрафу. Урон на відкаті заблоковано."
+
+                if debuff_end_at:
+                    try:
+                        end_dt = datetime.fromisoformat(debuff_end_at.replace("Z", "+00:00"))
+                        diff_sec = max(0, int((end_dt - now_utc).total_seconds()))
+                        hrs = diff_sec // 3600
+                        mins = (diff_sec % 3600) // 60
+                        pill_time_label = f"відкат {hrs}г {mins:02d}хв"
+                        pill_remaining_tip = f"Відкат завершиться о {end_dt.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв)"
+                    except Exception:
+                        pill_time_label = "відкат"
+                else:
+                    pill_time_label = "відкат"
             else:
                 pill_status = "READY"
                 pill_label = "⚪ Готовий пити"
                 pill_color = "blue"
-                pill_tip = "Чистий боєць! Таблетку ще не пив, готовий прийняти під наказ командира."
+                pill_tip = "Чистий боєць! Таблетку ще не пив, готовий прийняти під наказ командира на повні 8 год."
+                pill_time_label = "готовий (8 год)"
+                pill_remaining_hours = 8.0
 
-            # 3. Combat Parameters with Full Epic Set Baseline
+            # 3. Combat Parameters with Full Epic Set Baseline & Full Drain of HP+Hunger
             base_atk = float(atk_skill.get("value", 100))
             health_skill = skills.get("health", {})
+            health_curr = float(health_skill.get("currentBarValue", 100))
             health_max = float(health_skill.get("total", 100))
             health_regen = float(health_skill.get("hourlyBarRegen", 10))
+
+            hunger_skill = skills.get("hunger", {})
+            hunger_curr = float(hunger_skill.get("currentBarValue", 4))
+            hunger_max = float(hunger_skill.get("total", 4))
+            hunger_regen = float(hunger_skill.get("hourlyBarRegen", 0.4))
 
             # 24h health pool = current full bar + 24 hours of natural regen
             daily_hp_pool = health_max + (24.0 * health_regen)
@@ -363,9 +408,31 @@ class WarEraClanAnalyzer:
 
             avg_dmg_per_hit = simulated_atk * crit_multiplier * mu_order_bonus
 
-            # Daily theoretical expected damage (Min: Natural regen, Max: Natural + standard food/booster)
-            theoretical_daily_dmg_min = round(hits_per_day_natural * avg_dmg_per_hit)
-            theoretical_daily_dmg_max = round(hits_per_day_with_food * avg_dmg_per_hit)
+            # Pill Combat Capacity: ALL damage is dealt ONLY under the pill!
+            # By the end of the pill, 100% of HP and Hunger are drained!
+            HP_PER_HUNGER = 35.0 # Average HP restored per hunger unit (steak 50 HP, bread 25 HP)
+
+            # 1. Full 8-Hour Pill Session (Standard clan battle deployment):
+            full_pill_duration = 8.0
+            full_pill_hp_pool = (health_max + (full_pill_duration * health_regen)) + \
+                                ((hunger_max + (full_pill_duration * hunger_regen)) * HP_PER_HUNGER)
+            full_pill_hits = round(full_pill_hp_pool / hp_cost_per_hit)
+            full_pill_dmg = round(full_pill_hits * avg_dmg_per_hit)
+
+            # 2. Current remaining damage for active pill (or ready to drink):
+            if pill_status == "ACTIVE":
+                rem_h = pill_remaining_hours
+                current_pill_hp_pool = (health_curr + (rem_h * health_regen)) + \
+                                       ((hunger_curr + (rem_h * hunger_regen)) * HP_PER_HUNGER)
+                current_pill_hits = round(current_pill_hp_pool / hp_cost_per_hit)
+                current_pill_dmg = round(current_pill_hits * avg_dmg_per_hit)
+            elif pill_status == "READY":
+                current_pill_hits = full_pill_hits
+                current_pill_dmg = full_pill_dmg
+            else:
+                # Cooldown / Eco
+                current_pill_hits = 0
+                current_pill_dmg = 0
 
             # 4. Activity & Online
             last_conn_iso = dates.get("lastConnectionAt")
@@ -411,15 +478,22 @@ class WarEraClanAnalyzer:
                 "pill_tip": pill_tip,
                 "buff_pct": buff_pct,
                 "debuff_pct": debuff_pct,
+                "pill_time_label": pill_time_label,
+                "pill_remaining_hours": round(pill_remaining_hours, 2),
+                "pill_remaining_tip": pill_remaining_tip,
+                "pill_full_dmg": full_pill_dmg,
+                "pill_full_hits": full_pill_hits,
+                "pill_current_dmg": current_pill_dmg,
+                "pill_current_hits": current_pill_hits,
                 # Gear & Combat Specs
                 "effective_armor": round(eff_armor_pct, 1),
                 "effective_dodge": round(eff_dodge_pct, 1),
                 "hp_cost_per_hit": round(hp_cost_per_hit, 2),
-                "hits_per_day_natural": round(hits_per_day_natural),
-                "hits_per_day_max": round(hits_per_day_with_food),
+                "hits_per_day_natural": full_pill_hits,
+                "hits_per_day_max": full_pill_hits,
                 "avg_dmg_per_hit": round(avg_dmg_per_hit),
-                "theoretical_daily_dmg_min": theoretical_daily_dmg_min,
-                "theoretical_daily_dmg_max": theoretical_daily_dmg_max,
+                "theoretical_daily_dmg_min": full_pill_dmg,
+                "theoretical_daily_dmg_max": full_pill_dmg,
                 # In-game stats
                 "weekly_damage": weekly_dmg,
                 "total_damage": total_dmg,
@@ -471,6 +545,9 @@ class WarEraClanAnalyzer:
         total_clan_daily_salvo_min = sum(m["theoretical_daily_dmg_min"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
         total_clan_daily_salvo_max = sum(m["theoretical_daily_dmg_max"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
 
+        clan_pill_active_salvo = sum(m["pill_current_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
+        clan_pill_full_salvo = sum(m["pill_full_dmg"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
+
         total_clan_today_damage = sum(m["today_damage"] for m in analyzed_members)
         has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
         total_clan_yesterday_damage = sum(m["yesterday_damage"] or 0 for m in analyzed_members if m["has_yesterday"]) if has_any_yesterday else None
@@ -504,6 +581,8 @@ class WarEraClanAnalyzer:
                 "afk_count": afk_count,
                 "clan_daily_salvo_min": total_clan_daily_salvo_min,
                 "clan_daily_salvo_max": total_clan_daily_salvo_max,
+                "clan_pill_active_salvo": clan_pill_active_salvo,
+                "clan_pill_full_salvo": clan_pill_full_salvo,
                 "clan_today_damage": total_clan_today_damage,
                 "clan_yesterday_damage": total_clan_yesterday_damage,
                 "game_date": game_date,
