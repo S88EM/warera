@@ -2604,16 +2604,7 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
-        # Clan & Military Unit (MU) Intelligence routes (Public, Zero-Auth)
-        if clean_path.endswith("/clan") or clean_path.endswith("/clan.html"):
-            import clan_dashboard
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
-            return
-
+        # Clan & Military Unit (MU) Intelligence API endpoint (MUST be checked before /clan HTML route!)
         if clean_path.endswith("/api/clan"):
             from clan_analyzer import WarEraClanAnalyzer
             query_params = parse_qs(parsed.query)
@@ -2628,6 +2619,16 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(data)
             except Exception as e:
                 self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # Clan Standalone HTML Dashboard (Public, Zero-Auth)
+        if (clean_path.endswith("/clan") or clean_path.endswith("/clan.html")) and not clean_path.endswith("/api/clan"):
+            import clan_dashboard
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
             return
 
         # Serve SPA HTML for root or any Ingress subpath

@@ -267,11 +267,19 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const muParam = urlParams.get('mu') || '';
-                const basePath = window.location.pathname.replace(/\/clan(\.html)?\/?$/, '');
-                const apiUrl = `${basePath}/api/clan${muParam ? `?mu=${encodeURIComponent(muParam)}` : ''}`;
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const cleanEndpoint = `api/clan${muParam ? `?mu=${encodeURIComponent(muParam)}` : ''}`;
+                const apiUrl = basePath ? `${basePath}/${cleanEndpoint}` : `./${cleanEndpoint}`;
 
                 const resp = await fetch(apiUrl);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                const contentType = resp.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const textSample = await resp.text();
+                    throw new Error(`Сервер повернув HTML замість JSON. Перевірте оновлення бекенду.`);
+                }
+
                 const data = await resp.json();
 
                 if (data.status !== 'ok') {
