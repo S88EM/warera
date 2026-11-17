@@ -1,6 +1,6 @@
 name: "WarEra Suite"
 slug: "warera_suite"
-version: "1.4.3"
+version: "1.4.4"
 description: "Автономний комплекс для WarEra: Штаб клану (Combat Intelligence), аналіз фабрик і кадрів (Workforce), сканер ринку спорядження з Web UI та Telegram сповіщеннями"
 url: "https://warera.io"
 arch:
@@ -12,12 +12,9 @@ arch:
 startup: services
 boot: auto
 init: false
+host_network: true
 ingress: true
 ingress_port: 8080
-ports:
-  8080/tcp: 8080
-ports_description:
-  8080/tcp: "Веб-інтерфейс та Штаб Клану (доступ для локальної мережі та прокиду портів)"
 panel_icon: "mdi:sword-cross"
 panel_title: "WarEra"
 options:
