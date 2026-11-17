@@ -105,9 +105,12 @@ class WarEraWorkerAnalyzer:
             "User-Agent": "WarEraWorkerSuite/1.0",
         }
         if self.api_key:
+            self.headers["x-api-key"] = self.api_key
             self.headers["X-API-Key"] = self.api_key
             self.headers["Authorization"] = f"Bearer {self.api_key}"
 
+        self.auth_failed: bool = False
+        self.auth_error_msg: str = ""
         self._client: Optional[httpx.AsyncClient] = None
         self._cached_config: Optional[Dict[str, Any]] = None
         self._cached_prices: Optional[Dict[str, float]] = None
@@ -139,8 +142,15 @@ class WarEraWorkerAnalyzer:
                 if "result" in data:
                     return data["result"].get("data")
             elif r.status_code == 401:
-                # Key issue or endpoint issue
-                pass
+                self.auth_failed = True
+                try:
+                    err_json = r.json()
+                    self.auth_error_msg = err_json.get("error", {}).get("message", "API token required (401)")
+                except Exception:
+                    self.auth_error_msg = "API token required (401)"
+                logger.warning(f"WarEra API returned 401 for {endpoint}: {self.auth_error_msg}")
+            elif r.status_code == 403:
+                logger.warning(f"WarEra API returned 403 Forbidden for {endpoint}")
         except Exception as e:
             logger.debug(f"Direct call failed for {endpoint}: {e}")
 
@@ -525,6 +535,11 @@ class WarEraWorkerAnalyzer:
                 "country": user_data.get("country", ""),
                 "production_skill": user_data.get("skills", {}).get("production", {}),
             },
+            "auth": {
+                "key_present": bool(self.api_key),
+                "auth_failed": self.auth_failed,
+                "error_message": self.auth_error_msg,
+            },
             "summary": {
                 "total_companies": len(companies_list),
                 "total_workforce": total_workforce,
@@ -571,10 +586,21 @@ class WarEraWorkerAnalyzer:
 def print_cli_report(data: Dict[str, Any]):
     u = data["user"]
     s = data["summary"]
+    auth = data.get("auth", {})
 
     print("\n" + "=" * 80)
     print(f"🏰 WARERA FACTORY & WORKFORCE INTELLIGENCE — ГРАВЕЦЬ: {u['username']} (Lv.{u['level']})")
     print("=" * 80)
+
+    if auth.get("auth_failed"):
+        print("⚠️  УВАГА: WarEra API повернув 401 Unauthorized (API token required)!")
+        print("   Токен застарів, скинутий або недійсний. Працівники фабрик не можуть бути завантажені.")
+        print("   Оновіть API-токен у налаштуваннях профілю WarEra (Settings -> API Key).")
+        print("-" * 80)
+    elif not auth.get("key_present"):
+        print("ℹ️  API-токен не вказано. Дані робітників доступні лише з особистим API-ключем.")
+        print("-" * 80)
+
     print(f"🏭 Фабрик: {s['total_companies']} | 👥 Працівників: {s['total_workforce']}")
     print(f"💰 Чистий прибуток: {s['total_hourly_profit']:+.4f} Coins/год  ==>  {s['total_daily_profit']:+.2f} Coins/ДОБУ")
     print(f"📊 Статуси кадрів: 💎 Ядро: {s['keep_count']} | 🔄 На переведення: {s['relocate_count']} | ⚠️ Слабкі: {s['underperformer_count']} | 🚨 Збиткові: {s['toxic_count']}")

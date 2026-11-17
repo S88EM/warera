@@ -517,6 +517,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </div>
             </div>
 
+            <!-- Auth Warning Alert Banner (Hidden by default, shown when token invalid or missing) -->
+            <div id="workerAuthAlertBanner" class="hidden bg-amber-950/40 border border-amber-500/50 rounded-xl p-3.5 flex items-center justify-between text-amber-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                        <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-sm text-amber-300" id="workerAuthAlertTitle">Потрібен дійсний API-ключ для доступу до робітників</div>
+                        <div class="text-xs text-amber-200/80 mt-0.5" id="workerAuthAlertMsg">WarEra API блокує доступ до ендпоінтів робітників (401 Unauthorized). Оновіть API-токен у налаштуваннях гри та введіть його.</div>
+                    </div>
+                </div>
+                <button onclick="openWorkerApiKeyModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shadow transition whitespace-nowrap ml-3">
+                    <i class="fa-solid fa-key mr-1"></i> Оновити ключ
+                </button>
+            </div>
+
             <!-- Sub-Tabs Navigation -->
             <div class="flex items-center border-b border-bordercolor gap-6 text-sm overflow-x-auto">
                 <button onclick="switchWorkerSubTab('workers')" id="wtabWorkers" class="pb-3 tab-active flex items-center gap-2 whitespace-nowrap text-blue-400">
@@ -1253,7 +1269,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             const badgeText = document.getElementById('workerApiKeyStatusText');
             const icon = document.getElementById('workerApiKeyIcon');
             if (!badgeText) return;
-            if (key) {
+
+            const auth = (workerCurrentData && workerCurrentData.auth) || {};
+            if (auth.auth_failed) {
+                badgeText.innerText = 'Ключ недійсний (401)';
+                badgeText.className = 'text-rose-400 font-semibold';
+                icon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+            } else if (key) {
                 badgeText.innerText = 'Ваш ключ (Активний)';
                 badgeText.className = 'text-emerald-400 font-semibold';
                 icon.className = 'fa-solid fa-key text-emerald-400';
@@ -1411,6 +1433,31 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             document.getElementById('wcntUnder').innerText = s.underperformer_count;
             document.getElementById('wcntToxic').innerText = s.toxic_count;
 
+            // Auth & Warning Banner state
+            const auth = workerCurrentData.auth || {};
+            const alertBanner = document.getElementById('workerAuthAlertBanner');
+            const alertTitle = document.getElementById('workerAuthAlertTitle');
+            const alertMsg = document.getElementById('workerAuthAlertMsg');
+            
+            if (alertBanner) {
+                if (auth.auth_failed) {
+                    alertBanner.className = 'bg-rose-950/60 border border-rose-500/60 rounded-xl p-3.5 flex items-center justify-between text-rose-200 shadow-lg';
+                    alertTitle.innerText = 'Помилка авторизації WarEra API (401 Unauthorized)';
+                    alertMsg.innerText = 'Сервер WarEra відхилив токен (API token required). Ваш ключ застарів або був перевипущений у грі. Скопіюйте свіжий ключ у грі (Профіль -> Settings -> API Key) та натисніть кнопку "Оновити ключ".';
+                } else if (!auth.key_present) {
+                    alertBanner.className = 'bg-amber-950/50 border border-amber-500/50 rounded-xl p-3.5 flex items-center justify-between text-amber-200';
+                    alertTitle.innerText = 'Потрібен API-ключ для доступу до робітників';
+                    alertMsg.innerText = 'WarEra API вимагає API-токен для перегляду персоналу фабрик (ендпоінти employee.*). Введіть його через кнопку "Оновити ключ".';
+                } else if (workerCurrentData.employees_flat.length === 0 && workerCurrentData.companies.length > 0) {
+                    alertBanner.className = 'bg-blue-950/50 border border-blue-500/50 rounded-xl p-3.5 flex items-center justify-between text-blue-200';
+                    alertTitle.innerText = 'Ростер робітників порожній або приватний';
+                    alertMsg.innerText = `На фабриках гравця ${u.username} наразі немає найнятих робітників або WarEra приховує ростер для інших гравців.`;
+                } else {
+                    alertBanner.classList.add('hidden');
+                }
+            }
+            updateWorkerApiKeyUI();
+
             renderWorkerTable();
             renderWorkerCompanies();
             renderWorkerRelocation();
@@ -1467,7 +1514,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             });
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">Немає працівників у цій категорії</td></tr>`;
+                const auth = workerCurrentData.auth || {};
+                let emptyMsg = 'Немає працівників у цій категорії';
+                if (auth.auth_failed) {
+                    emptyMsg = '⚠️ Не вдалося завантажити робітників через помилку авторизації API (401 Unauthorized). <button onclick="openWorkerApiKeyModal()" class="ml-1 underline font-semibold text-rose-300 hover:text-white">Оновити API-ключ</button>';
+                } else if (!auth.key_present) {
+                    emptyMsg = 'ℹ️ Для відображення робітників фабрик введіть ваш API-ключ з гри. <button onclick="openWorkerApiKeyModal()" class="ml-1 underline font-semibold text-amber-300 hover:text-white">Ввести ключ</button>';
+                } else if (workerCurrentData.employees_flat.length === 0) {
+                    emptyMsg = 'На фабриках цього гравця наразі немає найнятих працівників або ростер робітників приватний.';
+                }
+                tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-gray-400">${emptyMsg}</td></tr>`;
                 return;
             }
 
