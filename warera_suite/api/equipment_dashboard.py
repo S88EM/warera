@@ -2536,7 +2536,70 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         clean_path = parsed.path.rstrip("/")
 
-        # Status endpoint
+        # Determine client origin: Home Assistant Ingress vs External Clan / Keenetic
+        host_header = (self.headers.get("Host") or "").lower()
+        xf_host = (self.headers.get("X-Forwarded-Host") or "").lower()
+        orig_host = (self.headers.get("X-Original-Host") or "").lower()
+        xf_server = (self.headers.get("X-Forwarded-Server") or "").lower()
+        referer = (self.headers.get("Referer") or "").lower()
+
+        is_ingress = bool(
+            self.headers.get("X-Ingress-Path")
+            or "hassio_ingress" in self.path
+            or "ingress_session" in (self.headers.get("Cookie") or "")
+        )
+        is_clan_domain = any(
+            "mace" in h or "clan" in h or "keenetic.link" in h
+            for h in (host_header, xf_host, orig_host, xf_server, referer)
+        )
+
+        # 1. Clan & Military Unit (MU) Intelligence API endpoint (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/api/clan"):
+            from clan_analyzer import WarEraClanAnalyzer
+            query_params = parse_qs(parsed.query)
+            mu_id = query_params.get("mu", [None])[0] or query_params.get("nick", [None])[0]
+            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
+            analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
+                loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # 2. Clan Standalone HTML Dashboard (PUBLIC, Zero-Auth)
+        # Served on:
+        # - Any /clan or /clan.html URL
+        # - Any request to root / or /index.html coming via clan domain (mace.pijon.keenetic.link) OR outside Ingress!
+        is_root_path = clean_path in ("", "/", "/index.html")
+        should_serve_clan = (
+            clean_path.endswith("/clan")
+            or clean_path.endswith("/clan.html")
+            or (is_root_path and (is_clan_domain or not is_ingress))
+        )
+
+        if should_serve_clan and not clean_path.endswith("/api/clan"):
+            import clan_dashboard
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
+            return
+
+        # 3. PRIVACY & SECURITY SHIELD:
+        # If client connects via clan domain (mace.pijon.keenetic.link) or outside Ingress,
+        # DO NOT expose private scanner endpoints, deals, market history, or controls!
+        if is_clan_domain:
+            self.send_response(HTTPStatus.FOUND)
+            self.send_header("Location", "./")
+            self.end_headers()
+            return
+
+        # Status endpoint (Ingress only)
         if clean_path.endswith("/api/status"):
             if _app_instance:
                 status = _app_instance.get_status()
@@ -2562,13 +2625,13 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             self._send_json(status)
             return
 
-        # Deals endpoint
+        # Deals endpoint (Ingress only)
         if clean_path.endswith("/api/deals"):
             deals = _app_instance.get_deals() if _app_instance else []
             self._send_json({"status": "ok", "deals": deals, "count": len(deals)})
             return
 
-        # Market offers inspector endpoint
+        # Market offers inspector endpoint (Ingress only)
         if clean_path.endswith("/api/market"):
             query_params = parse_qs(parsed.query)
             item_code = query_params.get("item", ["boots4"])[0]
@@ -2604,37 +2667,16 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
-        # Clan & Military Unit (MU) Intelligence API endpoint (MUST be checked before /clan HTML route!)
-        if clean_path.endswith("/api/clan"):
-            from clan_analyzer import WarEraClanAnalyzer
-            query_params = parse_qs(parsed.query)
-            mu_id = query_params.get("mu", [None])[0] or query_params.get("nick", [None])[0]
-            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
-            analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
-                loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # Clan Standalone HTML Dashboard (Public, Zero-Auth)
-        host_header = (self.headers.get("Host") or "").lower()
-        is_clan_domain = host_header.startswith("mace.") or host_header.startswith("clan.")
-        
-        if (clean_path.endswith("/clan") or clean_path.endswith("/clan.html") or (is_clan_domain and clean_path in ("", "/"))) and not clean_path.endswith("/api/clan"):
-            import clan_dashboard
+        # Explicit scanner view for owner
+        if clean_path.endswith("/scanner") or clean_path.endswith("/market"):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
+            self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
             return
 
-        # Serve SPA HTML for root or any Ingress subpath
+        # Serve SPA HTML for Ingress (Owner UI: Market Scanner & Workforce)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -2642,6 +2684,29 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
 
     def do_POST(self):
+        parsed = urlparse(self.path)
+        clean_path = parsed.path.rstrip("/")
+
+        host_header = (self.headers.get("Host") or "").lower()
+        xf_host = (self.headers.get("X-Forwarded-Host") or "").lower()
+        orig_host = (self.headers.get("X-Original-Host") or "").lower()
+        xf_server = (self.headers.get("X-Forwarded-Server") or "").lower()
+        referer = (self.headers.get("Referer") or "").lower()
+
+        is_ingress = bool(
+            self.headers.get("X-Ingress-Path")
+            or "hassio_ingress" in self.path
+            or "ingress_session" in (self.headers.get("Cookie") or "")
+        )
+        is_clan_domain = any(
+            "mace" in h or "clan" in h or "keenetic.link" in h
+            for h in (host_header, xf_host, orig_host, xf_server, referer)
+        )
+
+        # Protect all POST endpoints (scan, control) from external clan domain or non-ingress clients
+        if is_clan_domain or not is_ingress:
+            self._send_json({"status": "error", "message": "Access denied"}, HTTPStatus.FORBIDDEN)
+            return
         parsed = urlparse(self.path)
         clean_path = parsed.path.rstrip("/")
 

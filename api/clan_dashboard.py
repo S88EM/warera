@@ -54,9 +54,9 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
     <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-4 py-3">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <a href="./" class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 hover:opacity-90 transition-opacity">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
                     <i class="fa-solid fa-shield-halved text-lg"></i>
-                </a>
+                </div>
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="font-extrabold text-white text-base tracking-tight" id="headerClanTitle">WarEra · Штаб Клану</span>
@@ -70,9 +70,6 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             <!-- Header Actions -->
             <div class="flex items-center gap-2 flex-wrap">
-                <a href="./" class="px-3 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-bordercolor transition-colors flex items-center gap-1.5">
-                    <i class="fa-solid fa-arrow-left text-gray-400"></i> Сканер ринку
-                </a>
                 <button onclick="copyDiscordReport()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5">
                     <i class="fa-solid fa-copy"></i> Скопіювати звіт
                 </button>
@@ -269,7 +266,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 const muParam = urlParams.get('mu') || '';
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
                 const cleanEndpoint = `api/clan${muParam ? `?mu=${encodeURIComponent(muParam)}` : ''}`;
-                const apiUrl = basePath ? `${basePath}/${cleanEndpoint}` : `./${cleanEndpoint}`;
+                const apiUrl = basePath ? `${basePath}/${cleanEndpoint}` : `/${cleanEndpoint}`;
 
                 const resp = await fetch(apiUrl);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
