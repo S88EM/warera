@@ -94,31 +94,68 @@ class CompanyAnalysis:
     employees: List[EmployeeAnalysis] = field(default_factory=list)
 
 
+FALLBACK_COMMUNITY_KEYS = [
+    "wae_0e8535186c34523a7d92eeda045bf116b77eb770fc0e9777cb6b093355880383",
+    "wae_548fbf5cf22fd5f2b4f952338c66aba2aca3fbca930004caaf6cd1ee012c9e58",
+]
+_cached_community_keys: Optional[List[str]] = None
+
+
+async def fetch_community_keys() -> List[str]:
+    """Fetch public community API keys from Arcana Era pool, with fallback."""
+    global _cached_community_keys
+    if _cached_community_keys:
+        return _cached_community_keys
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            r = await client.get("https://arcana.warera.wiki/api/keys")
+            if r.status_code == 200:
+                data = r.json()
+                keys = data.get("keys", [])
+                if keys:
+                    _cached_community_keys = keys
+                    return keys
+    except Exception as e:
+        logger.debug(f"Failed to fetch community keys from Arcana: {e}")
+    return list(FALLBACK_COMMUNITY_KEYS)
+
+
 class WarEraWorkerAnalyzer:
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
-        self.api_key = api_key or config.get_api_key()
+        self.user_api_key = (api_key or config.get_api_key()).strip()
+        self.api_key = self.user_api_key
+        self.is_community_key: bool = False
+        self.community_fallback_enabled: bool = True
+        self._community_keys: List[str] = list(FALLBACK_COMMUNITY_KEYS)
+
+        # If user didn't provide a key, use community key right away
+        if not self.api_key:
+            self.api_key = self._community_keys[0]
+            self.is_community_key = True
+
         self.base_url = (base_url or config.API_BASE_URL).rstrip("/")
         self.proxy_url = "https://gateway.warerastats.io/trpc"
         
-        self.headers = {
-            "Accept": "application/json",
-            "User-Agent": "WarEraWorkerSuite/1.0",
-        }
-        if self.api_key:
-            self.headers["x-api-key"] = self.api_key
-            self.headers["X-API-Key"] = self.api_key
-            self.headers["Authorization"] = f"Bearer {self.api_key}"
-
         self.auth_failed: bool = False
         self.auth_error_msg: str = ""
         self._client: Optional[httpx.AsyncClient] = None
         self._cached_config: Optional[Dict[str, Any]] = None
         self._cached_prices: Optional[Dict[str, float]] = None
 
+    def _get_headers(self, key_override: Optional[str] = None) -> Dict[str, str]:
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "WarEraWorkerSuite/1.0",
+        }
+        active_key = key_override or self.api_key
+        if active_key:
+            # Use ONLY lowercase 'x-api-key' to avoid duplicate header conflicts in WarEra API
+            headers["x-api-key"] = active_key
+        return headers
+
     async def get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                headers=self.headers,
                 timeout=15.0,
                 follow_redirects=True,
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=30)
@@ -132,16 +169,36 @@ class WarEraWorkerAnalyzer:
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None, use_proxy_fallback: bool = True) -> Any:
         client = await self.get_client()
         input_param = json.dumps(payload or {})
-        
-        # Try primary URL
         primary_url = f"{self.base_url}/{endpoint}"
+        headers = self._get_headers(self.api_key)
+
+        # Try with current active key
         try:
-            r = await client.get(primary_url, params={"input": input_param})
+            r = await client.get(primary_url, params={"input": input_param}, headers=headers)
             if r.status_code == 200:
                 data = r.json()
                 if "result" in data:
                     return data["result"].get("data")
             elif r.status_code == 401:
+                # If personal key returned 401, automatically fallback to community keys!
+                if self.community_fallback_enabled and not self.is_community_key:
+                    logger.info(f"User API key rejected (401) for {endpoint}. Falling back to community keys...")
+                    remote_keys = await fetch_community_keys()
+                    all_c_keys = list(dict.fromkeys(remote_keys + FALLBACK_COMMUNITY_KEYS))
+                    for c_key in all_c_keys:
+                        try:
+                            r_comm = await client.get(primary_url, params={"input": input_param}, headers=self._get_headers(c_key))
+                            if r_comm.status_code == 200:
+                                data = r_comm.json()
+                                if "result" in data:
+                                    self.api_key = c_key
+                                    self.is_community_key = True
+                                    self.auth_failed = False
+                                    logger.info(f"Successfully switched to community key for {endpoint}")
+                                    return data["result"].get("data")
+                        except Exception:
+                            pass
+                
                 self.auth_failed = True
                 try:
                     err_json = r.json()
@@ -154,11 +211,27 @@ class WarEraWorkerAnalyzer:
         except Exception as e:
             logger.debug(f"Direct call failed for {endpoint}: {e}")
 
+        # If primary failed with 401 and we haven't tried community key yet
+        if self.community_fallback_enabled and self.auth_failed and not self.is_community_key:
+            remote_keys = await fetch_community_keys()
+            for c_key in remote_keys + FALLBACK_COMMUNITY_KEYS:
+                try:
+                    r_comm = await client.get(primary_url, params={"input": input_param}, headers=self._get_headers(c_key))
+                    if r_comm.status_code == 200:
+                        data = r_comm.json()
+                        if "result" in data:
+                            self.api_key = c_key
+                            self.is_community_key = True
+                            self.auth_failed = False
+                            return data["result"].get("data")
+                except Exception:
+                    pass
+
         # Try proxy fallback if applicable
         if use_proxy_fallback:
             proxy_url = f"{self.proxy_url}/{endpoint}"
             try:
-                r2 = await client.get(proxy_url, params={"input": input_param})
+                r2 = await client.get(proxy_url, params={"input": input_param}, headers=headers)
                 if r2.status_code == 200:
                     data = r2.json()
                     if "result" in data:
@@ -537,6 +610,7 @@ class WarEraWorkerAnalyzer:
             },
             "auth": {
                 "key_present": bool(self.api_key),
+                "is_community_key": self.is_community_key,
                 "auth_failed": self.auth_failed,
                 "error_message": self.auth_error_msg,
             },
@@ -594,11 +668,14 @@ def print_cli_report(data: Dict[str, Any]):
 
     if auth.get("auth_failed"):
         print("⚠️  УВАГА: WarEra API повернув 401 Unauthorized (API token required)!")
-        print("   Токен застарів, скинутий або недійсний. Працівники фабрик не можуть бути завантажені.")
         print("   Оновіть API-токен у налаштуваннях профілю WarEra (Settings -> API Key).")
         print("-" * 80)
+    elif auth.get("is_community_key"):
+        print("🌐 РЕЖИМ СПІЛЬНОТИ: Використовується публічний ключ спільноти (Arcana Era Pool).")
+        print("   Всі фабрики та працівники доступні автоматично без власного токена!")
+        print("-" * 80)
     elif not auth.get("key_present"):
-        print("ℹ️  API-токен не вказано. Дані робітників доступні лише з особистим API-ключем.")
+        print("ℹ️  API-токен не вказано.")
         print("-" * 80)
 
     print(f"🏭 Фабрик: {s['total_companies']} | 👥 Працівників: {s['total_workforce']}")

@@ -394,14 +394,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 badgeText.innerText = 'Ключ недійсний (401)';
                 badgeText.className = 'text-rose-400 font-semibold';
                 icon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+            } else if (auth.is_community_key) {
+                badgeText.innerText = 'Ключ спільноти (Авто)';
+                badgeText.className = 'text-cyan-400 font-semibold';
+                icon.className = 'fa-solid fa-globe text-cyan-400';
             } else if (key) {
                 badgeText.innerText = 'Ваш ключ (Активний)';
                 badgeText.className = 'text-emerald-400 font-semibold';
                 icon.className = 'fa-solid fa-key text-emerald-400';
             } else {
-                badgeText.innerText = 'Власний API-ключ';
-                badgeText.className = 'text-gray-300';
-                icon.className = 'fa-solid fa-key text-yellow-400';
+                badgeText.innerText = 'Ключ спільноти (Авто)';
+                badgeText.className = 'text-cyan-400 font-semibold';
+                icon.className = 'fa-solid fa-globe text-cyan-400';
             }
         }
 
@@ -571,18 +575,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             const alertMsg = document.getElementById('workerAuthAlertMsg');
             
             if (alertBanner) {
-                if (auth.auth_failed) {
+                if (auth.auth_failed && !auth.is_community_key) {
                     alertBanner.className = 'bg-rose-950/60 border border-rose-500/60 rounded-xl p-3.5 flex items-center justify-between text-rose-200 shadow-lg';
                     alertTitle.innerText = 'Помилка авторизації WarEra API (401 Unauthorized)';
-                    alertMsg.innerText = 'Сервер WarEra відхилив токен (API token required). Ваш ключ застарів або був перевипущений у грі. Скопіюйте свіжий ключ у грі (Профіль -> Settings -> API Key) та натисніть кнопку "Оновити ключ".';
-                } else if (!auth.key_present) {
-                    alertBanner.className = 'bg-amber-950/50 border border-amber-500/50 rounded-xl p-3.5 flex items-center justify-between text-amber-200';
-                    alertTitle.innerText = 'Потрібен API-ключ для доступу до робітників';
-                    alertMsg.innerText = 'WarEra API вимагає API-токен для перегляду персоналу фабрик (ендпоінти employee.*). Введіть його через кнопку "Оновити ключ".';
+                    alertMsg.innerText = 'Сервер WarEra відхилив токен. Оновіть його в грі або видаліть для використання автоматичного ключа спільноти.';
                 } else if (currentData.employees_flat.length === 0 && currentData.companies.length > 0) {
                     alertBanner.className = 'bg-blue-950/50 border border-blue-500/50 rounded-xl p-3.5 flex items-center justify-between text-blue-200';
-                    alertTitle.innerText = 'Ростер робітників порожній або приватний';
-                    alertMsg.innerText = `На фабриках гравця ${u.username} наразі немає найнятих робітників або WarEra приховує ростер для інших гравців.`;
+                    alertTitle.innerText = 'На фабриках немає робітників';
+                    alertMsg.innerText = `На фабриках гравця ${u.username} наразі немає найнятих працівників.`;
                 } else {
                     alertBanner.classList.add('hidden');
                 }
