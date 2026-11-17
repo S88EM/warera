@@ -26,14 +26,28 @@ if sys.platform == "win32":
 
 
 def main():
-    parser = argparse.ArgumentParser(description="WarEra Market Scanner Suite")
-    parser.add_argument("--cli", action="store_true", help="Запустити тільки CLI сканер (без веб-панелі)")
-    parser.add_argument("--web", action="store_true", help="Запустити тільки автономний Web Dashboard")
-    parser.add_argument("--port", type=int, default=8080, help="Порт веб-дашборду (за замовчуванням: 8080)")
+    parser = argparse.ArgumentParser(description="WarEra Market & Workforce Suite")
+    parser.add_argument("--cli", action="store_true", help="Запустити тільки CLI сканер ринку спорядження")
+    parser.add_argument("--web", action="store_true", help="Запустити веб-дашборд сканера спорядження")
+    parser.add_argument("--workers", action="store_true", help="Запустити консольний аналізатор фабрик та працівників")
+    parser.add_argument("--workers-web", action="store_true", help="Запустити інтерактивний веб-дашборд фабрик та працівників")
+    parser.add_argument("--nick", type=str, default=None, help="Нікнейм гравця для аналізу робітників")
+    parser.add_argument("--port", type=int, default=8080, help="Порт веб-дашборду (за замовчуванням: 8080 для маркету, 8085 для робітників)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Хост веб-сервера (за замовчуванням: 0.0.0.0)")
     args = parser.parse_args()
 
     import config
+
+    if args.workers:
+        import worker_analyzer
+        asyncio.run(worker_analyzer.async_main(target_nick=args.nick))
+        return
+
+    if args.workers_web:
+        import worker_dashboard
+        target_port = args.port if args.port != 8080 else 8085
+        worker_dashboard.start_dashboard(host=args.host, port=target_port)
+        return
 
     if args.web:
         import equipment_dashboard

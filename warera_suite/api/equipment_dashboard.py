@@ -105,6 +105,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <span id="pricingModeText" class="font-mono text-[11px]">⚡ Live</span>
                 </div>
 
+                <!-- Workforce Intelligence Switcher -->
+                <a href="/workers" class="px-3 py-1.5 bg-indigo-900/50 hover:bg-indigo-800/60 border border-indigo-700/60 text-xs font-semibold rounded-lg text-indigo-300 transition flex items-center space-x-1.5" title="Аналізатор фабрик та працівників">
+                    <i class="fa-solid fa-industry text-blue-400"></i>
+                    <span class="hidden sm:inline">Фабрики & Кадри</span>
+                </a>
+
                 <!-- Immediate Scan Button -->
                 <button id="btnScanNow" onclick="triggerScan()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5" title="Сканувати ринок прямо зараз">
                     <i class="fa-solid fa-arrows-rotate" id="scanIcon"></i>
@@ -1050,6 +1056,32 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             if _app_instance:
                 offers = _app_instance.get_market_offers(item_code)
             self._send_json({"status": "ok", "item": item_code, "offers": offers})
+            return
+
+        # Workforce & Factory Intelligence routes
+        if clean_path.endswith("/workers") or clean_path.endswith("/workforce"):
+            import worker_dashboard
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(worker_dashboard.DASHBOARD_HTML.encode("utf-8"))
+            return
+
+        if clean_path.endswith("/api/analyze"):
+            from worker_analyzer import WarEraWorkerAnalyzer
+            query_params = parse_qs(parsed.query)
+            nick = query_params.get("nick", [None])[0]
+            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
+            analyzer = WarEraWorkerAnalyzer(api_key=user_key) if user_key else WarEraWorkerAnalyzer()
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                data = loop.run_until_complete(analyzer.analyze_user(nick))
+                loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         # Serve SPA HTML for root or any Ingress subpath
