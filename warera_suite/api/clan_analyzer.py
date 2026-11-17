@@ -344,12 +344,14 @@ class WarEraClanAnalyzer:
             health_skill = skills.get("health", {})
             health_curr = float(health_skill.get("currentBarValue", 100))
             health_max = float(health_skill.get("total", 100))
-            health_regen = float(health_skill.get("hourlyBarRegen", 10))
+            # 10 HP = 1 regen/hour (10% of total HP per hour)
+            health_regen = float(health_skill.get("hourlyBarRegen") or (health_max * 0.10))
 
             hunger_skill = skills.get("hunger", {})
             hunger_curr = float(hunger_skill.get("currentBarValue", 4))
             hunger_max = float(hunger_skill.get("total", 4))
-            hunger_regen = float(hunger_skill.get("hourlyBarRegen", 0.4))
+            # 10 hunger = 1 regen/hour, 7 hunger = 0.7 regen/hour (10% of total hunger per hour)
+            hunger_regen = float(hunger_skill.get("hourlyBarRegen") or (hunger_max * 0.10))
 
             # 24h health pool = current full bar + 24 hours of natural regen
             daily_hp_pool = health_max + (24.0 * health_regen)
