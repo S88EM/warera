@@ -410,29 +410,41 @@ class WarEraClanAnalyzer:
 
             # Pill Combat Capacity: ALL damage is dealt ONLY under the pill!
             # By the end of the pill, 100% of HP and Hunger are drained!
-            HP_PER_HUNGER = 35.0 # Average HP restored per hunger unit (steak 50 HP, bread 25 HP)
-
-            # 1. Full 8-Hour Pill Session (Standard clan battle deployment):
-            full_pill_duration = 8.0
-            full_pill_hp_pool = (health_max + (full_pill_duration * health_regen)) + \
-                                ((hunger_max + (full_pill_duration * hunger_regen)) * HP_PER_HUNGER)
-            full_pill_hits = round(full_pill_hp_pool / hp_cost_per_hit)
-            full_pill_dmg = round(full_pill_hits * avg_dmg_per_hit)
-
-            # 2. Current remaining damage for active pill (or ready to drink):
-            if pill_status == "ACTIVE":
-                rem_h = pill_remaining_hours
-                current_pill_hp_pool = (health_curr + (rem_h * health_regen)) + \
-                                       ((hunger_curr + (rem_h * hunger_regen)) * HP_PER_HUNGER)
-                current_pill_hits = round(current_pill_hp_pool / hp_cost_per_hit)
-                current_pill_dmg = round(current_pill_hits * avg_dmg_per_hit)
-            elif pill_status == "READY":
-                current_pill_hits = full_pill_hits
-                current_pill_dmg = full_pill_dmg
-            else:
-                # Cooldown / Eco
+            # CRITICAL RULE: ECO warriors do NOT take pills and are strictly excluded from salvo!
+            if build_type == "ECO":
+                full_pill_hits = 0
+                full_pill_dmg = 0
                 current_pill_hits = 0
                 current_pill_dmg = 0
+                theoretical_daily_dmg_min = 0
+                theoretical_daily_dmg_max = 0
+            else:
+                HP_PER_HUNGER = 35.0 # Average HP restored per hunger unit (steak 50 HP, bread 25 HP)
+
+                # 1. Full 8-Hour Pill Session (Standard clan battle deployment):
+                full_pill_duration = 8.0
+                full_pill_hp_pool = (health_max + (full_pill_duration * health_regen)) + \
+                                    ((hunger_max + (full_pill_duration * hunger_regen)) * HP_PER_HUNGER)
+                full_pill_hits = round(full_pill_hp_pool / hp_cost_per_hit)
+                full_pill_dmg = round(full_pill_hits * avg_dmg_per_hit)
+
+                # 2. Current remaining damage for active pill (or ready to drink):
+                if pill_status == "ACTIVE":
+                    rem_h = pill_remaining_hours
+                    current_pill_hp_pool = (health_curr + (rem_h * health_regen)) + \
+                                           ((hunger_curr + (rem_h * hunger_regen)) * HP_PER_HUNGER)
+                    current_pill_hits = round(current_pill_hp_pool / hp_cost_per_hit)
+                    current_pill_dmg = round(current_pill_hits * avg_dmg_per_hit)
+                elif pill_status == "READY":
+                    current_pill_hits = full_pill_hits
+                    current_pill_dmg = full_pill_dmg
+                else:
+                    # Cooldown
+                    current_pill_hits = 0
+                    current_pill_dmg = 0
+
+                theoretical_daily_dmg_min = full_pill_dmg
+                theoretical_daily_dmg_max = full_pill_dmg
 
             # 4. Activity & Online
             last_conn_iso = dates.get("lastConnectionAt")
