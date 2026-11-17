@@ -116,6 +116,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         <i class="fa-solid fa-industry text-blue-400"></i>
                         <span class="hidden sm:inline">🏭 Фабрики & Кадри</span>
                     </button>
+                    <a href="./clan" target="_blank" class="px-2.5 py-1.5 rounded-md text-indigo-300 hover:text-white hover:bg-indigo-900/50 font-medium text-xs flex items-center space-x-1.5 transition" title="Окрема публічна сторінка Штабу Клану для сокланів (без логіну)">
+                        <i class="fa-solid fa-users-viewfinder text-indigo-400"></i>
+                        <span class="hidden sm:inline">🛡️ Штаб Клану</span>
+                    </a>
                 </div>
 
                 <!-- Immediate Scan Button -->
@@ -2598,6 +2602,32 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(data)
             except Exception as e:
                 self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # Clan & Military Unit (MU) Intelligence routes (Public, Zero-Auth)
+        if clean_path.endswith("/clan") or clean_path.endswith("/clan.html"):
+            import clan_dashboard
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
+            return
+
+        if clean_path.endswith("/api/clan"):
+            from clan_analyzer import WarEraClanAnalyzer
+            query_params = parse_qs(parsed.query)
+            mu_id = query_params.get("mu", [None])[0] or query_params.get("nick", [None])[0]
+            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
+            analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
+                loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         # Serve SPA HTML for root or any Ingress subpath

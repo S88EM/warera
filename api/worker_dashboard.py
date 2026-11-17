@@ -85,6 +85,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <span>Ринок спорядження</span>
             </a>
 
+            <!-- Link to Clan Dashboard -->
+            <a href="./clan" target="_blank" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-xs text-indigo-300 font-semibold transition-colors">
+                <i class="fa-solid fa-users-viewfinder text-indigo-400"></i>
+                <span>Штаб Клану</span>
+            </a>
+
             <!-- API Key Button -->
             <button onclick="openApiKeyModal()" id="apiKeyBadge" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700 text-xs text-gray-300 transition-colors">
                 <i class="fa-solid fa-key text-yellow-400" id="apiKeyIcon"></i>
