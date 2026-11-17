@@ -464,9 +464,10 @@ class WarEraClanAnalyzer:
                 except Exception:
                     pass
 
-            # In-game weekly damages
+            # In-game weekly damages & real-time total damage counter
             weekly_dmg = int(rankings.get("weeklyUserDamages", {}).get("value", 0))
-            total_dmg = int(rankings.get("userDamages", {}).get("value", 0))
+            # stats.damagesCount updates instantly with every battle hit! rankings.userDamages lags behind by ~1 hour.
+            total_dmg = int(stats.get("damagesCount") or rankings.get("userDamages", {}).get("value", 0))
             wealth_total = float(stats.get("wealth", {}).get("total", 0.0))
 
             analyzed_members.append({
