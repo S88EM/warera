@@ -197,8 +197,8 @@ class WarEraBattleAnalyzer:
                 "Accept": "application/json",
                 "User-Agent": "WarEraBattleIntel/1.2",
             }
-            if config.API_KEY:
-                headers["Authorization"] = f"Bearer {config.API_KEY}"
+            # Pure Public Zero-Auth: All WarEra battle endpoints (getBattles, getRanking)
+            # are open and require NO API key. We strictly DO NOT send the user's private key.
             self._client = httpx.AsyncClient(
                 headers=headers,
                 timeout=15.0,
