@@ -285,7 +285,7 @@ class WarEraBattleAnalyzer:
         return fallback
 
     async def fetch_active_battles(self) -> List[Dict[str, Any]]:
-        data = await self._call_trpc("battle.getBattles", {})
+        data = await self._call_trpc("battle.getBattles", {"limit": 50})
         if isinstance(data, dict):
             return data.get("items", [])
         return []
