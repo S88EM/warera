@@ -195,7 +195,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs shrink-0 w-full">
                 <button onclick="setFilter('ALL')" id="filterALL" class="tab-btn px-3 py-1.5 rounded-lg active transition-colors whitespace-nowrap shrink-0">Всі (<span id="cntAll">0</span>)</button>
                 <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚔️ Вар (<span id="cntWar">0</span>)</button>
-                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💊 П'є зараз (<span id="cntPillActive">0</span>)</button>
+                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💊 Баф (<span id="cntPillActive">0</span>)</button>
                 <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚪ Готовий (<span id="cntPillReady">0</span>)</button>
                 <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⏳ Дебаф (<span id="cntPillCooldown">0</span>)</button>
                 <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-sky-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚖️ Гібриди (<span id="cntHybrid">0</span>)</button>
@@ -828,7 +828,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
             text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
-            text += `💊 Бойова готовність: ${s.pill_active_count} під таблеткою | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
+            text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
             text += `💥 **Залп клану за таблетку (злив HP+Голоду): ~${formatMillions(s.clan_pill_full_salvo || 0)} дамагу**\n`;
             text += `🔥 **Залишок у активних бійців зараз: ~${formatMillions(s.clan_pill_active_salvo || 0)} дамагу**\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;

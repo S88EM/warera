@@ -317,9 +317,9 @@ class WarEraClanAnalyzer:
                 pill_time_label = "еко-тил"
             elif buff_pct >= 50.0 or (buffs and "cocain" in buffs.get("buffCodes", [])):
                 pill_status = "ACTIVE"
-                pill_label = "💊 П'є зараз (+60%)"
+                pill_label = "💊 Баф (+60%)"
                 pill_color = "emerald"
-                pill_tip = "Таблетка активна прямо зараз! Боєць на піку бойової атаки."
+                pill_tip = "Таблетка активна прямо зараз! Боєць під бафом (+60% атаки) на піку сили."
 
                 if buff_end_at:
                     try:
