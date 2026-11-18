@@ -221,6 +221,8 @@ class EquipmentScannerApp:
 
     async def _background_clan_snapshot(self):
         """Silently snapshot clan damage every 15 minutes and at 02:00 rollover."""
+        # Initial sleep so we do not stress the network or CPU during app boot
+        await asyncio.sleep(60)
         while self.running:
             try:
                 from clan_analyzer import WarEraClanAnalyzer

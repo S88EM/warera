@@ -11,7 +11,7 @@ from typing import Optional, Set, Dict, Any, List
 import httpx
 
 import config
-from battle_analyzer import WarEraBattleAnalyzer
+from battle_analyzer import get_shared_battle_analyzer, WarEraBattleAnalyzer
 from subscribers_db import SubscribersDB
 
 logger = logging.getLogger("WarEraBattleSniperWorker")
@@ -22,7 +22,7 @@ class BattleSniperWorker:
         self.is_running = False
         self.is_paused = False
         self.subscribers_db = SubscribersDB()
-        self.analyzer = WarEraBattleAnalyzer()
+        self.analyzer = get_shared_battle_analyzer()
         
         # Track alerted rounds so we only alert once per battle round: {f"{battle_id}_{round_id}"}
         self.alerted_rounds: Set[str] = set()

@@ -10,7 +10,7 @@ from typing import Optional, Any
 import httpx
 
 import config
-from battle_analyzer import WarEraBattleAnalyzer
+from battle_analyzer import get_shared_battle_analyzer, WarEraBattleAnalyzer
 from subscribers_db import SubscribersDB
 
 logger = logging.getLogger("WarEraSniperBot")
@@ -157,9 +157,8 @@ class SniperBotController:
 
     async def _get_battles_text(self, sniper_only: bool = False) -> str:
         try:
-            analyzer = WarEraBattleAnalyzer()
+            analyzer = get_shared_battle_analyzer()
             battles = await analyzer.get_all_battles_intel()
-            await analyzer.close()
 
             if not battles:
                 return "⚔️ <b>Немає активних битв або сервери WarEra недоступні.</b>"

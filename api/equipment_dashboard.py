@@ -11,7 +11,7 @@ import os
 import sys
 import time
 from http import HTTPStatus
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from typing import Dict, Any, Optional, List
 from urllib.parse import parse_qs, urlparse
@@ -1306,13 +1306,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         fetchStatus();
         fetchDeals();
 
-        // Periodic Refresh (every 2.5 seconds)
+        // Periodic Refresh (every 3.5 seconds, paused when tab is inactive)
         setInterval(() => {
-            if (isPolling) {
+            if (isPolling && document.visibilityState === 'visible') {
                 fetchStatus();
                 fetchDeals();
             }
-        }, 2500);
+        }, 3500);
 
         // =====================================================================
         // UNIFIED VIEW SWITCHER & WORKFORCE INTELLIGENCE (INGRESS COMPATIBLE)
@@ -2565,10 +2565,14 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
             analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
-                loop.close()
+                if _loop_instance and _loop_instance.is_running():
+                    future = asyncio.run_coroutine_threadsafe(analyzer.analyze_clan(mu_id), _loop_instance)
+                    data = future.result(timeout=10.0)
+                else:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
+                    loop.close()
                 self._send_json(data)
             except Exception as e:
                 self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -2596,21 +2600,27 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
 
         # 2b. Battle & Purple Sniper API endpoint (PUBLIC, Zero-Auth)
         if clean_path.endswith("/api/battles"):
-            from battle_analyzer import WarEraBattleAnalyzer
+            from battle_analyzer import get_shared_battle_analyzer
             query_params = parse_qs(parsed.query)
             sniper_only = query_params.get("sniper", ["false"])[0].lower() in ("1", "true", "yes")
-            analyzer = WarEraBattleAnalyzer()
+            analyzer = get_shared_battle_analyzer()
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                data = loop.run_until_complete(analyzer.get_all_battles_intel())
-                loop.run_until_complete(analyzer.close())
-                loop.close()
+                if _loop_instance and _loop_instance.is_running():
+                    future = asyncio.run_coroutine_threadsafe(analyzer.get_all_battles_intel(), _loop_instance)
+                    data = future.result(timeout=6.0)
+                else:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    data = loop.run_until_complete(analyzer.get_all_battles_intel())
+                    loop.close()
                 if sniper_only:
                     data = [b for b in data if b.get("timing", {}).get("isSniperWindow")]
                 self._send_json(data)
             except Exception as e:
-                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                cached = getattr(analyzer, "_cached_intel", None) or []
+                if sniper_only:
+                    cached = [b for b in cached if b.get("timing", {}).get("isSniperWindow")]
+                self._send_json(cached)
             return
 
         # 2c. Battle & Purple Sniper Standalone HTML Dashboard (PUBLIC, Zero-Auth)
@@ -2808,7 +2818,7 @@ def start_dashboard(host: str = "0.0.0.0", port: int = 8080, app_instance: Optio
 
     def _serve():
         try:
-            server = HTTPServer((host, port), EquipmentDashboardHandler)
+            server = ThreadingHTTPServer((host, port), EquipmentDashboardHandler)
             print(f"\n[🚀 Web Dashboard] Активний за адресою: http://{host}:{port} (Ingress port {port})")
             server.serve_forever()
         except Exception as e:
@@ -2821,7 +2831,7 @@ def start_dashboard(host: str = "0.0.0.0", port: int = 8080, app_instance: Optio
 
 if __name__ == "__main__":
     print(f"Starting standalone WarEra Equipment Dashboard on port {config.WEB_DASHBOARD_PORT}...")
-    server = HTTPServer((config.WEB_DASHBOARD_HOST, config.WEB_DASHBOARD_PORT), EquipmentDashboardHandler)
+    server = ThreadingHTTPServer((config.WEB_DASHBOARD_HOST, config.WEB_DASHBOARD_PORT), EquipmentDashboardHandler)
     try:
         print(f"Open: http://localhost:{config.WEB_DASHBOARD_PORT}")
         server.serve_forever()

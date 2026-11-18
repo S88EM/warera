@@ -176,8 +176,13 @@ class WarEraBattleAnalyzer:
     def __init__(self, base_url: Optional[str] = None):
         self.api_hosts = [
             "https://api2.warera.io/trpc",
+            "https://api3.warera.io/trpc",
+            "https://api4.warera.io/trpc",
+            "https://api5.warera.io/trpc",
             "https://api6.warera.io/trpc",
         ]
+        self._rate_limited_until: float = 0.0
+        self._ranks_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._current_host_idx = 0
         self._client: Optional[httpx.AsyncClient] = None
         self._semaphore = asyncio.Semaphore(4)
@@ -211,11 +216,17 @@ class WarEraBattleAnalyzer:
             await self._client.aclose()
 
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None) -> Any:
+        now = time.time()
+        if now < self._rate_limited_until:
+            return None
+
         client = await self.get_client()
         input_param = "{}" if payload is None else json.dumps(payload, separators=(',', ':'))
 
         async with self._semaphore:
-            for attempt in range(4):
+            # Pacing delay between requests to stay well below the 100 req/min limit
+            await asyncio.sleep(0.06)
+            for attempt in range(2):
                 host = self.api_hosts[self._current_host_idx]
                 url = f"{host}/{endpoint}"
                 try:
@@ -224,15 +235,15 @@ class WarEraBattleAnalyzer:
                         data = r.json()
                         return data.get("result", {}).get("data")
                     elif r.status_code == 429:
+                        # Instant backoff: do not execute blocking sleeps in loop!
+                        self._rate_limited_until = time.time() + 25.0
                         self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                        wait_sec = 0.4 * (attempt + 1)
-                        logger.warning(f"429 rate limit on {host}/{endpoint}, rotating host and waiting {wait_sec}s...")
-                        await asyncio.sleep(wait_sec)
+                        logger.warning(f"Rate limit on {host}/{endpoint}. Backing off for 25s...")
+                        return None
                     else:
-                        logger.debug(f"HTTP {r.status_code} for {endpoint} on {host}")
+                        self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
                 except Exception:
                     self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                    await asyncio.sleep(0.3)
 
         return None
 
@@ -280,6 +291,14 @@ class WarEraBattleAnalyzer:
         return []
 
     async def fetch_ranking(self, target_id: str, is_round: bool = True, limit: int = 50) -> List[Dict[str, Any]]:
+        if not target_id:
+            return []
+        now = time.time()
+        if target_id in self._ranks_cache:
+            c_time, c_items = self._ranks_cache[target_id]
+            if (now - c_time) < 45.0:
+                return c_items
+
         payload = {
             "dataType": "damage",
             "type": "user",
@@ -293,7 +312,11 @@ class WarEraBattleAnalyzer:
 
         data = await self._call_trpc("battleRanking.getRanking", payload)
         if isinstance(data, dict):
-            return data.get("items", [])
+            items = data.get("items", [])
+            self._ranks_cache[target_id] = (now, items)
+            return items
+        if target_id in self._ranks_cache:
+            return self._ranks_cache[target_id][1]
         return []
 
     def _analyze_ranking_cutoff(self, ranks: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -392,178 +415,175 @@ class WarEraBattleAnalyzer:
 
     async def get_all_battles_intel(self, user_id_filter: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
-        Master method: scans all active battles, computes timing & ETA,
-        and produces complete combat intelligence report.
+        Master method: scans all active battles, computes timing and ETA,
+        and produces complete combat intelligence report using high-speed parallel fetching.
         """
         now = time.time()
-        if not force_refresh and self._cached_intel and (now - self._cached_intel_time) < 8.0:
+        if not force_refresh and self._cached_intel and (now - self._cached_intel_time) < 25.0:
             return self._cached_intel
 
         await self.load_metadata()
         raw_battles = await self.fetch_active_battles()
 
-        analyzed_battles = []
-        for b in raw_battles:
-            b_id = b.get('_id')
-            b_type = b.get('type') # war / resistance
-            current_round = b.get('currentRound', {})
-            if not isinstance(current_round, dict):
-                current_round = {}
-            round_id = current_round.get('_id')
-            round_num = current_round.get('number', 1)
+        sem = asyncio.Semaphore(6)
 
-            # Countries & Region
-            att_c_id = b.get('attacker', {}).get('country')
-            def_c_id = b.get('defender', {}).get('country')
-            reg_id = b.get('defender', {}).get('region')
+        async def _analyze_battle(b: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            async with sem:
+                b_id = b.get('_id')
+                b_type = b.get('type')
+                current_round = b.get('currentRound', {})
+                if not isinstance(current_round, dict):
+                    current_round = {}
+                round_id = current_round.get('_id')
+                round_num = current_round.get('number', 1)
 
-            att_country = self._countries_cache.get(att_c_id, {})
-            def_country = self._countries_cache.get(def_c_id, {})
-            region = self._regions_cache.get(reg_id, {})
+                att_c_id = b.get('attacker', {}).get('country')
+                def_c_id = b.get('defender', {}).get('country')
+                reg_id = b.get('defender', {}).get('region')
 
-            # Fetch rankings
-            round_ranks = await self.fetch_ranking(round_id, is_round=True) if round_id else []
-            battle_ranks = await self.fetch_ranking(b_id, is_round=False)
+                att_country = self._countries_cache.get(att_c_id, {})
+                def_country = self._countries_cache.get(def_c_id, {})
+                region = self._regions_cache.get(reg_id, {})
 
-            # Round points & timing
-            round_att = current_round.get('attacker', {})
-            round_def = current_round.get('defender', {})
-            att_round_dmg = round_att.get('damages', 0)
-            def_round_dmg = round_def.get('damages', 0)
-            att_round_pts = round_att.get('points', 0)
-            def_round_pts = round_def.get('points', 0)
-            total_round_dmg = att_round_dmg + def_round_dmg
+                round_task = self.fetch_ranking(round_id, is_round=True) if round_id else asyncio.sleep(0)
+                battle_task = self.fetch_ranking(b_id, is_round=False)
+                ranks_res = await asyncio.gather(round_task, battle_task, return_exceptions=True)
+                round_ranks = ranks_res[0] if isinstance(ranks_res[0], list) else []
+                battle_ranks = ranks_res[1] if isinstance(ranks_res[1], list) else []
 
-            # Battle total damages
-            att_battle_dmg = b.get('attacker', {}).get('damages', 0)
-            def_battle_dmg = b.get('defender', {}).get('damages', 0)
-            total_battle_dmg = att_battle_dmg + def_battle_dmg
+                round_att = current_round.get('attacker', {})
+                round_def = current_round.get('defender', {})
+                att_round_dmg = round_att.get('damages', 0)
+                def_round_dmg = round_def.get('damages', 0)
+                att_round_pts = round_att.get('points', 0)
+                def_round_pts = round_def.get('points', 0)
+                total_round_dmg = att_round_dmg + def_round_dmg
 
-            # Win conditions
-            points_to_win = 300
-            rounds_to_win = b.get('roundsToWin', 2)
-            att_won_rounds = b.get('attacker', {}).get('wonRoundsCount', 0)
-            def_won_rounds = b.get('defender', {}).get('wonRoundsCount', 0)
+                att_battle_dmg = b.get('attacker', {}).get('damages', 0)
+                def_battle_dmg = b.get('defender', {}).get('damages', 0)
+                total_battle_dmg = att_battle_dmg + def_battle_dmg
 
-            # Ticks count & Live ETA
-            live_data = current_round.get('live', {})
-            current_tick = live_data.get('ticksCount', 0)
-            next_tick_at = live_data.get('nextTickAt')
+                points_to_win = 300
+                rounds_to_win = b.get('roundsToWin', 2)
+                att_won_rounds = b.get('attacker', {}).get('wonRoundsCount', 0)
+                def_won_rounds = b.get('defender', {}).get('wonRoundsCount', 0)
 
-            # Calculate ETA to round finish
-            round_eta = calculate_round_eta(current_tick, att_round_pts, def_round_pts, points_to_win)
+                live_data = current_round.get('live', {})
+                current_tick = live_data.get('ticksCount', 0)
+                next_tick_at = live_data.get('nextTickAt')
 
-            # Cutoffs
-            round_intel = self._analyze_ranking_cutoff(round_ranks)
-            battle_intel = self._analyze_ranking_cutoff(battle_ranks)
+                round_eta = calculate_round_eta(current_tick, att_round_pts, def_round_pts, points_to_win)
 
-            # Check user position if requested
-            user_round_pos = None
-            user_battle_pos = None
-            if user_id_filter:
-                for r in round_ranks:
-                    if r.get('user') == user_id_filter:
-                        user_round_pos = {
-                            "rank": r.get('rank'),
-                            "damage": r.get('value', 0),
-                            "loot": r.get('lootItem')
-                        }
-                        break
-                for r in battle_ranks:
-                    if r.get('user') == user_id_filter:
-                        user_battle_pos = {
-                            "rank": r.get('rank'),
-                            "damage": r.get('value', 0),
-                            "loot": r.get('lootItem')
-                        }
-                        break
+                round_intel = self._analyze_ranking_cutoff(round_ranks)
+                battle_intel = self._analyze_ranking_cutoff(battle_ranks)
 
-            # Best purple min damage
-            best_min_dmg = None
-            best_scope = None
-            if round_intel["has_purple"] and battle_intel["has_purple"]:
-                if round_intel["min_damage_for_purple"] <= battle_intel["min_damage_for_purple"]:
-                    best_min_dmg = round_intel["min_damage_for_purple"]
-                    best_scope = "round"
-                else:
-                    best_min_dmg = battle_intel["min_damage_for_purple"]
-                    best_scope = "battle"
-            elif round_intel["has_purple"]:
-                best_min_dmg = round_intel["min_damage_for_purple"]
-                best_scope = "round"
-            elif battle_intel["has_purple"]:
-                best_min_dmg = battle_intel["min_damage_for_purple"]
-                best_scope = "battle"
+                user_round_pos = None
+                user_battle_pos = None
+                if user_id_filter:
+                    for r in round_ranks:
+                        if r.get('user') == user_id_filter:
+                            user_round_pos = {
+                                'rank': r.get('rank'),
+                                'damage': r.get('value', 0),
+                                'loot': r.get('lootItem')
+                            }
+                            break
+                    for r in battle_ranks:
+                        if r.get('user') == user_id_filter:
+                            user_battle_pos = {
+                                'rank': r.get('rank'),
+                                'damage': r.get('value', 0),
+                                'loot': r.get('lootItem')
+                            }
+                            break
 
-            # Resolve usernames for last purple holders
-            if round_intel.get("last_purple_player"):
-                uid = round_intel["last_purple_player"]["user_id"]
-                round_intel["last_purple_player"]["username"] = await self.get_username(uid)
-            if battle_intel.get("last_purple_player"):
-                uid = battle_intel["last_purple_player"]["user_id"]
-                battle_intel["last_purple_player"]["username"] = await self.get_username(uid)
+                best_min_dmg = None
+                best_scope = None
+                if round_intel['has_purple'] and battle_intel['has_purple']:
+                    if round_intel['min_damage_for_purple'] <= battle_intel['min_damage_for_purple']:
+                        best_min_dmg = round_intel['min_damage_for_purple']
+                        best_scope = 'round'
+                    else:
+                        best_min_dmg = battle_intel['min_damage_for_purple']
+                        best_scope = 'battle'
+                elif round_intel['has_purple']:
+                    best_min_dmg = round_intel['min_damage_for_purple']
+                    best_scope = 'round'
+                elif battle_intel['has_purple']:
+                    best_min_dmg = battle_intel['min_damage_for_purple']
+                    best_scope = 'battle'
 
-            analyzed_battles.append({
-                "battleId": b_id,
-                "type": b_type,
-                "warId": b.get('war'),
-                "region": {
-                    "id": reg_id,
-                    "name": region.get('name', 'Unknown Region'),
-                    "code": region.get('code', '')
-                },
-                "attacker": {
-                    "id": att_c_id,
-                    "name": att_country.get('name', 'Attacker'),
-                    "code": att_country.get('code', '').lower(),
-                    "wonRounds": att_won_rounds,
-                    "roundPoints": att_round_pts,
-                    "roundDamage": att_round_dmg,
-                    "battleDamage": att_battle_dmg
-                },
-                "defender": {
-                    "id": def_c_id,
-                    "name": def_country.get('name', 'Defender'),
-                    "code": def_country.get('code', '').lower(),
-                    "wonRounds": def_won_rounds,
-                    "roundPoints": def_round_pts,
-                    "roundDamage": def_round_dmg,
-                    "battleDamage": def_battle_dmg
-                },
-                "round": {
-                    "id": round_id,
-                    "number": round_num,
-                    "totalDamage": total_round_dmg,
-                    "pointsToWin": points_to_win,
-                    "currentTick": current_tick,
-                    "nextTickAt": next_tick_at,
-                    "leadingSide": "attacker" if att_round_pts > def_round_pts else ("defender" if def_round_pts > att_round_pts else "tied"),
-                    "pointsDifference": abs(att_round_pts - def_round_pts),
-                    "maxPoints": max(att_round_pts, def_round_pts)
-                },
-                "timing": round_eta,
-                "battle": {
-                    "roundsToWin": rounds_to_win,
-                    "totalDamage": total_battle_dmg
-                },
-                "roundCutoff": round_intel,
-                "battleCutoff": battle_intel,
-                "bestPurpleMinDamage": best_min_dmg,
-                "bestPurpleScope": best_scope,
-                "userPosition": {
-                    "round": user_round_pos,
-                    "battle": user_battle_pos
-                },
-                "wareraUrl": f"https://app.warera.io/battle/{b_id}"
-            })
+                user_tasks = []
+                if round_intel.get('last_purple_player'):
+                    uid = round_intel['last_purple_player']['user_id']
+                    user_tasks.append((round_intel['last_purple_player'], self.get_username(uid)))
+                if battle_intel.get('last_purple_player'):
+                    uid = battle_intel['last_purple_player']['user_id']
+                    user_tasks.append((battle_intel['last_purple_player'], self.get_username(uid)))
+                if user_tasks:
+                    unames = await asyncio.gather(*[ut[1] for ut in user_tasks], return_exceptions=True)
+                    for (target_dict, _), uname in zip(user_tasks, unames):
+                        target_dict['username'] = uname if isinstance(uname, str) else 'Unknown'
 
-        # Sorting strategy:
-        # 1. Battles in Sniper Window (15-25 min) or ending soon (<35 min) first!
-        # 2. Then by lowest purple damage!
+                return {
+                    'battleId': b_id,
+                    'type': b_type,
+                    'region': {
+                        'id': reg_id,
+                        'name': region.get('name', 'Unknown Region')
+                    },
+                    'attacker': {
+                        'countryId': att_c_id,
+                        'name': att_country.get('name', 'Attacker'),
+                        'code': att_country.get('code', '??'),
+                        'flag': att_country.get('flag', '🏳️'),
+                        'roundPoints': att_round_pts,
+                        'roundDamage': att_round_dmg,
+                        'wonRounds': att_won_rounds
+                    },
+                    'defender': {
+                        'countryId': def_c_id,
+                        'name': def_country.get('name', 'Defender'),
+                        'code': def_country.get('code', '??'),
+                        'flag': def_country.get('flag', '🏳️'),
+                        'roundPoints': def_round_pts,
+                        'roundDamage': def_round_dmg,
+                        'wonRounds': def_won_rounds
+                    },
+                    'round': {
+                        'id': round_id,
+                        'number': round_num,
+                        'totalDamage': total_round_dmg,
+                        'pointsToWin': points_to_win,
+                        'currentTick': current_tick,
+                        'nextTickAt': next_tick_at,
+                        'leadingSide': 'attacker' if att_round_pts > def_round_pts else ('defender' if def_round_pts > att_round_pts else 'tied'),
+                        'pointsDifference': abs(att_round_pts - def_round_pts),
+                        'maxPoints': max(att_round_pts, def_round_pts)
+                    },
+                    'timing': round_eta,
+                    'battle': {
+                        'roundsToWin': rounds_to_win,
+                        'totalDamage': total_battle_dmg
+                    },
+                    'roundCutoff': round_intel,
+                    'battleCutoff': battle_intel,
+                    'bestPurpleMinDamage': best_min_dmg,
+                    'bestPurpleScope': best_scope,
+                    'userPosition': {
+                        'round': user_round_pos,
+                        'battle': user_battle_pos
+                    },
+                    'wareraUrl': f'https://app.warera.io/battle/{b_id}'
+                }
+
+        results = await asyncio.gather(*[_analyze_battle(b) for b in raw_battles], return_exceptions=True)
+        analyzed_battles = [r for r in results if isinstance(r, dict)]
+
         def sort_key(b):
-            is_sniper = 0 if b.get("timing", {}).get("isSniperWindow") else (1 if b.get("timing", {}).get("minutesLeft", 999) < 40 else 2)
-            has_purple = 0 if (b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple")) else 1
-            dmg = b.get("bestPurpleMinDamage") or 999999999999
+            is_sniper = 0 if b.get('timing', {}).get('isSniperWindow') else (1 if b.get('timing', {}).get('minutesLeft', 999) < 40 else 2)
+            has_purple = 0 if (b.get('roundCutoff', {}).get('has_purple') or b.get('battleCutoff', {}).get('has_purple')) else 1
+            dmg = b.get('bestPurpleMinDamage') or 999999999999
             return (is_sniper, has_purple, dmg)
 
         analyzed_battles.sort(key=sort_key)
@@ -571,3 +591,12 @@ class WarEraBattleAnalyzer:
         self._cached_intel = analyzed_battles
         self._cached_intel_time = time.time()
         return analyzed_battles
+
+
+_SHARED_ANALYZER: Optional['WarEraBattleAnalyzer'] = None
+
+def get_shared_battle_analyzer() -> 'WarEraBattleAnalyzer':
+    global _SHARED_ANALYZER
+    if _SHARED_ANALYZER is None:
+        _SHARED_ANALYZER = WarEraBattleAnalyzer()
+    return _SHARED_ANALYZER

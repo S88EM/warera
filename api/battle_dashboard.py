@@ -632,8 +632,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         window.addEventListener('DOMContentLoaded', () => {
             fetchData();
             autoRefreshTimer = setInterval(() => {
-                fetchData(false);
-            }, 15000);
+                if (document.visibilityState === 'visible') {
+                    fetchData(false);
+                }
+            }, 30000);
         });
     </script>
 </body>
