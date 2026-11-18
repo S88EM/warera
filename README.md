@@ -116,6 +116,9 @@ python run.py --battles-watch
 # АБО запустити інтерактивний веб-дашборд моніторингу фіолетового дропу:
 python run.py --battles-web
 # (відкрийте http://localhost:8086)
+
+# АБО запустити окремого публічного Sniper Telegram Bot для сокланівців:
+python run.py --sniper-bot
 ```
 Відкрийте веб-панель у браузері:
 * **Сканер спорядження:** `http://localhost:8080`
