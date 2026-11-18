@@ -336,9 +336,9 @@ class WarEraClanAnalyzer:
                     pill_time_label = "активна"
             elif debuff_pct >= 50.0 or (buffs and "cocain" in buffs.get("debuffCodes", [])):
                 pill_status = "COOLDOWN"
-                pill_label = "⏳ Відкат (-60%)"
+                pill_label = "⏳ Дебаф (-60%)"
                 pill_color = "rose"
-                pill_tip = "Дія таблетки завершилась, діє дебафф штрафу. Урон на відкаті заблоковано."
+                pill_tip = "Дія таблетки завершилась, діє дебаф штрафу (-60% атаки). Урон під дебафом заблоковано."
 
                 if debuff_end_at:
                     try:
@@ -347,11 +347,11 @@ class WarEraClanAnalyzer:
                         hrs = diff_sec // 3600
                         mins = (diff_sec % 3600) // 60
                         pill_time_label = f"ще {hrs}г {mins:02d}хв"
-                        pill_remaining_tip = f"Відкат завершиться о {end_dt.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв)"
+                        pill_remaining_tip = f"Дебаф завершиться о {end_dt.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв)"
                     except Exception:
-                        pill_time_label = "відкат"
+                        pill_time_label = "дебаф"
                 else:
-                    pill_time_label = "відкат"
+                    pill_time_label = "дебаф"
             else:
                 pill_status = "READY"
                 pill_label = "⚪ Готовий пити"

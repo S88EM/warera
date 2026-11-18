@@ -156,7 +156,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <i class="fa-solid fa-capsules text-purple-400"></i>
                 </div>
                 <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-purple-300" id="statPillActive">--</div>
-                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statPillSub">-- готові прийняти наказ</div>
+                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statPillSub">-- можуть пити таблетку</div>
             </div>
 
             <!-- 3. Еко-тил / Гібриди -->
@@ -197,7 +197,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚔️ Вар (<span id="cntWar">0</span>)</button>
                 <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💊 П'є зараз (<span id="cntPillActive">0</span>)</button>
                 <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚪ Готовий (<span id="cntPillReady">0</span>)</button>
-                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⏳ Відкат (<span id="cntPillCooldown">0</span>)</button>
+                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⏳ Дебаф (<span id="cntPillCooldown">0</span>)</button>
                 <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-sky-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚖️ Гібриди (<span id="cntHybrid">0</span>)</button>
                 <button onclick="setFilter('ECO')" id="filterECO" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">🚜 Еко (<span id="cntEco">0</span>)</button>
                 <button onclick="setFilter('AFK')" id="filterAFK" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💤 Інактив (<span id="cntAfk">0</span>)</button>
@@ -397,7 +397,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             document.getElementById('statWarSub').innerText = `${Math.round((s.war_count / s.total_members) * 100)}% складу клану (≥70% вар)`;
 
             document.getElementById('statPillActive').innerText = `${s.pill_active_count} бійців`;
-            document.getElementById('statPillSub').innerText = `${s.pill_ready_count} готові прийняти наказ`;
+            document.getElementById('statPillSub').innerText = `${s.pill_ready_count} можуть пити таблетку`;
 
             document.getElementById('statEcoCount').innerText = `${s.eco_count} / ${s.hybrid_count}`;
             document.getElementById('statEcoSub').innerText = `${s.eco_count} еко-акаунтів · ${s.hybrid_count} гібрид`;
@@ -572,9 +572,11 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                                 <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
                                 <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
                             </div>
-                            <div class="text-[10px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-400'} mt-0.5" title="${m.pill_status === 'ACTIVE' ? 'Потенціал урону до кінця діючої таблетки (злив HP+їжі)' : 'Потенціал урону за повну 8г таблетку (злив HP+їжі)'}">
-                                💥 ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)} <span class="font-normal text-gray-500">урону</span>
-                            </div>
+                            ${m.pill_status === 'ACTIVE' ? `
+                                <div class="text-[10px] font-bold text-purple-300 mt-0.5" title="Потенціал урону до кінця діючої таблетки (злив HP+їжі)">
+                                    💥 ~${formatMillions(m.pill_current_dmg)} <span class="font-normal text-gray-500">урону</span>
+                                </div>
+                            ` : ''}
                         `}
                     </td>
 
@@ -601,7 +603,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <div class="text-[10px] text-gray-500">еко-тил</div>
                         ` : `
                             <div class="font-black text-rose-400 text-sm">~${formatMillions(m.pill_full_dmg)}</div>
-                            <div class="text-[10px] text-gray-400">повний злив</div>
+                            <div class="text-[10px] text-gray-400">можливий урон</div>
                         `}
                     </td>
 
@@ -706,7 +708,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                         ` : (m.pill_status === 'READY' ? `
                             <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
                         ` : `
-                            <span class="text-[11px] text-rose-300/80 font-medium">⏳ Відновлення сил</span>
+                            <span class="text-[11px] text-rose-300/80 font-medium">⏳ Дебаф</span>
                         `))}
                     </div>
 
@@ -733,7 +735,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate">
                                 ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)}`}
                             </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">повний злив</div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">можливий урон</div>
                         </div>
 
                         <div class="px-1">
@@ -826,7 +828,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
             text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
-            text += `💊 Бойова готовність: ${s.pill_active_count} під таблеткою | ${s.pill_ready_count} готові пити | ${s.pill_cooldown_count} на відкаті\n`;
+            text += `💊 Бойова готовність: ${s.pill_active_count} під таблеткою | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
             text += `💥 **Залп клану за таблетку (злив HP+Голоду): ~${formatMillions(s.clan_pill_full_salvo || 0)} дамагу**\n`;
             text += `🔥 **Залишок у активних бійців зараз: ~${formatMillions(s.clan_pill_active_salvo || 0)} дамагу**\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
