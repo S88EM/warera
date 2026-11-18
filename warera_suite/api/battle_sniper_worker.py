@@ -1,0 +1,207 @@
+"""
+WarEra Battle Sniper Background Worker
+Continuously monitors active battles for the 15-20 min Sniper Window (when round drop data is accurate and settled).
+Sends push notifications to all subscribed users via Telegram Bot without colliding with market gear monitoring.
+"""
+
+import asyncio
+import logging
+import time
+from typing import Optional, Set, Dict, Any, List
+import httpx
+
+import config
+from battle_analyzer import WarEraBattleAnalyzer
+from subscribers_db import SubscribersDB
+
+logger = logging.getLogger("WarEraBattleSniperWorker")
+
+class BattleSniperWorker:
+    def __init__(self, check_interval: int = 50):
+        self.check_interval = check_interval
+        self.is_running = False
+        self.is_paused = False
+        self.subscribers_db = SubscribersDB()
+        self.analyzer = WarEraBattleAnalyzer()
+        
+        # Track alerted rounds so we only alert once per battle round: {f"{battle_id}_{round_id}"}
+        self.alerted_rounds: Set[str] = set()
+        self.cycle_count = 0
+        self.total_alerts_sent = 0
+        self.last_check_time: Optional[str] = None
+        self._http_client: Optional[httpx.AsyncClient] = None
+
+    async def get_client(self) -> httpx.AsyncClient:
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(timeout=15.0)
+        return self._http_client
+
+    async def close(self):
+        if self._http_client and not self._http_client.is_closed:
+            await self._http_client.aclose()
+        await self.analyzer.close()
+
+    def format_dmg(self, val: Optional[int]) -> str:
+        if val is None:
+            return "—"
+        return f"{val:,}".replace(",", " ")
+
+    async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str):
+        token = config.TELEGRAM_BOT_TOKEN
+        if not token:
+            return
+        client = await self.get_client()
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": False,
+            "reply_markup": {
+                "inline_keyboard": [
+                    [{"text": "⚔️ Відкрити битву на WarEra ↗", "url": battle_url}]
+                ]
+            }
+        }
+        try:
+            r = await client.post(url, json=payload)
+            if r.status_code == 200:
+                self.total_alerts_sent += 1
+            else:
+                logger.error(f"Failed to send sniper alert to {chat_id}: {r.text}")
+        except Exception as e:
+            logger.error(f"Error sending sniper alert to {chat_id}: {e}")
+
+    def build_alert_message(self, battle: Dict[str, Any]) -> str:
+        reg = battle["region"]["name"]
+        btype = "Війна" if battle["type"] == "war" else "Повстання"
+        r_num = battle["round"]["number"]
+        att = battle["attacker"]["name"]
+        dff = battle["defender"]["name"]
+        att_pts = battle["attacker"]["roundPoints"]
+        def_pts = battle["defender"]["roundPoints"]
+        
+        tm = battle.get("timing", {})
+        eta = tm.get("formattedEta", "15–20 хв")
+        mins = tm.get("minutesLeft", 18)
+        
+        rc = battle["roundCutoff"]
+        min_dmg = rc["min_damage_for_purple"]
+        cutoff_rank = rc["cutoff_rank"]
+        item_name = rc["last_purple_item"]["name"]
+        holder = rc["last_purple_player"]["username"]
+        gap = rc.get("gap_to_next", 0)
+        total_purple = rc.get("total_purple_plus_items", 1)
+
+        fire_tag = "🔥 <b>СУПЕР ЛОТ!</b> " if min_dmg < 100_000 else ""
+
+        lines = [
+            f"🎯 {fire_tag}<b>СНАЙПЕРСЬКЕ ВІКНО: {eta} до кінця!</b>",
+            f"",
+            f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
+            f"🏳️ <b>Раунд #{r_num}:</b> {att} (<b>{att_pts}</b>) vs {dff} (<b>{def_pts}</b>) / 300 очок",
+            f"⏱ <b>До нагородження:</b> <b>~{mins} хвилин</b> (дані на 95% фінальні)",
+            f"",
+            f"🎁 <b>Мінімальний поріг для фіолу:</b> <code>{self.format_dmg(min_dmg)} dmg</code>",
+            f"📦 <b>Предмет на кону:</b> <b>{item_name}</b> (Ранг #{cutoff_rank})",
+            f"👤 <b>Останній слот тримає:</b> <code>{holder}</code>",
+            f"🛡️ <b>Запас до синього дропу:</b> +{self.format_dmg(gap)} dmg",
+            f"💎 <b>Всього топових речей у пулі:</b> {total_purple} шт.",
+            f"",
+            f"💡 <i>Порада: нанесіть від <b>{self.format_dmg(min_dmg + 1)} dmg</b> прямо зараз, щоб вибити цей слот і забрати фіол!</i>"
+        ]
+        return "\n".join(lines)
+
+    async def check_battles_cycle(self):
+        """Single check cycle of all active battles."""
+        if self.is_paused:
+            return
+
+        self.last_check_time = time.strftime("%H:%M:%S")
+        self.cycle_count += 1
+
+        try:
+            battles = await self.analyzer.get_all_battles_intel(force_refresh=True)
+        except Exception as e:
+            logger.error(f"Error fetching battles intel: {e}")
+            return
+
+        # Find all battles in the sniper window (10 <= minutesLeft <= 25) with purple drops
+        sniper_candidates = []
+        active_round_keys = set()
+
+        for b in battles:
+            b_id = b.get("battleId")
+            r_id = b.get("round", {}).get("id")
+            if not b_id or not r_id:
+                continue
+
+            alert_key = f"{b_id}_{r_id}"
+            active_round_keys.add(alert_key)
+
+            tm = b.get("timing", {})
+            rc = b.get("roundCutoff", {})
+
+            # Must be in sniper window and have purple items
+            if tm.get("isSniperWindow") and rc.get("has_purple"):
+                if alert_key not in self.alerted_rounds:
+                    sniper_candidates.append((alert_key, b))
+
+        # Cleanup alerted_rounds for rounds that have finished
+        self.alerted_rounds = {k for k in self.alerted_rounds if k in active_round_keys}
+
+        if not sniper_candidates:
+            return
+
+        # Get subscribers who want battle sniper push alerts
+        target_chat_ids = self.subscribers_db.get_sniper_chat_ids()
+        if not target_chat_ids:
+            logger.info("Sniper battles detected, but no subscribers have sniper_alerts enabled.")
+            for alert_key, _ in sniper_candidates:
+                self.alerted_rounds.add(alert_key)
+            return
+
+        for alert_key, battle in sniper_candidates:
+            msg = self.build_alert_message(battle)
+            url = battle.get("wareraUrl", f"https://app.warera.io/battle/{battle.get('battleId')}")
+            logger.info(f"🚨 Firing sniper alert for {battle['region']['name']} to {len(target_chat_ids)} users!")
+
+            # Send individually to all subscribers
+            for cid in target_chat_ids:
+                try:
+                    await self.send_telegram_alert(cid, msg, url)
+                    await asyncio.sleep(0.05)  # Telegram broadcast throttling
+                except Exception as e:
+                    logger.error(f"Failed to deliver to {cid}: {e}")
+
+            self.alerted_rounds.add(alert_key)
+
+    async def start(self):
+        """Main loop of the background sniper worker."""
+        self.is_running = True
+        logger.info(f"WarEra Battle Sniper Worker started (poll interval: {self.check_interval}s).")
+        try:
+            while self.is_running:
+                try:
+                    await self.check_battles_cycle()
+                except Exception as e:
+                    logger.error(f"Unexpected error in BattleSniperWorker loop: {e}")
+                await asyncio.sleep(self.check_interval)
+        except asyncio.CancelledError:
+            logger.info("BattleSniperWorker cancelled.")
+        finally:
+            self.is_running = False
+            await self.close()
+
+    def stop(self):
+        self.is_running = False
+
+
+# Global singleton instance
+_GLOBAL_SNIPER_WORKER: Optional[BattleSniperWorker] = None
+
+def get_sniper_worker() -> BattleSniperWorker:
+    global _GLOBAL_SNIPER_WORKER
+    if _GLOBAL_SNIPER_WORKER is None:
+        _GLOBAL_SNIPER_WORKER = BattleSniperWorker()
+    return _GLOBAL_SNIPER_WORKER

@@ -26,6 +26,7 @@ ENV/
 api/clan_history.db
 scratch/-journal
 *.log
+*bot_subscribers.json
 
 # Compressed bundles
 warera.tar.gz

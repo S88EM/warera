@@ -1,0 +1,691 @@
+"""
+WarEra Battle & Purple Loot Intelligence Web Dashboard
+Standalone interactive web interface to monitor minimum damage for Purple (Epic T4+) drops.
+Highlights the 15-20 min Sniper Window when settled damage numbers and drop thresholds are accurate and reliable.
+"""
+
+import asyncio
+import json
+import logging
+import sys
+from http import HTTPStatus
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
+from urllib.parse import urlparse
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+import config
+from battle_analyzer import WarEraBattleAnalyzer
+
+logger = logging.getLogger("WarEraBattleDashboard")
+
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="uk" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarEra · Моніторинг фіолетового дропу в битвах ⚔️🟣</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0a0d14',
+                        cardbg: '#111622',
+                        hoverbg: '#1a2234',
+                        bordercolor: '#212c42',
+                        purpleglow: '#a855f7',
+                        goldglow: '#f59e0b',
+                        mythicred: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0d14; color: #f3f4f6; }
+        .glass-panel { background: rgba(17, 22, 34, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(33, 44, 66, 0.8); }
+        .item-badge-epic { background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; }
+        .item-badge-legendary { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; }
+        .item-badge-mythic { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; }
+        .item-badge-rare { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; }
+        .item-badge-uncommon { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; }
+        .item-badge-none { background: rgba(107, 114, 128, 0.15); border: 1px solid rgba(107, 114, 128, 0.4); color: #9ca3af; }
+        .pulse-subtle { animation: pulseGlow 2s infinite; }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.02); }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0d14; }
+        ::-webkit-scrollbar-thumb { background: #212c42; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-purple-600 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 shrink-0">
+                    <i class="fa-solid fa-crosshairs text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                            WarEra <span class="text-purple-400 font-extrabold">Purple Sniper</span>
+                        </h1>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+                            Combat Intel
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400 hidden sm:block">
+                        Моніторинг мінімального порогу шкоди для фіолетового дропу (T4 Epic+) &bull; Снайперське вікно 15–20 хв
+                    </p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-2.5">
+                <button id="refreshBtn" onclick="fetchData(true)" class="px-3 py-1.5 rounded-lg bg-cardbg hover:bg-hoverbg border border-bordercolor text-xs font-medium text-gray-300 hover:text-white transition flex items-center gap-1.5 shadow-sm">
+                    <i id="refreshIcon" class="fa-solid fa-arrows-rotate"></i>
+                    <span class="hidden sm:inline">Оновити</span>
+                </button>
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span class="hidden sm:inline">LIVE</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
+
+        <!-- Sniper Window Alert Banner -->
+        <div id="sniperAlertBanner" class="hidden p-4 rounded-2xl border border-emerald-500/40 bg-emerald-950/20 backdrop-blur flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-bullseye text-lg animate-pulse"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                        <span>🎯 Увага: відкрито снайперське вікно!</span>
+                        <span id="sniperAlertCount" class="px-2 py-0.2 rounded-full bg-emerald-500 text-black text-[11px] font-extrabold">0</span>
+                    </h4>
+                    <p class="text-xs text-emerald-200/80">
+                        Битви, що завершуються за 15–20 хв: дані про поріг шкоди стабільні та на 95% точні. Ідеальний момент для забирання слоту!
+                    </p>
+                </div>
+            </div>
+            <button onclick="setFilterSniperOnly()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition whitespace-nowrap shadow-sm">
+                Показати тільки їх
+            </button>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <!-- Total Battles -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Активні битви</span>
+                    <i class="fa-solid fa-swords text-blue-400"></i>
+                </div>
+                <div id="statTotalBattles" class="text-2xl sm:text-3xl font-extrabold text-white">—</div>
+                <div class="text-[11px] text-gray-400 mt-1">Всі гарячі точки світу</div>
+            </div>
+
+            <!-- Purple Battles -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider">Битви з фіолом</span>
+                    <i class="fa-solid fa-sparkles text-purple-400"></i>
+                </div>
+                <div id="statPurpleBattles" class="text-2xl sm:text-3xl font-extrabold text-purple-400">—</div>
+                <div class="text-[11px] text-gray-400 mt-1">Де вже є фіолетовий лут</div>
+            </div>
+
+            <!-- Lowest Damage to Purple -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between border-purple-500/30 relative overflow-hidden bg-gradient-to-br from-purple-900/20 to-cardbg">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider text-purple-300">🔥 Найнижчий поріг</span>
+                    <i class="fa-solid fa-fire text-amber-400"></i>
+                </div>
+                <div id="statMinPurpleDmg" class="text-2xl sm:text-3xl font-extrabold text-amber-300">—</div>
+                <div id="statMinPurpleLoc" class="text-[11px] text-purple-200/70 truncate mt-1">Шукаємо найвигіднішу...</div>
+            </div>
+
+            <!-- Sniper Window Count -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between text-gray-400 mb-2">
+                    <span class="text-xs font-medium uppercase tracking-wider text-emerald-400">🎯 У вікні 15–20 хв</span>
+                    <i class="fa-solid fa-stopwatch text-emerald-400"></i>
+                </div>
+                <div id="statSniperCount" class="text-2xl sm:text-3xl font-extrabold text-emerald-400">0</div>
+                <div class="text-[11px] text-gray-400 mt-1">Готові для точного удару</div>
+            </div>
+        </div>
+
+        <!-- Filters & Search Toolbar -->
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 flex-1 min-w-[280px]">
+                <!-- Search -->
+                <div class="relative flex-1 sm:max-w-xs">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Пошук країни чи регіону..." class="w-full bg-darkbg border border-bordercolor rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition">
+                </div>
+
+                <!-- Timing / Stage Filter -->
+                <select id="timingFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500 font-medium">
+                    <option value="all">⏳ Всі етапи раунду</option>
+                    <option value="sniper">🎯 Снайперське вікно (15–20 хв)</option>
+                    <option value="closing_soon">⚡ Закінчуються скоро (&lt; 35 хв)</option>
+                </select>
+
+                <!-- Max Damage Filter -->
+                <select id="dmgFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500">
+                    <option value="purple_only" selected>Тільки з фіолом</option>
+                    <option value="100000">🔥 До 100k (Супер легкі)</option>
+                    <option value="300000">⚡ До 300k (Доступні)</option>
+                    <option value="1000000">До 1M дамагу</option>
+                    <option value="all">Будь-який дамаг</option>
+                </select>
+
+                <!-- Battle Type Filter -->
+                <select id="typeFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500">
+                    <option value="all">Всі типи битв</option>
+                    <option value="war">🔴 Війни</option>
+                    <option value="resistance">🛡️ Повстання</option>
+                </select>
+            </div>
+
+            <!-- Status counter -->
+            <div class="flex items-center gap-2 text-xs text-gray-400">
+                <span id="filteredCount">Завантаження...</span>
+            </div>
+        </div>
+
+        <!-- Battles List -->
+        <div id="battlesContainer" class="space-y-4">
+            <!-- Loading Skeleton -->
+            <div class="glass-panel rounded-2xl p-8 text-center text-gray-400 space-y-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl text-purple-500"></i>
+                <p class="text-sm">Аналізуємо всі відкриті битви, рахуємо час до кінця раунду...</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Detailed Battle Drop Ranking -->
+    <div id="rankingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="glass-panel bg-cardbg rounded-2xl border border-bordercolor w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-bordercolor flex items-center justify-between">
+                <div>
+                    <h3 id="modalTitle" class="text-base font-bold text-white flex items-center gap-2">
+                        <span>Детальний рейтинг дропу</span>
+                    </h3>
+                    <p id="modalSubtitle" class="text-xs text-gray-400">Розподіл нагород за рангами</p>
+                </div>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-lg bg-darkbg hover:bg-hoverbg text-gray-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 space-y-2" id="modalRanksList">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-medium shadow-lg transform translate-y-20 opacity-0 transition-all duration-300">
+        Сповіщення
+    </div>
+
+    <script>
+        let allBattles = [];
+        let autoRefreshTimer = null;
+
+        function formatDmg(num) {
+            if (num === null || num === undefined) return '—';
+            return num.toLocaleString('uk-UA');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function setFilterSniperOnly() {
+            document.getElementById('timingFilter').value = 'sniper';
+            applyFilters();
+        }
+
+        async function fetchData(manual = false) {
+            const icon = document.getElementById('refreshIcon');
+            if (icon) icon.classList.add('fa-spin');
+
+            try {
+                const basePath = window.location.pathname.replace(/\/(battles(\.html)?|sniper(\.html)?|index\.html)?\/?$/, '');
+                const apiUrl = basePath ? `${basePath}/api/battles` : '/api/battles';
+                const res = await fetch(apiUrl);
+                if (!res.ok) throw new Error('Помилка сервера: ' + res.status);
+                allBattles = await res.json();
+                renderKPIs();
+                applyFilters();
+                if (manual) showToast('Дані битв успішно оновлено!');
+            } catch (err) {
+                console.error(err);
+                if (manual) showToast('Не вдалося завантажити дані: ' + err.message);
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        }
+
+        function renderKPIs() {
+            document.getElementById('statTotalBattles').textContent = allBattles.length;
+
+            const purpleBattles = allBattles.filter(b => b.roundCutoff.has_purple || b.battleCutoff.has_purple);
+            document.getElementById('statPurpleBattles').textContent = purpleBattles.length;
+
+            let lowestDmg = Infinity;
+            let lowestLoc = 'Немає активних';
+            let sniperCount = 0;
+
+            allBattles.forEach(b => {
+                if (b.timing && b.timing.isSniperWindow) {
+                    sniperCount++;
+                }
+                if (b.bestPurpleMinDamage !== null && b.bestPurpleMinDamage < lowestDmg) {
+                    lowestDmg = b.bestPurpleMinDamage;
+                    lowestLoc = `${b.region.name} (${formatDmg(lowestDmg)} dmg)`;
+                }
+            });
+
+            document.getElementById('statSniperCount').textContent = sniperCount;
+
+            const banner = document.getElementById('sniperAlertBanner');
+            if (sniperCount > 0) {
+                document.getElementById('sniperAlertCount').textContent = sniperCount;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+
+            if (lowestDmg !== Infinity) {
+                document.getElementById('statMinPurpleDmg').textContent = formatDmg(lowestDmg);
+                document.getElementById('statMinPurpleLoc').textContent = lowestLoc;
+            } else {
+                document.getElementById('statMinPurpleDmg').textContent = '—';
+                document.getElementById('statMinPurpleLoc').textContent = 'Немає фіолу';
+            }
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const dmgFilter = document.getElementById('dmgFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            const timingFilter = document.getElementById('timingFilter').value;
+
+            const filtered = allBattles.filter(b => {
+                // Search filter
+                if (search) {
+                    const matchReg = b.region.name.toLowerCase().includes(search);
+                    const matchAtt = b.attacker.name.toLowerCase().includes(search);
+                    const matchDef = b.defender.name.toLowerCase().includes(search);
+                    if (!matchReg && !matchAtt && !matchDef) return false;
+                }
+
+                // Type filter
+                if (typeFilter !== 'all' && b.type !== typeFilter) return false;
+
+                // Timing filter
+                if (timingFilter === 'sniper') {
+                    if (!b.timing || !b.timing.isSniperWindow) return false;
+                } else if (timingFilter === 'closing_soon') {
+                    if (!b.timing || b.timing.minutesLeft > 35) return false;
+                }
+
+                // Damage filter
+                if (dmgFilter === 'purple_only') {
+                    if (!b.roundCutoff.has_purple && !b.battleCutoff.has_purple) return false;
+                } else if (dmgFilter !== 'all') {
+                    const maxAllowed = parseInt(dmgFilter, 10);
+                    if (b.bestPurpleMinDamage === null || b.bestPurpleMinDamage > maxAllowed) return false;
+                }
+
+                return true;
+            });
+
+            document.getElementById('filteredCount').textContent = `Показано ${filtered.length} з ${allBattles.length} битв`;
+            renderBattlesList(filtered);
+        }
+
+        function renderBattlesList(battles) {
+            const container = document.getElementById('battlesContainer');
+            if (!battles.length) {
+                container.innerHTML = `
+                    <div class="glass-panel rounded-2xl p-8 text-center text-gray-400">
+                        <i class="fa-solid fa-ghost text-3xl mb-2 text-gray-500"></i>
+                        <p class="text-sm">Жодна битва не відповідає вибраним фільтрам.</p>
+                        <p class="text-xs text-gray-500 mt-1">Спробуйте скинути фільтр часу на «Всі етапи раунду».</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = battles.map((b, idx) => {
+                const rc = b.roundCutoff;
+                const bc = b.battleCutoff;
+                const tm = b.timing || {};
+
+                const isWar = b.type === 'war';
+                const typeBadge = isWar 
+                    ? `<span class="px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-semibold"><i class="fa-solid fa-swords mr-1"></i>Війна</span>`
+                    : `<span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><i class="fa-solid fa-shield mr-1"></i>Повстання</span>`;
+
+                // Timing Badge
+                let timeBadge = '';
+                if (tm.isSniperWindow) {
+                    timeBadge = `
+                        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold pulse-subtle">
+                            <i class="fa-solid fa-bullseye"></i>
+                            <span>Снайперське вікно: ${tm.formattedEta}</span>
+                        </div>
+                    `;
+                } else if (tm.status === 'urgent') {
+                    timeBadge = `
+                        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs font-bold">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>Фінал: ${tm.formattedEta}</span>
+                        </div>
+                    `;
+                } else if (tm.status === 'closing_soon') {
+                    timeBadge = `
+                        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/30 text-xs font-medium">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>До кінця: ${tm.formattedEta}</span>
+                        </div>
+                    `;
+                } else {
+                    timeBadge = `
+                        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-darkbg text-gray-400 border border-bordercolor text-xs font-medium" title="Дані попередні. Точний поріг стабілізується за 15-20 хв до кінця">
+                            <i class="fa-regular fa-clock text-gray-500"></i>
+                            <span>${tm.formattedEta} (попередні дані)</span>
+                        </div>
+                    `;
+                }
+
+                const attPts = b.attacker.roundPoints;
+                const defPts = b.defender.roundPoints;
+                const maxPts = b.round.pointsToWin || 300;
+                const attPercent = Math.min(100, Math.round((attPts / maxPts) * 100));
+                const defPercent = Math.min(100, Math.round((defPts / maxPts) * 100));
+
+                // Round Cutoff Block
+                let roundBlock = '';
+                if (rc.has_purple) {
+                    const isUltraCheap = rc.min_damage_for_purple < 100000;
+                    const badgeClass = isUltraCheap ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-cardbg border-bordercolor text-purple-300';
+                    const fireTag = isUltraCheap ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">🔥 ТОП ЛОТ</span>` : '';
+
+                    roundBlock = `
+                        <div class="p-3 rounded-xl border ${badgeClass} space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold flex items-center gap-1">
+                                    <i class="fa-solid fa-bullseye text-purple-400"></i> Раунд: Поріг фіолу
+                                </span>
+                                ${fireTag}
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <span class="text-xl font-black text-white">${formatDmg(rc.min_damage_for_purple)} <span class="text-xs font-normal text-gray-400">dmg</span></span>
+                                <span class="text-xs font-medium text-purple-400">Ранг #${rc.cutoff_rank}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-gray-400 pt-1 border-t border-bordercolor/50">
+                                <span class="truncate font-medium text-gray-300">🎁 ${rc.last_purple_item.name}</span>
+                                <span class="truncate text-gray-400">👤 ${rc.last_purple_player.username}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-400 pt-0.5">
+                                В пулі: <strong class="text-purple-400">${rc.total_purple_plus_items}</strong> фіол/кращих речей &bull; Запас: <span class="text-gray-300">+${formatDmg(rc.gap_to_next)}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    roundBlock = `
+                        <div class="p-3 rounded-xl border border-bordercolor/40 bg-darkbg/40 text-gray-500 flex flex-col justify-center items-center h-full min-h-[90px]">
+                            <span class="text-xs">В поточному раунді ще немає фіолу</span>
+                            <span class="text-[10px] text-gray-600">Потрібно більше загального дамагу</span>
+                        </div>
+                    `;
+                }
+
+                // Battle Cutoff Block
+                let battleBlock = '';
+                if (bc.has_purple) {
+                    battleBlock = `
+                        <div class="p-3 rounded-xl border border-bordercolor bg-cardbg space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] uppercase tracking-wider text-gray-400 font-semibold flex items-center gap-1">
+                                    <i class="fa-solid fa-trophy text-amber-400"></i> Битва: Поріг фіолу
+                                </span>
+                                <span class="text-xs font-medium text-amber-400">Ранг #${bc.cutoff_rank}</span>
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <span class="text-xl font-black text-white">${formatDmg(bc.min_damage_for_purple)} <span class="text-xs font-normal text-gray-400">dmg</span></span>
+                                <span class="text-xs text-gray-400">по всій битві</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-gray-400 pt-1 border-t border-bordercolor/50">
+                                <span class="truncate font-medium text-gray-300">🎁 ${bc.last_purple_item.name}</span>
+                                <span class="truncate text-gray-400">👤 ${bc.last_purple_player.username}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-400 pt-0.5">
+                                В пулі битви: <strong class="text-amber-400">${bc.total_purple_plus_items}</strong> топових речей
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    battleBlock = `
+                        <div class="p-3 rounded-xl border border-bordercolor/40 bg-darkbg/40 text-gray-500 flex flex-col justify-center items-center h-full min-h-[90px]">
+                            <span class="text-xs">В заліку битви ще немає фіолу</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="glass-panel rounded-2xl p-4 sm:p-5 hover:border-purple-500/40 transition duration-200">
+                        <!-- Card Header -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-bordercolor">
+                            <div class="flex items-center gap-2.5">
+                                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                    <span>${b.region.name}</span>
+                                </h3>
+                                ${typeBadge}
+                                <span class="text-xs text-gray-400 font-medium">Раунд #${b.round.number}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${timeBadge}
+                                <button onclick="openModal('${b.battleId}', 'round')" class="px-2.5 py-1 rounded-lg bg-darkbg hover:bg-hoverbg border border-bordercolor text-xs text-gray-300 hover:text-white transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-ol text-purple-400"></i> Рейтинг
+                                </button>
+                                <a href="${b.wareraUrl}" target="_blank" class="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> На WarEra
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Card Body -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-4">
+                            <!-- Left: Combatants & Progress (5 cols) -->
+                            <div class="lg:col-span-5 space-y-3">
+                                <!-- Attacker vs Defender -->
+                                <div class="flex items-center justify-between text-xs font-semibold">
+                                    <div class="flex items-center gap-1.5 text-red-400">
+                                        <i class="fa-solid fa-sword"></i>
+                                        <span>${b.attacker.name}</span>
+                                    </div>
+                                    <div class="text-gray-400 font-mono text-sm">
+                                        <span class="${attPts > defPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${attPts}</span> : <span class="${defPts > attPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${defPts}</span>
+                                        <span class="text-xs font-normal text-gray-500">/ 300</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-blue-400">
+                                        <span>${b.defender.name}</span>
+                                        <i class="fa-solid fa-shield"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Dual Progress Bar -->
+                                <div class="w-full h-2.5 bg-darkbg rounded-full overflow-hidden flex border border-bordercolor">
+                                    <div class="bg-red-500 transition-all duration-300" style="width: ${attPercent}%"></div>
+                                    <div class="flex-1 bg-transparent"></div>
+                                    <div class="bg-blue-500 transition-all duration-300" style="width: ${defPercent}%"></div>
+                                </div>
+
+                                <div class="flex items-center justify-between text-[11px] text-gray-400">
+                                    <span>У раунді: <strong class="text-gray-200">${formatDmg(b.round.totalDamage)} dmg</strong></span>
+                                    <span>Тік: <strong>#${b.round.currentTick || '—'}</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Right: Cutoff Cards (7 cols) -->
+                            <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                ${roundBlock}
+                                ${battleBlock}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openModal(battleId, scope) {
+            const b = allBattles.find(x => x.battleId === battleId);
+            if (!b) return;
+
+            const cutoffData = scope === 'round' ? b.roundCutoff : b.battleCutoff;
+            const title = scope === 'round' ? `Раунд #${b.round.number} — ${b.region.name}` : `Битва — ${b.region.name}`;
+
+            document.getElementById('modalTitle').textContent = `⚔️ ${title}`;
+            document.getElementById('modalSubtitle').textContent = `Повний розподіл дропу серед топ гравців (всього учасників з дамагом: ${cutoffData.ranks_count})`;
+
+            const list = cutoffData.full_ranks || [];
+            const listEl = document.getElementById('modalRanksList');
+
+            if (!list.length) {
+                listEl.innerHTML = `<p class="text-sm text-gray-500 text-center py-6">Дані про ранг відсутні</p>`;
+            } else {
+                listEl.innerHTML = list.map(r => {
+                    const isPurple = r.item_info.is_purple_plus;
+                    const badgeClass = isPurple ? 'item-badge-epic' : (r.item_info.tier === 3 ? 'item-badge-rare' : (r.item_info.tier === 2 ? 'item-badge-uncommon' : 'item-badge-none'));
+                    const isCutoff = r.rank === cutoffData.cutoff_rank;
+                    const borderStyle = isCutoff ? 'border-2 border-purple-500 bg-purple-950/20' : 'border border-bordercolor bg-darkbg';
+
+                    return `
+                        <div class="p-2.5 rounded-xl ${borderStyle} flex items-center justify-between gap-3 text-xs">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-6 text-center font-bold text-gray-400">#${r.rank}</span>
+                                <div>
+                                    <div class="font-semibold text-white truncate">${r.user_id ? r.user_id.slice(0, 8) + '...' : 'Unknown'}</div>
+                                    <div class="text-[11px] text-gray-400">${formatDmg(r.damage)} dmg</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${isCutoff ? '<span class="px-1.5 py-0.5 rounded bg-purple-500 text-white font-bold text-[10px]">ПОРІГ</span>' : ''}
+                                <span class="px-2 py-1 rounded-lg ${badgeClass} text-xs font-semibold whitespace-nowrap">
+                                    🎁 ${r.item_info.name}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('rankingModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('rankingModal').classList.add('hidden');
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+        document.getElementById('rankingModal').addEventListener('click', e => {
+            if (e.target === document.getElementById('rankingModal')) closeModal();
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            autoRefreshTimer = setInterval(() => {
+                fetchData(false);
+            }, 15000);
+        });
+    </script>
+</body>
+</html>
+"""
+
+
+class BattleDashboardHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == "/api/battles":
+            try:
+                analyzer = WarEraBattleAnalyzer()
+                battles = asyncio.run(analyzer.get_all_battles_intel())
+                payload = json.dumps(battles).encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(payload)
+            except Exception as e:
+                logger.error(f"Error handling /api/battles: {e}")
+                err_payload = json.dumps({"error": str(e)}).encode("utf-8")
+                self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(err_payload)
+            return
+
+        payload = DASHBOARD_HTML.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, format, *args):
+        pass
+
+
+def start_dashboard(host: str = "0.0.0.0", port: int = 8086):
+    server = HTTPServer((host, port), BattleDashboardHandler)
+    print(f"🚀 WarEra Purple Sniper Dashboard запущено на http://{host}:{port}")
+    print(f"👉 Відкрийте у браузері: http://localhost:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nДашборд зупинено.")
+
+
+if __name__ == "__main__":
+    start_dashboard()

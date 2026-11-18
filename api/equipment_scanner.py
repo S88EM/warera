@@ -358,6 +358,15 @@ class EquipmentScannerApp:
         # Start periodic clan damage tracker (snapshots every 15 min & 02:00 rollover)
         clan_task = asyncio.create_task(self._background_clan_snapshot())
 
+        # Start background battle sniper worker (polls every 50s, pushes 15-20 min purple drops)
+        sniper_task = None
+        try:
+            from battle_sniper_worker import get_sniper_worker
+            sniper_task = asyncio.create_task(get_sniper_worker().start())
+            console.print("[green]✓ Снайпер битв активовано (фоновий моніторинг фіолетового дропу за 15-20 хв до кінця раунду).[/green]\n")
+        except Exception as e:
+            console.print(f"[yellow]⚠️ Не вдалося запустити фоновий снайпер битв: {e}[/yellow]\n")
+
         # Start Telegram bot controller
         tg_task = None
         if self.tg_bot:
@@ -386,6 +395,14 @@ class EquipmentScannerApp:
         finally:
             self.running = False
             sync_task.cancel()
+            clan_task.cancel()
+            if sniper_task:
+                try:
+                    from battle_sniper_worker import get_sniper_worker
+                    get_sniper_worker().stop()
+                    sniper_task.cancel()
+                except Exception:
+                    pass
             if tg_task:
                 tg_task.cancel()
             await self.notifier.close()

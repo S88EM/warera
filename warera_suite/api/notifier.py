@@ -31,6 +31,13 @@ class Notifier:
         self._http_client: Optional[httpx.AsyncClient] = None
 
     def get_target_chat_ids(self) -> List[str]:
+        try:
+            from subscribers_db import SubscribersDB
+            s_ids = SubscribersDB().get_market_chat_ids()
+            if s_ids:
+                return s_ids
+        except Exception:
+            pass
         return self.telegram_chat_ids or []
 
     async def get_client(self) -> httpx.AsyncClient:

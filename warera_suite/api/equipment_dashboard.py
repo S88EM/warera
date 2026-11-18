@@ -120,6 +120,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         <i class="fa-solid fa-users-viewfinder text-indigo-400"></i>
                         <span class="hidden sm:inline">🛡️ Штаб Клану</span>
                     </a>
+                    <a href="./battles" target="_blank" class="px-2.5 py-1.5 rounded-md text-purple-300 hover:text-white hover:bg-purple-900/50 font-medium text-xs flex items-center space-x-1.5 transition" title="Окрема сторінка Purple Sniper (моніторинг фіолу у битвах за 15-20 хв)">
+                        <i class="fa-solid fa-crosshairs text-purple-400"></i>
+                        <span class="hidden sm:inline">🎯 Снайпер битв</span>
+                    </a>
                 </div>
 
                 <!-- Immediate Scan Button -->
@@ -2588,6 +2592,35 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
+            return
+
+        # 2b. Battle & Purple Sniper API endpoint (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/api/battles"):
+            from battle_analyzer import WarEraBattleAnalyzer
+            query_params = parse_qs(parsed.query)
+            sniper_only = query_params.get("sniper", ["false"])[0].lower() in ("1", "true", "yes")
+            analyzer = WarEraBattleAnalyzer()
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                data = loop.run_until_complete(analyzer.get_all_battles_intel())
+                loop.run_until_complete(analyzer.close())
+                loop.close()
+                if sniper_only:
+                    data = [b for b in data if b.get("timing", {}).get("isSniperWindow")]
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # 2c. Battle & Purple Sniper Standalone HTML Dashboard (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/battles") or clean_path.endswith("/battles.html") or clean_path.endswith("/sniper"):
+            import battle_dashboard
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(battle_dashboard.DASHBOARD_HTML.encode("utf-8"))
             return
 
         # 3. PRIVACY & SECURITY SHIELD:
