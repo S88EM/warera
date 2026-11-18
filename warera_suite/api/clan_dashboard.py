@@ -217,8 +217,6 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('role')">Роль <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('build')">Білд <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('defense')" title="Ефективна броня та уворот з урахуванням фіол-сету та софткапу">Захист (Фіол) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('hits')" title="Кількість ударів під дією таблетки з повним зливом 100% HP та їжі">Ударів під таблеткою <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год) з повним зливом HP та їжі">Залп за таблетку (HP+Голод) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
@@ -228,7 +226,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                     </thead>
                     <tbody id="clanTableBody" class="divide-y divide-bordercolor/60">
                         <tr>
-                            <td colspan="11" class="p-8 text-center text-gray-400">
+                            <td colspan="9" class="p-8 text-center text-gray-400">
                                 <i class="fa-solid fa-spinner fa-spin text-xl mb-2 text-blue-500"></i>
                                 <div>Завантаження бойового складу клану...</div>
                             </td>
@@ -429,7 +427,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
                 return;
             }
 
@@ -440,8 +438,6 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 else if (sortField === 'role') { vA = a.clan_role; vB = b.clan_role; }
                 else if (sortField === 'build') { vA = a.war_ratio; vB = b.war_ratio; }
                 else if (sortField === 'pill') { vA = a.pill_status; vB = b.pill_status; }
-                else if (sortField === 'defense') { vA = a.effective_armor + a.effective_dodge; vB = b.effective_armor + b.effective_dodge; }
-                else if (sortField === 'hits') { vA = a.hits_per_day_max; vB = b.hits_per_day_max; }
                 else if (sortField === 'today') { vA = a.today_damage || 0; vB = b.today_damage || 0; }
                 else if (sortField === 'yesterday') { vA = a.yesterday_damage || 0; vB = b.yesterday_damage || 0; }
                 else if (sortField === 'weekly') { vA = a.weekly_damage; vB = b.weekly_damage; }
@@ -536,27 +532,6 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                                 <div class="text-[10px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-400'} mt-0.5" title="${m.pill_status === 'ACTIVE' ? 'Потенціал урону до кінця діючої таблетки (злив HP+їжі)' : 'Потенціал урону за повну 8г таблетку (злив HP+їжі)'}">
                                     💥 ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)} <span class="font-normal text-gray-500">урону</span>
                                 </div>
-                            `}
-                        </td>
-
-                        <!-- Захист -->
-                        <td class="p-3 whitespace-nowrap">
-                            <div class="font-mono text-gray-200 text-xs">
-                                <span class="text-blue-400" title="Броня">${m.effective_armor}%</span> / <span class="text-emerald-400" title="Уворот (0 витрат HP)">${m.effective_dodge}%</span>
-                            </div>
-                            <div class="text-[10px] text-gray-400">${m.hp_cost_per_hit} HP / удар</div>
-                        </td>
-
-                        <!-- Ударів під таблеткою -->
-                        <td class="p-3 whitespace-nowrap">
-                            ${m.build_type === 'ECO' ? `
-                                <div class="text-gray-500 font-mono text-xs">—</div>
-                                <div class="text-[10px] text-gray-500">еко-тил</div>
-                            ` : `
-                                <div class="font-extrabold text-white text-xs">
-                                    ${m.pill_status === 'ACTIVE' ? `<span class="text-emerald-400">${m.pill_current_hits}</span> <span class="text-[10px] font-normal text-gray-400">/ ${m.pill_full_hits} уд.</span>` : `${m.pill_full_hits} <span class="text-[10px] font-normal text-gray-400">уд.</span>`}
-                                </div>
-                                <div class="text-[10px] text-gray-400">${m.pill_status === 'ACTIVE' ? 'залишок / повна' : 'злив HP + їжі'}</div>
                             `}
                         </td>
 
