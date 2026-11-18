@@ -23,6 +23,7 @@ class BattleSniperWorker:
         self.is_paused = False
         self.subscribers_db = SubscribersDB()
         self.analyzer = get_shared_battle_analyzer()
+        self.max_damage = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         
         # Track alerted rounds so we only alert once per battle round: {f"{battle_id}_{round_id}"}
         self.alerted_rounds: Set[str] = set()
@@ -142,10 +143,14 @@ class BattleSniperWorker:
             tm = b.get("timing", {})
             rc = b.get("roundCutoff", {})
 
-            # Must be in sniper window and have purple items
+            # Must be in sniper window, have purple items, and cutoff damage <= max_damage (75k)
             if tm.get("isSniperWindow") and rc.get("has_purple"):
-                if alert_key not in self.alerted_rounds:
-                    sniper_candidates.append((alert_key, b))
+                min_dmg = rc.get("min_damage_for_purple") or 0
+                if min_dmg <= self.max_damage:
+                    if alert_key not in self.alerted_rounds:
+                        sniper_candidates.append((alert_key, b))
+                else:
+                    logger.debug(f"Battle {b_id} skipped: damage {min_dmg} > threshold {self.max_damage}")
 
         # Cleanup alerted_rounds for rounds that have finished
         self.alerted_rounds = {k for k in self.alerted_rounds if k in active_round_keys}

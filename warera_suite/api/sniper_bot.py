@@ -47,13 +47,17 @@ class SniperBotController:
         sniper_on = user_prefs.get("sniper_alerts", True)
         subs_count = self.subscribers_db.count()
 
+        max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_max = f"{max_dmg:,}".replace(",", " ")
+
         return (
             f"🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+)</b>\n\n"
+            f"🎯 <b>Поріг снайпінгу:</b> ≤ <code>{formatted_max} dmg</code> (все що вище — відсіюється)\n"
             f"🔔 <b>Ваші сповіщення:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
-            f"📡 <b>Статус моніторингу:</b> 🟢 <b>АКТИВНИЙ (перевірка щохвилини)</b>\n"
+            f"📡 <b>Статус моніторингу:</b> 🟢 <b>АКТИВНИЙ</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
             f"⏳ <i>Сповіщення надсилаються автоматично за 15–20 хв до кінця раунду, "
-            f"коли пул дропу зафіксовано і поріг шкоди стабільний.</i>\n\n"
+            f"тільки якщо для фіолетового дропу потрібно НЕ БІЛЬШЕ {formatted_max} урону.</i>\n\n"
             f"<i>Скористайтеся кнопками нижче для швидкого пошуку:</i>"
         )
 
@@ -62,13 +66,17 @@ class SniperBotController:
         sniper_on = user_prefs.get("sniper_alerts", True)
         toggle_text = "🎯 Сповіщення: 🟢 ВКЛ" if sniper_on else "🎯 Сповіщення: 🔴 ВИКЛ"
 
+        max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_th = f"{max_dmg // 1000}k" if max_dmg < 1000000 else f"{max_dmg // 1000000}M"
+
         return {
             "inline_keyboard": [
                 [
-                    {"text": "🎯 Снайпер (15-20 хв)", "callback_data": "sniper_cmd_snipe"},
+                    {"text": f"🎯 Снайпер (≤ {formatted_th})", "callback_data": "sniper_cmd_snipe"},
                     {"text": "⚔️ Битви з фіолом", "callback_data": "sniper_cmd_battles"},
                 ],
                 [
+                    {"text": f"⚙️ Поріг: {formatted_th} dmg", "callback_data": "sniper_menu_threshold"},
                     {"text": toggle_text, "callback_data": "sniper_toggle_alerts"},
                 ],
                 [
@@ -163,26 +171,65 @@ class SniperBotController:
             if not battles:
                 return "⚔️ <b>Немає активних битв або сервери WarEra недоступні.</b>"
 
+            max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+            formatted_max = f"{max_dmg:,}".replace(",", " ")
+
             if sniper_only:
-                target_battles = [b for b in battles if b.get("timing", {}).get("isSniperWindow")]
+                target_battles = [
+                    b for b in battles
+                    if b.get("timing", {}).get("isSniperWindow")
+                    and b.get("roundCutoff", {}).get("has_purple")
+                    and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg
+                ]
                 if not target_battles:
+                    exceeded = [
+                        b for b in battles
+                        if b.get("timing", {}).get("isSniperWindow")
+                        and b.get("roundCutoff", {}).get("has_purple")
+                        and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) > max_dmg
+                    ]
                     sorted_by_time = sorted(battles, key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
                     next_battle = sorted_by_time[0] if sorted_by_time else None
                     next_eta = next_battle['timing']['formattedEta'].lstrip("~") if next_battle else "—"
                     next_name = next_battle['region']['name'] if next_battle else "—"
+
+                    exceeded_text = ""
+                    if exceeded:
+                        exceeded_list = [f"• {b['region']['name']}: <code>{b['roundCutoff']['min_damage_for_purple']:,} dmg</code> ({b['roundCutoff']['last_purple_item']['name']})".replace(",", " ") for b in exceeded[:3]]
+                        exceeded_text = f"\n🚫 <b>Відсіяно через перевищення порогу ({formatted_max} dmg):</b>\n" + "\n".join(exceeded_list) + "\n"
+
                     return (
-                        "🎯 <b>Снайперське вікно (15–20 хв до кінця):</b>\n\n"
-                        "⚠️ <i>Наразі немає битв на завершальній стадії раунду.</i>\n\n"
-                        f"⏳ Найбільш зрілий раунд зараз: <b>{next_name}</b> (~{next_eta} до кінця).\n"
-                        "💡 <i>Снайпінг проводиться за 15-20 хв до кінця, коли поріг шкоди стабільний і точний.</i>\n\n"
-                        "Щоб переглянути всі битви з попередніми оцінками, надішліть /battles"
+                        f"🎯 <b>Снайперське вікно (поріг ≤ {formatted_max} dmg):</b>\n\n"
+                        f"⚠️ <i>Наразі немає битв у 15–20 хв вікні з уроном до {formatted_max} dmg.</i>\n"
+                        f"{exceeded_text}\n"
+                        f"⏳ Найбільш зрілий раунд: <b>{next_name}</b> (~{next_eta} до кінця).\n"
+                        f"💡 <i>Всі битви, що вимагають більше {formatted_max} урону, автоматично відсіюються.</i>\n\n"
+                        f"Щоб переглянути всі активні битви, надішліть /battles"
                     )
             else:
-                target_battles = [b for b in battles if b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple")]
+                target_battles = [
+                    b for b in battles
+                    if (b.get("roundCutoff", {}).get("has_purple") and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
+                    or (b.get("battleCutoff", {}).get("has_purple") and (b.get("battleCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
+                ]
 
-            msg = "🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+):</b>\n\n" if sniper_only else "⚔️ <b>WarEra · Активні битви з фіолетовим дропом:</b>\n\n"
+            msg = f"🎯 <b>WarEra · Снайпер фіолетового дропу (≤ {formatted_max} dmg):</b>\n\n" if sniper_only else f"⚔️ <b>WarEra · Активні битви (поріг ≤ {formatted_max} dmg):</b>\n\n"
             if not target_battles:
-                msg += "<i>Наразі в жодній битві ще немає сформованого фіолетового луту (мало загального дамагу).</i>"
+                all_purple = [b for b in battles if b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple")]
+                if not all_purple:
+                    return f"<i>Наразі в жодній битві ще немає сформованого фіолетового луту (мало загального дамагу).</i>"
+
+                msg += f"⚠️ <i>Немає битв із потрібним уроном до {formatted_max} dmg.</i>\n"
+                msg += f"<i>(Всі битви з вищим уроном відсіяно згідно з вашим налаштуванням).</i>\n\n"
+                msg += f"📊 <b>Поточні битви з фіолом (перевищують {formatted_max} dmg):</b>\n"
+                for idx, b in enumerate(all_purple[:4], 1):
+                    reg = b["region"]["name"]
+                    rc = b["roundCutoff"]
+                    dmg_str = f"{rc['min_damage_for_purple']:,}".replace(",", " ") if rc.get("has_purple") else "—"
+                    item_str = rc["last_purple_item"]["name"] if rc.get("has_purple") else "—"
+                    eta_str = b.get("timing", {}).get("formattedEta", "—").lstrip("~")
+                    msg += f"<b>{idx}. {reg}</b>: <code>{dmg_str} dmg</code> ({item_str}) • ~{eta_str} до кінця\n"
+                msg += f"\n💡 <i>Змінити поріг можна командою /threshold &lt;урон&gt; або в меню бота.</i>"
                 return msg
 
             for idx, b in enumerate(target_battles[:6], 1):
@@ -272,6 +319,43 @@ class SniperBotController:
                     await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
                 return
 
+            elif data == "sniper_menu_threshold":
+                curr_th = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+                th_text = (
+                    f"⚙️ <b>Налаштування порогу снайпінгу</b>\n\n"
+                    f"Поточний поріг: <b>{curr_th:,} dmg</b>\n\n"
+                    f"Бот відсіює всі битви, де для отримання фіолетового дропу потрібно нанести більше цього значення.\n\n"
+                    f"Оберіть бажаний поріг:"
+                ).replace(",", " ")
+                th_kb = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "50 000 dmg", "callback_data": "set_th_50000"},
+                            {"text": "75 000 dmg (Дефолт)", "callback_data": "set_th_75000"},
+                        ],
+                        [
+                            {"text": "100 000 dmg", "callback_data": "set_th_100000"},
+                            {"text": "150 000 dmg", "callback_data": "set_th_150000"},
+                        ],
+                        [
+                            {"text": "Без обмежень (Всі)", "callback_data": "set_th_999999999"},
+                            {"text": "🔙 Назад", "callback_data": "sniper_cmd_status"},
+                        ]
+                    ]
+                }
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, th_text, th_kb)
+                return
+
+            elif data.startswith("set_th_"):
+                new_th = int(data.replace("set_th_", ""))
+                config.SNIPER_MAX_DAMAGE = new_th
+                th_display = "Без обмежень" if new_th > 10000000 else f"{new_th:,} dmg".replace(",", " ")
+                await self.answer_callback(cb_id, f"Поріг встановлено: {th_display}")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
         # 2. Text Commands
         if "message" in update:
             msg = update["message"]
@@ -307,6 +391,19 @@ class SniperBotController:
                 await self.send_message(chat_id, "🎯 <i>Шукаю битви на фінішній прямі (15–20 хв до кінця)...</i>")
                 txt = await self._get_battles_text(sniper_only=True)
                 await self.send_message(chat_id, txt)
+
+            elif first_word in ("/threshold", "/поріг", "/dmg", "/урон") or clean_cmd in ("threshold", "поріг", "dmg", "урон"):
+                if len(words) > 1:
+                    raw_val = words[1].lower().replace("k", "000").replace("к", "000").replace("m", "000000").replace("м", "000000")
+                    try:
+                        val = int(raw_val)
+                        config.SNIPER_MAX_DAMAGE = val
+                        await self.send_message(chat_id, f"✅ <b>Поріг снайпінгу оновлено:</b> <code>{val:,} dmg</code>\nВсі битви з більшим уроном будуть відсіюватись.".replace(",", " "))
+                    except ValueError:
+                        await self.send_message(chat_id, "⚠️ Будь ласка, вкажіть число, наприклад: <code>/threshold 75000</code> або <code>/threshold 75k</code>")
+                else:
+                    curr_th = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+                    await self.send_message(chat_id, f"🎯 Поточний поріг снайпінгу: <code>{curr_th:,} dmg</code>\nЩоб змінити, введіть: <code>/threshold 75000</code> або скористайтеся кнопкою в меню.".replace(",", " "))
 
             elif first_word in ("/sniper_on",) or clean_cmd in ("sniper_on", "вкл"):
                 self.subscribers_db.set_sniper_alerts(chat_id, True)

@@ -11,7 +11,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 
 # Application Versioning
-APP_VERSION = "b.0001.20"
+APP_VERSION = "b.0001.21"
 
 # Load API key from API_key.txt if present
 def get_api_key() -> str:
@@ -84,3 +84,6 @@ TELEGRAM_SNIPER_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_SNIPER_BOT_TOKEN"
 TELEGRAM_CHAT_ID: Optional[str] = os.getenv("TELEGRAM_CHAT_ID")
 TELEGRAM_CHAT_IDS: List[str] = get_telegram_chat_ids()
 DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
+
+# Battle Purple Sniper thresholds
+SNIPER_MAX_DAMAGE: int = int(os.getenv("SNIPER_MAX_DAMAGE", "75000"))

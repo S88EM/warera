@@ -114,6 +114,7 @@ def apply_configuration(opts: dict):
         "pricing_mode": "PRICING_MODE",
         "min_discount_pct": "EQUIPMENT_MIN_DISCOUNT",
         "god_roll_threshold": "EQUIPMENT_GOD_ROLL_THRESHOLD",
+        "sniper_max_damage": "SNIPER_MAX_DAMAGE",
     }
 
     for opt_key, env_key in mapping.items():
@@ -189,8 +190,10 @@ async def main():
     print(f"[HA Launcher] ⚔️ Сканер спорядження (Equipment Scanner): {'Увімкнено' if enable_equip else 'Вимкнено'} (режим {pricing_mode}, інтервал {equip_interval}с)")
     print(f"[HA Launcher] 💎 Активні якості: {qualities_str}")
     sniper_token = os.environ.get("TELEGRAM_SNIPER_BOT_TOKEN", "")
+    max_dmg = os.environ.get("SNIPER_MAX_DAMAGE", "75000")
     print(f"[HA Launcher] 📱 Telegram сповіщення ринку: {'Увімкнено' if enable_tg else 'Вимкнено'}")
     print(f"[HA Launcher] 🎯 Sniper Telegram Bot (для клану): {'Увімкнено' if sniper_token else 'Очікує на токен'}")
+    print(f"[HA Launcher] 🎯 Поріг снайпінгу фіолу: ≤ {max_dmg} dmg (відсіювання вище)")
     print("-" * 65)
 
     import equipment_scanner

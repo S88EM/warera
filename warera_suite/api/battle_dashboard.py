@@ -197,10 +197,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
                 <!-- Max Damage Filter -->
                 <select id="dmgFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500">
-                    <option value="purple_only" selected>Тільки з фіолом</option>
+                    <option value="75000" selected>🎯 До 75k (Снайперський поріг)</option>
                     <option value="100000">🔥 До 100k (Супер легкі)</option>
                     <option value="300000">⚡ До 300k (Доступні)</option>
-                    <option value="1000000">До 1M дамагу</option>
+                    <option value="purple_only">Всі з фіолом</option>
                     <option value="all">Будь-який дамаг</option>
                 </select>
 
