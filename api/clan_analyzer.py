@@ -23,6 +23,9 @@ from clan_history_db import ClanHistoryDB
 
 logger = logging.getLogger("WarEraClanAnalyzer")
 
+_CLAN_CACHE: Dict[str, Dict[str, Any]] = {}
+_CLAN_CACHE_TIME: Dict[str, float] = {}
+
 class WarEraClanAnalyzer:
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.user_api_key = (api_key or config.get_api_key()).strip()
@@ -46,7 +49,7 @@ class WarEraClanAnalyzer:
 
     async def get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=10.0)
+            self._client = httpx.AsyncClient(timeout=15.0)
         return self._client
 
     async def close(self):
@@ -60,29 +63,27 @@ class WarEraClanAnalyzer:
             import json
             input_param = json.dumps(payload, separators=(',', ':'))
 
-        primary_url = f"{self.base_url}/trpc/{endpoint}"
-        proxy_url = f"{self.proxy_url}/trpc/{endpoint}"
         headers = self._get_headers()
+        urls = [
+            f"{self.base_url}/trpc/{endpoint}",
+            f"https://api6.warera.io/trpc/{endpoint}",
+            f"https://api2.warera.io/trpc/{endpoint}",
+        ]
+        unique_urls = list(dict.fromkeys(urls))
 
-        # Try primary
-        try:
-            r = await client.get(primary_url, params={"input": input_param}, headers=headers)
-            if r.status_code == 200:
-                data = r.json()
-                if "result" in data:
-                    return data["result"].get("data")
-        except Exception:
-            pass
-
-        # Try proxy
-        try:
-            r2 = await client.get(proxy_url, params={"input": input_param}, headers=headers)
-            if r2.status_code == 200:
-                data = r2.json()
-                if "result" in data:
-                    return data["result"].get("data")
-        except Exception:
-            pass
+        for url in unique_urls:
+            for attempt in range(2):
+                try:
+                    r = await client.get(url, params={"input": input_param}, headers=headers)
+                    if r.status_code == 200:
+                        data = r.json()
+                        if "result" in data:
+                            return data["result"].get("data")
+                    elif r.status_code == 429:
+                        await asyncio.sleep(0.5)
+                except Exception as e:
+                    logger.debug(f"TRPC {endpoint} on {url} (attempt {attempt+1}): {e}")
+                    await asyncio.sleep(0.3)
 
         return None
 
@@ -162,7 +163,18 @@ class WarEraClanAnalyzer:
         - 24-hex MU ID (e.g. '69af3162a583a3b5f9941e71')
         - Player nickname or user ID (resolves user.mu)
         """
+        global _CLAN_CACHE, _CLAN_CACHE_TIME
+        import time
+
+        cache_key = str(mu_id_or_user or "default").strip()
+        now = time.time()
+
+        # 1. Return fresh cache if available (< 20 seconds)
+        if cache_key in _CLAN_CACHE and (now - _CLAN_CACHE_TIME.get(cache_key, 0)) < 20.0:
+            return _CLAN_CACHE[cache_key]
+
         mu_id = None
+        mu_data = None
         target_user = None
 
         if mu_id_or_user:
@@ -190,8 +202,17 @@ class WarEraClanAnalyzer:
             # Final fallback to Black Mace MU ID
             mu_id = "69af3162a583a3b5f9941e71"
 
-        mu_data = await self._call_trpc("mu.getById", {"muId": mu_id})
+        if not mu_data:
+            mu_data = await self._call_trpc("mu.getById", {"muId": mu_id})
+
         if not mu_data or not isinstance(mu_data, dict):
+            # Fallback to stale cache if API failed
+            if cache_key in _CLAN_CACHE:
+                logger.warning(f"Failed to fetch fresh data for MU {mu_id}, serving stale cache")
+                return _CLAN_CACHE[cache_key]
+            if "default" in _CLAN_CACHE:
+                return _CLAN_CACHE["default"]
+
             return {
                 "status": "error",
                 "message": f"Не вдалося завантажити дані підрозділу (MU ID: {mu_id})"
@@ -325,7 +346,7 @@ class WarEraClanAnalyzer:
                         diff_sec = max(0, int((end_dt - now_utc).total_seconds()))
                         hrs = diff_sec // 3600
                         mins = (diff_sec % 3600) // 60
-                        pill_time_label = f"відкат {hrs}г {mins:02d}хв"
+                        pill_time_label = f"ще {hrs}г {mins:02d}хв"
                         pill_remaining_tip = f"Відкат завершиться о {end_dt.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв)"
                     except Exception:
                         pill_time_label = "відкат"
@@ -567,7 +588,7 @@ class WarEraClanAnalyzer:
         has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
         total_clan_yesterday_damage = sum(m["yesterday_damage"] or 0 for m in analyzed_members if m["has_yesterday"]) if has_any_yesterday else None
 
-        return {
+        result = {
             "status": "ok",
             "mu": {
                 "mu_id": mu_id,
@@ -606,3 +627,9 @@ class WarEraClanAnalyzer:
             "members": analyzed_members,
             "updated_at": now_utc.isoformat(),
         }
+
+        _CLAN_CACHE[cache_key] = result
+        _CLAN_CACHE["default"] = result
+        _CLAN_CACHE_TIME[cache_key] = time.time()
+        _CLAN_CACHE_TIME["default"] = time.time()
+        return result

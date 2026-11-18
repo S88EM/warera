@@ -664,7 +664,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             </div>
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="font-extrabold text-white text-sm truncate">${m.username}</span>
+                                    <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
                                     <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
                                 </div>
                                 <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
@@ -682,7 +682,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <span class="px-2 py-0.5 rounded text-[10px] border inline-block ${pillBadgeClass}" title="${m.pill_tip}">
                                 ${m.pill_label}
                             </span>
-                            ${m.build_type !== 'ECO' ? `
+                            ${m.build_type !== 'ECO' && m.pill_time_label && m.pill_time_label !== '—' ? `
                                 <div class="text-[10px] text-gray-300 font-medium flex items-center justify-end gap-1 mt-1">
                                     <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
                                     <span>${m.pill_time_label}</span>
@@ -698,15 +698,16 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                         </span>
                         ${m.build_type === 'ECO' ? `
                             <span class="text-[11px] text-gray-500">економічний тил</span>
-                        ` : `
-                            <div class="text-[11px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-300'} flex items-center gap-1">
-                                <span>💥 Залп:</span>
-                                <span class="${m.pill_status === 'ACTIVE' ? 'text-purple-300 font-extrabold' : 'text-rose-400 font-bold'}">
-                                    ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)}
-                                </span>
-                                <span class="text-[10px] font-normal text-gray-400">урону</span>
+                        ` : (m.pill_status === 'ACTIVE' ? `
+                            <div class="text-[11px] font-bold text-purple-300 flex items-center gap-1">
+                                <span>🔥 Залишок у дії:</span>
+                                <span class="text-purple-300 font-extrabold">~${formatMillions(m.pill_current_dmg)}</span>
                             </div>
-                        `}
+                        ` : (m.pill_status === 'READY' ? `
+                            <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
+                        ` : `
+                            <span class="text-[11px] text-rose-300/80 font-medium">⏳ Відновлення сил</span>
+                        `))}
                     </div>
 
                     <!-- Row 3: 4 Key Metrics Grid -->
@@ -728,11 +729,11 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                         </div>
 
                         <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Залп 8г</div>
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум дамагу за 1 повну таблетку 8 годин (злив 100% HP та їжі)">Залп (8г)</div>
                             <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate">
                                 ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)}`}
                             </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">HP+їжа</div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">повний злив</div>
                         </div>
 
                         <div class="px-1">
