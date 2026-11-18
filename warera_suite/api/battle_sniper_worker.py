@@ -106,8 +106,6 @@ class BattleSniperWorker:
             f"🎁 <b>Мінімальний поріг для фіолу:</b> <code>{self.format_dmg(min_dmg)} dmg</code>",
             f"📦 <b>Предмет на кону:</b> <b>{item_name}</b> (Ранг #{cutoff_rank})",
             f"👤 <b>Останній слот тримає:</b> <code>{holder}</code>",
-            f"🛡️ <b>Запас до синього дропу:</b> +{self.format_dmg(gap)} dmg",
-            f"💎 <b>Всього топових речей у пулі:</b> {total_purple} шт.",
             f"",
             f"💡 <i>Порада: нанесіть від <b>{self.format_dmg(min_dmg + 1)} dmg</b> прямо зараз, щоб вибити цей слот і забрати фіол!</i>"
         ]
