@@ -81,6 +81,7 @@ class SubscribersDB:
         cid = str(chat_id).strip()
         now_str = datetime.now(timezone.utc).isoformat()
         admin = self.is_admin(cid)
+        default_th = int(getattr(config, "SNIPER_MAX_DAMAGE", 75000))
 
         if cid in self._subscribers:
             user = self._subscribers[cid]
@@ -88,6 +89,8 @@ class SubscribersDB:
                 user["username"] = username
             if first_name:
                 user["first_name"] = first_name
+            if "damage_threshold" not in user:
+                user["damage_threshold"] = default_th
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -99,6 +102,7 @@ class SubscribersDB:
                 "first_name": first_name or "Fighter",
                 "sniper_alerts": True,
                 "market_alerts": True if admin else False,
+                "damage_threshold": default_th,
                 "joined_at": now_str,
                 "last_active": now_str
             }
@@ -106,6 +110,23 @@ class SubscribersDB:
 
         self.save()
         return user
+
+    def get_user_threshold(self, chat_id: str) -> int:
+        """Returns the individual damage cutoff threshold for this user."""
+        cid = str(chat_id).strip()
+        user = self.get_user_prefs(cid)
+        default_th = int(getattr(config, "SNIPER_MAX_DAMAGE", 75000))
+        return int(user.get("damage_threshold") or default_th)
+
+    def set_user_threshold(self, chat_id: str, threshold: int) -> int:
+        """Sets the individual damage cutoff threshold for this specific user."""
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        th = int(threshold)
+        self._subscribers[cid]["damage_threshold"] = th
+        self.save()
+        return th
 
     def set_sniper_alerts(self, chat_id: str, enabled: bool) -> bool:
         cid = str(chat_id).strip()

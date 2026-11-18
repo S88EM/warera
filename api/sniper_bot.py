@@ -47,12 +47,12 @@ class SniperBotController:
         sniper_on = user_prefs.get("sniper_alerts", True)
         subs_count = self.subscribers_db.count()
 
-        max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
-        formatted_max = f"{max_dmg:,}".replace(",", " ")
+        user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_max = f"{user_th:,}".replace(",", " ")
 
         return (
             f"🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+)</b>\n\n"
-            f"🎯 <b>Поріг снайпінгу:</b> ≤ <code>{formatted_max} dmg</code> (все що вище — відсіюється)\n"
+            f"🎯 <b>Ваш особистий поріг:</b> ≤ <code>{formatted_max} dmg</code> (все що вище — відсіюється)\n"
             f"🔔 <b>Ваші сповіщення:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
             f"📡 <b>Статус моніторингу:</b> 🟢 <b>АКТИВНИЙ</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
@@ -66,8 +66,8 @@ class SniperBotController:
         sniper_on = user_prefs.get("sniper_alerts", True)
         toggle_text = "🎯 Сповіщення: 🟢 ВКЛ" if sniper_on else "🎯 Сповіщення: 🔴 ВИКЛ"
 
-        max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
-        formatted_th = f"{max_dmg // 1000}k" if max_dmg < 1000000 else f"{max_dmg // 1000000}M"
+        user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_th = f"{user_th // 1000}k" if user_th < 1000000 else f"{user_th // 1000000}M"
 
         return {
             "inline_keyboard": [
@@ -163,7 +163,7 @@ class SniperBotController:
         except Exception:
             pass
 
-    async def _get_battles_text(self, sniper_only: bool = False) -> str:
+    async def _get_battles_text(self, sniper_only: bool = False, chat_id: Optional[str] = None) -> str:
         try:
             analyzer = get_shared_battle_analyzer()
             battles = await analyzer.get_all_battles_intel()
@@ -171,7 +171,7 @@ class SniperBotController:
             if not battles:
                 return "⚔️ <b>Немає активних битв або сервери WarEra недоступні.</b>"
 
-            max_dmg = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+            max_dmg = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
             formatted_max = f"{max_dmg:,}".replace(",", " ")
 
             if sniper_only:
@@ -303,13 +303,13 @@ class SniperBotController:
 
             elif data == "sniper_cmd_snipe":
                 await self.answer_callback(cb_id, "🎯 Шукаю битви у 15-20 хв вікні...")
-                txt = await self._get_battles_text(sniper_only=True)
+                txt = await self._get_battles_text(sniper_only=True, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
                 return
 
             elif data == "sniper_cmd_battles":
                 await self.answer_callback(cb_id, "⚔️ Отримую активні битви...")
-                txt = await self._get_battles_text(sniper_only=False)
+                txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
                 return
 
@@ -320,11 +320,11 @@ class SniperBotController:
                 return
 
             elif data == "sniper_menu_threshold":
-                curr_th = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+                curr_th = self.subscribers_db.get_user_threshold(chat_id)
                 th_text = (
-                    f"⚙️ <b>Налаштування порогу снайпінгу</b>\n\n"
-                    f"Поточний поріг: <b>{curr_th:,} dmg</b>\n\n"
-                    f"Бот відсіює всі битви, де для отримання фіолетового дропу потрібно нанести більше цього значення.\n\n"
+                    f"⚙️ <b>Налаштування вашого особистого порогу</b>\n\n"
+                    f"Ваш поточний поріг: <b>{curr_th:,} dmg</b>\n\n"
+                    f"Бот відсіює битви особисто для вас і надсилає пуші лише тоді, коли для фіолетового дропу потрібно не більше цього значення.\n\n"
                     f"Оберіть бажаний поріг:"
                 ).replace(",", " ")
                 th_kb = {
@@ -349,9 +349,9 @@ class SniperBotController:
 
             elif data.startswith("set_th_"):
                 new_th = int(data.replace("set_th_", ""))
-                config.SNIPER_MAX_DAMAGE = new_th
+                self.subscribers_db.set_user_threshold(chat_id, new_th)
                 th_display = "Без обмежень" if new_th > 10000000 else f"{new_th:,} dmg".replace(",", " ")
-                await self.answer_callback(cb_id, f"Поріг встановлено: {th_display}")
+                await self.answer_callback(cb_id, f"Ваш особистий поріг: {th_display}")
                 if msg_id:
                     await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
                 return
@@ -384,12 +384,12 @@ class SniperBotController:
 
             elif first_word in ("/battles", "/битви", "/purple", "/фіол") or clean_cmd in ("battles", "битви", "purple", "фіол"):
                 await self.send_message(chat_id, "🔍 <i>Аналізую битви та шукаю фіолетовий дроп...</i>")
-                txt = await self._get_battles_text(sniper_only=False)
+                txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
             elif first_word in ("/snipe", "/снайп", "/hot", "/гарячі") or clean_cmd in ("snipe", "снайп", "hot"):
                 await self.send_message(chat_id, "🎯 <i>Шукаю битви на фінішній прямі (15–20 хв до кінця)...</i>")
-                txt = await self._get_battles_text(sniper_only=True)
+                txt = await self._get_battles_text(sniper_only=True, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
             elif first_word in ("/threshold", "/поріг", "/dmg", "/урон") or clean_cmd in ("threshold", "поріг", "dmg", "урон"):
@@ -397,13 +397,13 @@ class SniperBotController:
                     raw_val = words[1].lower().replace("k", "000").replace("к", "000").replace("m", "000000").replace("м", "000000")
                     try:
                         val = int(raw_val)
-                        config.SNIPER_MAX_DAMAGE = val
-                        await self.send_message(chat_id, f"✅ <b>Поріг снайпінгу оновлено:</b> <code>{val:,} dmg</code>\nВсі битви з більшим уроном будуть відсіюватись.".replace(",", " "))
+                        self.subscribers_db.set_user_threshold(chat_id, val)
+                        await self.send_message(chat_id, f"✅ <b>Ваш особистий поріг оновлено:</b> <code>{val:,} dmg</code>\nТепер ви отримуватимете пуші та результати /snipe тільки для битв до цього урону.".replace(",", " "))
                     except ValueError:
                         await self.send_message(chat_id, "⚠️ Будь ласка, вкажіть число, наприклад: <code>/threshold 75000</code> або <code>/threshold 75k</code>")
                 else:
-                    curr_th = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
-                    await self.send_message(chat_id, f"🎯 Поточний поріг снайпінгу: <code>{curr_th:,} dmg</code>\nЩоб змінити, введіть: <code>/threshold 75000</code> або скористайтеся кнопкою в меню.".replace(",", " "))
+                    curr_th = self.subscribers_db.get_user_threshold(chat_id)
+                    await self.send_message(chat_id, f"🎯 <b>Ваш особистий поріг снайпінгу:</b> <code>{curr_th:,} dmg</code>\nЩоб змінити, введіть: <code>/threshold 75000</code> або натисніть кнопку в меню.".replace(",", " "))
 
             elif first_word in ("/sniper_on",) or clean_cmd in ("sniper_on", "вкл"):
                 self.subscribers_db.set_sniper_alerts(chat_id, True)

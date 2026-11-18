@@ -143,14 +143,10 @@ class BattleSniperWorker:
             tm = b.get("timing", {})
             rc = b.get("roundCutoff", {})
 
-            # Must be in sniper window, have purple items, and cutoff damage <= max_damage (75k)
+            # Must be in sniper window and have purple items
             if tm.get("isSniperWindow") and rc.get("has_purple"):
-                min_dmg = rc.get("min_damage_for_purple") or 0
-                if min_dmg <= self.max_damage:
-                    if alert_key not in self.alerted_rounds:
-                        sniper_candidates.append((alert_key, b))
-                else:
-                    logger.debug(f"Battle {b_id} skipped: damage {min_dmg} > threshold {self.max_damage}")
+                if alert_key not in self.alerted_rounds:
+                    sniper_candidates.append((alert_key, b))
 
         # Cleanup alerted_rounds for rounds that have finished
         self.alerted_rounds = {k for k in self.alerted_rounds if k in active_round_keys}
@@ -171,13 +167,20 @@ class BattleSniperWorker:
             url = battle.get("wareraUrl", f"https://app.warera.io/battle/{battle.get('battleId')}")
             logger.info(f"🚨 Firing sniper alert for {battle['region']['name']} to {len(target_chat_ids)} users!")
 
-            # Send individually to all subscribers
+            # Send individually to subscribers whose personal threshold is >= min_dmg
+            rc = battle.get("roundCutoff", {})
+            min_dmg = rc.get("min_damage_for_purple", 0)
+
             for cid in target_chat_ids:
-                try:
-                    await self.send_telegram_alert(cid, msg, url)
-                    await asyncio.sleep(0.05)  # Telegram broadcast throttling
-                except Exception as e:
-                    logger.error(f"Failed to deliver to {cid}: {e}")
+                user_th = self.subscribers_db.get_user_threshold(cid)
+                if min_dmg <= user_th:
+                    try:
+                        await self.send_telegram_alert(cid, msg, url)
+                        await asyncio.sleep(0.05)  # Telegram broadcast throttling
+                    except Exception as e:
+                        logger.error(f"Failed to deliver to {cid}: {e}")
+                else:
+                    logger.debug(f"Skipping alert for {cid}: min_dmg {min_dmg} > personal threshold {user_th}")
 
             self.alerted_rounds.add(alert_key)
 
