@@ -77,6 +77,7 @@ def load_ha_options() -> dict:
     # 3. Fallback to default credentials from environment if fields are empty
     fallbacks = {
         "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+        "telegram_sniper_bot_token": os.getenv("TELEGRAM_SNIPER_BOT_TOKEN", ""),
         "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
         "warera_api_key": os.getenv("WARERA_API_KEY", ""),
         "warera_cookie": os.getenv("WARERA_COOKIE", ""),
@@ -107,6 +108,7 @@ def apply_configuration(opts: dict):
         "warera_x_vid": "WARERA_X_VID",
         "warera_x_gr": "WARERA_X_GR",
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
+        "telegram_sniper_bot_token": "TELEGRAM_SNIPER_BOT_TOKEN",
         "telegram_chat_id": "TELEGRAM_CHAT_ID",
         "equipment_scan_interval": "EQUIPMENT_SCAN_INTERVAL",
         "pricing_mode": "PRICING_MODE",
@@ -186,7 +188,9 @@ async def main():
     print(f"[HA Launcher] 🌐 Web Dashboard (Ingress): {'Увімкнено' if enable_web else 'Вимкнено'}")
     print(f"[HA Launcher] ⚔️ Сканер спорядження (Equipment Scanner): {'Увімкнено' if enable_equip else 'Вимкнено'} (режим {pricing_mode}, інтервал {equip_interval}с)")
     print(f"[HA Launcher] 💎 Активні якості: {qualities_str}")
-    print(f"[HA Launcher] 📱 Telegram сповіщення: {'Увімкнено' if enable_tg else 'Вимкнено'}")
+    sniper_token = os.environ.get("TELEGRAM_SNIPER_BOT_TOKEN", "")
+    print(f"[HA Launcher] 📱 Telegram сповіщення ринку: {'Увімкнено' if enable_tg else 'Вимкнено'}")
+    print(f"[HA Launcher] 🎯 Sniper Telegram Bot (для клану): {'Увімкнено' if sniper_token else 'Очікує на токен'}")
     print("-" * 65)
 
     import equipment_scanner

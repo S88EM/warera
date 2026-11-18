@@ -80,6 +80,7 @@ def get_telegram_chat_ids() -> List[str]:
 
 ENABLE_TELEGRAM_ALERTS: bool = os.getenv("ENABLE_TELEGRAM_ALERTS", "true").lower() in ("true", "1", "yes")
 TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_SNIPER_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_SNIPER_BOT_TOKEN", os.getenv("SNIPER_BOT_TOKEN"))
 TELEGRAM_CHAT_ID: Optional[str] = os.getenv("TELEGRAM_CHAT_ID")
 TELEGRAM_CHAT_IDS: List[str] = get_telegram_chat_ids()
 DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")

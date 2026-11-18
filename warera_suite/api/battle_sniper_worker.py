@@ -47,7 +47,7 @@ class BattleSniperWorker:
         return f"{val:,}".replace(",", " ")
 
     async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str):
-        token = config.TELEGRAM_BOT_TOKEN
+        token = config.TELEGRAM_SNIPER_BOT_TOKEN or config.TELEGRAM_BOT_TOKEN
         if not token:
             return
         client = await self.get_client()

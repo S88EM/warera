@@ -40,27 +40,11 @@ class TelegramBotController:
         return str(user_id) in self.allowed_chat_ids or (chat_id is not None and str(chat_id) in self.allowed_chat_ids)
 
     def _is_authorized(self, user_id: Any, chat_id: Any) -> bool:
-        """All Telegram users can interact with the bot as personal subscribers."""
-        return True
+        if not self.allowed_chat_ids:
+            return True
+        return str(user_id) in self.allowed_chat_ids or str(chat_id) in self.allowed_chat_ids
 
     def _build_control_panel_text(self, chat_id: Optional[str] = None) -> str:
-        is_admin = self._is_admin(chat_id, chat_id) if chat_id else True
-        user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
-        sniper_on = user_prefs.get("sniper_alerts", True)
-
-        # 1. NON-ADMIN VIEW (Clan members & guests): STRICTLY Battle Sniper Only!
-        # Under NO circumstances are market deals, scanner status, or gear monitors exposed here.
-        if not is_admin:
-            return (
-                f"🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+)</b>\n\n"
-                f"🔔 <b>Ваші персональні сповіщення:</b>\n"
-                f"🎯 Снайпінг битв (15-20 хв): <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n\n"
-                f"📡 <b>Статус моніторингу:</b> 🟢 <b>АКТИВНИЙ (кожні 50с)</b>\n"
-                f"⏳ <i>Сповіщення надходять автоматично за 15–20 хв до завершення раунду, коли дроп стабільний і розраховано точний мінімальний дамаг.</i>\n\n"
-                f"<i>Скористайтеся кнопками нижче для швидкого пошуку або зміни підписки:</i>"
-            )
-
-        # 2. OWNER / ADMIN VIEW: Full Control Panel (Private market scanner + Battle Sniper)
         is_paused = getattr(self.scanner, "is_paused", False)
         status_emoji = "⏸" if is_paused else "🟢"
         status_text = "ПАУЗА (Зупинено)" if is_paused else "АКТИВНИЙ (Сканує)"
@@ -76,88 +60,50 @@ class TelegramBotController:
         pricing_mode = getattr(self.scanner, "pricing_mode", config.PRICING_MODE)
         mode_label = "⚡ Реальний час (ордери)" if pricing_mode == "live" else "📜 3-денна історія (база)"
 
-        market_on = user_prefs.get("market_alerts", True)
-        subscribers_count = self.subscribers_db.count()
-
         return (
-            f"👑 <b>Панель адміністратора WarEra Suite</b> (<code>v{config.APP_VERSION}</code>)\n\n"
-            f"🔒 <b>ПРИВАТНИЙ СКАНЕР РИНКУ (Бачите лише ви):</b>\n"
-            f"📡 Стан сканера: {status_emoji} <b>{status_text}</b>\n"
-            f"🔄 Режим оцінки: <b>{mode_label}</b>\n"
-            f"⏱ Інтервал перевірки: <code>{interval} сек</code>\n"
-            f"💎 Якості спорядження: {q_emojis} <i>({len(qualities)} з 6)</i>\n"
-            f"📦 Предметів на ринку: <code>{items_count} шт.</code>\n"
-            f"🌟 Поріг топ-ролу: <code>{roll_threshold}%</code>\n"
-            f"⚔️ Пуш вигідних угод: <b>{'🟢 УВІМКНЕНО' if market_on else '🔴 ВИМКНЕНО'}</b> (тільки вам)\n\n"
-            f"🎯 <b>СНАЙПЕР БИТВ (Публічно для сокланівців):</b>\n"
-            f"🎯 Снайпінг битв (15-20 хв): <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
-            f"👥 Підписників бота: <code>{subscribers_count} чол.</code> <i>(мають доступ ЛИШЕ до битв)</i>\n\n"
-            f"<i>Керуйте системою кнопками нижче:</i>"
+            f"🤖 <b>Панель сканера спорядження WarEra</b> (<code>v{config.APP_VERSION}</code>)\n\n"
+            f"📡 <b>Стан сканера:</b> {status_emoji} <b>{status_text}</b>\n"
+            f"🔄 <b>Режим оцінки:</b> <b>{mode_label}</b>\n"
+            f"⏱ <b>Інтервал перевірки:</b> <code>{interval} сек</code>\n"
+            f"💎 <b>Активні якості:</b> {q_emojis} <i>({len(qualities)} з 6)</i>\n"
+            f"📦 <b>Предметів на моніторингу:</b> <code>{items_count} шт.</code>\n"
+            f"🎯 <b>Поріг вигоди:</b> <code>{config.EQUIPMENT_MIN_DISCOUNT}%</code>\n"
+            f"🌟 <b>Поріг топ-ролу:</b> <code>{roll_threshold}%</code>\n"
+            f"⏰ <b>Останнє сканування:</b> <code>{last_scan}</code> (цикл #{cycles})\n"
+            f"🔔 <b>Виявлено пропозицій:</b> <code>{alerts}</code>\n\n"
+            f"<i>Керуйте сканером ринку за допомогою кнопок нижче:</i>"
         )
 
     def _build_keyboard(self, chat_id: Optional[str] = None, is_admin: Optional[bool] = None) -> dict:
-        if is_admin is None:
-            is_admin = self._is_admin(chat_id, chat_id) if chat_id else True
-
-        user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
-        sniper_on = user_prefs.get("sniper_alerts", True)
-        sniper_btn_text = "🎯 Пуш битв: 🟢 ВКЛ" if sniper_on else "🎯 Пуш битв: 🔴 ВИКЛ"
-
-        # 1. NON-ADMIN KEYBOARD: ZERO market buttons
-        if not is_admin:
-            return {
-                "inline_keyboard": [
-                    [
-                        {"text": "🎯 Снайпер (15-20 хв)", "callback_data": "cmd_snipe"},
-                        {"text": "⚔️ Битви з фіолом", "callback_data": "cmd_battles"},
-                    ],
-                    [
-                        {"text": sniper_btn_text, "callback_data": "toggle_user_sniper"},
-                    ],
-                    [
-                        {"text": "🔄 Оновити меню", "callback_data": "cmd_status"}
-                    ]
-                ]
-            }
-
-        # 2. ADMIN KEYBOARD: Full Controls
-        market_on = user_prefs.get("market_alerts", True)
-        market_btn_text = "🔒 Пуш ринку: 🟢 ВКЛ" if market_on else "🔒 Пуш ринку: 🔴 ВИКЛ"
-
         is_paused = getattr(self.scanner, "is_paused", False)
-        toggle_btn = {"text": "▶️ Запустити сканер", "callback_data": "cmd_start"} if is_paused else {"text": "⏸ Зупинити сканер", "callback_data": "cmd_stop"}
+        if is_paused:
+            toggle_btn = {"text": "▶️ Запустити сканер", "callback_data": "cmd_start"}
+        else:
+            toggle_btn = {"text": "⏸ Зупинити сканер", "callback_data": "cmd_stop"}
 
         pricing_mode = getattr(self.scanner, "pricing_mode", config.PRICING_MODE)
         mode_btn_text = "🔄 Режим: ⚡ Live" if pricing_mode == "live" else "🔄 Режим: 📜 Історія"
 
-        rows = [
-            [
-                {"text": "🎯 Снайпер (15-20 хв)", "callback_data": "cmd_snipe"},
-                {"text": "⚔️ Битви з фіолом", "callback_data": "cmd_battles"},
-            ],
-            [
-                {"text": sniper_btn_text, "callback_data": "toggle_user_sniper"},
-                {"text": market_btn_text, "callback_data": "toggle_user_market"},
-            ],
-            [toggle_btn],
-            [
-                {"text": mode_btn_text, "callback_data": "cmd_mode_menu"},
-                {"text": "⏱ Змінити частоту", "callback_data": "cmd_interval_menu"}
-            ],
-            [
-                {"text": "💎 Якість предметів", "callback_data": "cmd_quality_menu"},
-                {"text": "🧹 Очистити чат", "callback_data": "cmd_clear"}
-            ],
-            [
-                {"text": "🔍 Сканувати ринок", "callback_data": "cmd_scan"},
-                {"text": "📊 Статистика", "callback_data": "cmd_stats"}
-            ],
-            [
-                {"text": "🔄 Оновити меню", "callback_data": "cmd_status"}
+        return {
+            "inline_keyboard": [
+                [toggle_btn],
+                [
+                    {"text": mode_btn_text, "callback_data": "cmd_mode_menu"},
+                    {"text": "⏱ Змінити частоту", "callback_data": "cmd_interval_menu"}
+                ],
+                [
+                    {"text": "💎 Якість предметів", "callback_data": "cmd_quality_menu"},
+                    {"text": "🧹 Очистити чат", "callback_data": "cmd_clear"}
+                ],
+                [
+                    {"text": "🔍 Сканувати зараз", "callback_data": "cmd_scan"},
+                    {"text": "🔄 Оновити статус", "callback_data": "cmd_status"}
+                ],
+                [
+                    {"text": "📊 Статистика", "callback_data": "cmd_stats"}
+                ]
             ]
-        ]
-
-        return {"inline_keyboard": rows}
+        }
 
     def _build_mode_menu_text(self) -> str:
         pricing_mode = getattr(self.scanner, "pricing_mode", config.PRICING_MODE)
@@ -344,48 +290,28 @@ class TelegramBotController:
             logger.error(f"Failed to update .env key {key}: {e}")
 
     async def register_commands(self):
-        """Register command menu in Telegram UI."""
+        """Register command menu in Telegram UI for the Market Bot."""
         if not self.token:
             return
         client = await self.get_client()
         url = f"https://api.telegram.org/bot{self.token}/setMyCommands"
-        # 1. Public commands visible to all subscribers (Battle Sniper Only)
-        public_commands = [
-            {"command": "start", "description": "🎯 Панель снайпера та підписка"},
-            {"command": "snipe", "description": "🎯 Снайпінг фіолу (15-20 хв до кінця)"},
-            {"command": "battles", "description": "⚔️ Мін. дамаг для фіолу в битвах"},
-            {"command": "sniper_on", "description": "🔔 Увімкнути пуш-сповіщення по битвах"},
-            {"command": "sniper_off", "description": "🔕 Вимкнути пуш-сповіщення по битвах"},
-            {"command": "status", "description": "🔄 Поточний статус підписки"},
-            {"command": "help", "description": "ℹ️ Довідка та інструкція"}
+        commands = [
+            {"command": "start", "description": "Головна панель керування ринком"},
+            {"command": "mode", "description": "🔄 Режим оцінки (Live / Історія)"},
+            {"command": "interval", "description": "⏱ Змінити частоту (від 1 сек)"},
+            {"command": "quality", "description": "💎 Налаштування якості спорядження"},
+            {"command": "scan", "description": "🔍 Сканувати ринок зараз"},
+            {"command": "stats", "description": "📊 Статистика бази угод"},
+            {"command": "stop", "description": "⏸ Призупинити сканер"},
+            {"command": "run", "description": "▶️ Запустити сканер"},
+            {"command": "status", "description": "🔄 Поточний стан сканера"},
+            {"command": "clear", "description": "🧹 Очистити чат від повідомлень"},
+            {"command": "version", "description": "ℹ️ Поточна версія та історія"}
         ]
         try:
-            await client.post(url, json={"commands": public_commands})
+            await client.post(url, json={"commands": commands})
         except Exception as e:
-            logger.debug(f"Failed to set public Telegram commands: {e}")
-
-        # 2. Private admin commands (Registered only for Owner's chat IDs)
-        admin_commands = public_commands + [
-            {"command": "mode", "description": "🔄 [Admin] Режим оцінки ринку"},
-            {"command": "interval", "description": "⏱ [Admin] Частота сканування ринку"},
-            {"command": "quality", "description": "💎 [Admin] Якість спорядження на ринку"},
-            {"command": "stats", "description": "📊 [Admin] Статистика бази ринку"},
-            {"command": "subscribers", "description": "👥 [Admin] Список підписників бота"},
-            {"command": "clear", "description": "🧹 [Admin] Очистити повідомлення"},
-            {"command": "version", "description": "ℹ️ [Admin] Версія системи"}
-        ]
-        for admin_cid in config.TELEGRAM_CHAT_IDS:
-            try:
-                cid_val = int(admin_cid) if str(admin_cid).isdigit() else str(admin_cid)
-                await client.post(
-                    url,
-                    json={
-                        "commands": admin_commands,
-                        "scope": {"type": "chat", "chat_id": cid_val}
-                    }
-                )
-            except Exception:
-                pass
+            logger.debug(f"Failed to set Market Bot Telegram commands: {e}")
 
     async def clear_chat_messages(self, chat_id: str, from_msg_id: int, count: int = 100) -> int:
         """
@@ -491,80 +417,6 @@ class TelegramBotController:
             f"⏰ <b>Останнє сканування:</b> <code>{last_scan}</code>"
         )
 
-    async def _get_battles_intel_text(self, sniper_only: bool = False) -> str:
-        try:
-            from battle_analyzer import WarEraBattleAnalyzer
-            analyzer = WarEraBattleAnalyzer()
-            battles = await analyzer.get_all_battles_intel()
-            await analyzer.close()
-
-            if not battles:
-                return "⚔️ <b>Немає активних битв або сервери WarEra недоступні.</b>"
-
-            if sniper_only:
-                target_battles = [b for b in battles if b.get("timing", {}).get("isSniperWindow")]
-                if not target_battles:
-                    sorted_by_time = sorted(battles, key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
-                    next_battle = sorted_by_time[0] if sorted_by_time else None
-                    next_eta = next_battle['timing']['formattedEta'] if next_battle else "—"
-                    next_name = next_battle['region']['name'] if next_battle else "—"
-                    return (
-                        "🎯 <b>Снайперське вікно (15–20 хв до кінця):</b>\n\n"
-                        "⚠️ <i>Наразі немає битв на завершальній стадії раунду.</i>\n\n"
-                        f"⏳ Найбільш зрілий раунд зараз: <b>{next_name}</b> ({next_eta} до кінця).\n"
-                        "💡 <i>Снайпінг рекомендується проводити за 15-20 хв до кінця, коли поріг шкоди стабільний і точний.</i>\n\n"
-                        "Щоб переглянути всі активні битви з попередніми оцінками, надішліть /battles"
-                    )
-            else:
-                target_battles = [b for b in battles if b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple")]
-
-            msg = "🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+):</b>\n\n" if sniper_only else "⚔️ <b>WarEra · Моніторинг фіолетового дропу (T4 Epic+):</b>\n\n"
-            if not target_battles:
-                msg += "<i>Наразі в жодній битві ще немає сформованого фіолетового луту (мало загального дамагу).</i>"
-                return msg
-
-            for idx, b in enumerate(target_battles[:6], 1):
-                reg = b["region"]["name"]
-                btype = "Війна" if b["type"] == "war" else "Повстання"
-                r_num = b["round"]["number"]
-                att = b["attacker"]["name"]
-                dff = b["defender"]["name"]
-                att_pts = b["attacker"]["roundPoints"]
-                def_pts = b["defender"]["roundPoints"]
-
-                rc = b["roundCutoff"]
-                bc = b["battleCutoff"]
-                tm = b.get("timing", {})
-                eta_str = tm.get("formattedEta", "—")
-                is_sniper = tm.get("isSniperWindow", False)
-                time_tag = f"🎯 <b>{eta_str} до кінця</b> (Снайперське вікно)" if is_sniper else f"⏳ ~{eta_str} до кінця"
-
-                msg += f"<b>{idx}. {reg}</b> (<i>{btype}</i>)\n"
-                msg += f"🏳️ {att} ({att_pts}) vs {dff} ({def_pts}) &bull; Р#{r_num} / 300\n"
-                msg += f"⏱ <b>Час:</b> <code>{time_tag}</code>\n"
-
-                if rc.get("has_purple"):
-                    dmg = f"{rc['min_damage_for_purple']:,}".replace(",", " ")
-                    item = rc["last_purple_item"]["name"]
-                    rank = rc["cutoff_rank"]
-                    tag = " 🔥 <b>ТОП</b>" if rc["min_damage_for_purple"] < 100000 else ""
-                    msg += f"🎯 <b>Раунд:</b> <code>{dmg} dmg</code> (#{rank} &bull; {item}){tag}\n"
-                else:
-                    msg += f"🎯 <b>Раунд:</b> <i>Немає фіолу</i>\n"
-
-                if bc.get("has_purple"):
-                    b_dmg = f"{bc['min_damage_for_purple']:,}".replace(",", " ")
-                    b_item = bc["last_purple_item"]["name"]
-                    msg += f"🏆 <b>Битва:</b> <code>{b_dmg} dmg</code> (#{bc['cutoff_rank']} &bull; {b_item})\n"
-
-                msg += f"🔗 <a href=\"{b['wareraUrl']}\">Відкрити на WarEra ↗</a>\n\n"
-
-            msg += "💡 <i>Порада: найточніші дані фіксуються за 15–20 хв до кінця раунду (/snipe).</i>"
-            return msg
-        except Exception as e:
-            logger.error(f"Error generating battles intel text: {e}")
-            return f"⚠️ <b>Помилка аналізу битв:</b> <code>{e}</code>"
-
     async def handle_update(self, update: dict):
         # 1. Handle Inline Button Clicks (Callback Queries)
         if "callback_query" in update:
@@ -578,57 +430,14 @@ class TelegramBotController:
             msg_id = message.get("message_id")
             data = cb.get("data", "")
 
-            # Register user in multi-user subscribers database
-            self.subscribers_db.register_user(
-                chat_id=chat_id,
-                username=from_user.get("username"),
-                first_name=from_user.get("first_name")
-            )
-            is_admin = self._is_admin(user_id, chat_id)
-
-            # --- Independent Subscriber Toggles & Quick Actions ---
-            if data == "toggle_user_sniper":
-                curr = self.subscribers_db.get_user_prefs(chat_id).get("sniper_alerts", True)
-                new_val = self.subscribers_db.set_sniper_alerts(chat_id, not curr)
-                status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
-                await self.answer_callback(cb_id, f"🎯 Снайпінг битв: {status_txt}")
-                if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_control_panel_text(chat_id), self._build_keyboard(chat_id, is_admin))
+            if not self._is_authorized(user_id, chat_id):
+                await self.answer_callback(cb_id, "⛔ Доступ дозволено лише власнику.")
                 return
 
-            elif data == "toggle_user_market":
-                if not is_admin:
-                    await self.answer_callback(cb_id, "⛔ Пошук спорядження є приватним функціоналом власника.")
-                    return
-                curr = self.subscribers_db.get_user_prefs(chat_id).get("market_alerts", True)
-                new_val = self.subscribers_db.set_market_alerts(chat_id, not curr)
-                status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
-                await self.answer_callback(cb_id, f"🔒 Приватний пуш ринку: {status_txt}")
-                if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_control_panel_text(chat_id), self._build_keyboard(chat_id, is_admin))
-                return
-
-            elif data == "cmd_snipe":
-                await self.answer_callback(cb_id, "🎯 Шукаю битви у вікні 15-20 хв...")
-                msg_txt = await self._get_battles_intel_text(sniper_only=True)
-                await self.send_message(chat_id, msg_txt)
-                return
-
-            elif data == "cmd_battles":
-                await self.answer_callback(cb_id, "⚔️ Отримую активні битви...")
-                msg_txt = await self._get_battles_intel_text(sniper_only=False)
-                await self.send_message(chat_id, msg_txt)
-                return
-
-            elif data == "cmd_status":
+            if data == "cmd_status":
                 await self.answer_callback(cb_id, "Статус оновлено!")
                 if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_control_panel_text(chat_id), self._build_keyboard(chat_id, is_admin))
-                return
-
-            # --- Administrative Actions (Only for Admin / Owner) ---
-            if not is_admin:
-                await self.answer_callback(cb_id, "⛔ Ця дія доступна лише адміністратору бота.")
+                    await self.edit_message(chat_id, msg_id, self._build_control_panel_text(), self._build_keyboard())
                 return
 
             if data == "cmd_stop":
@@ -772,91 +581,24 @@ class TelegramBotController:
             chat = msg.get("chat", {})
             chat_id = str(chat.get("id"))
 
-            # Register user in multi-user subscribers database
-            self.subscribers_db.register_user(
-                chat_id=chat_id,
-                username=from_user.get("username"),
-                first_name=from_user.get("first_name")
-            )
-            is_admin = self._is_admin(user_id, chat_id)
+            if not self._is_authorized(user_id, chat_id):
+                if text.startswith("/"):
+                    await self.send_message(chat_id, "⛔ Цей бот призначений виключно для приватного керування ринком спорядження.")
+                return
 
-            # Normalize command (e.g. "/start@market_warerabot" -> "/start")
             words = text.split()
             first_word = words[0].lower() if words else ""
             if "@" in first_word:
                 first_word = first_word.split("@")[0]
             clean_cmd = first_word.lstrip("/")
 
-            logger.info(f"Telegram command received: '{text}' from user {user_id} (chat {chat_id}, admin={is_admin})")
+            logger.info(f"Market Bot command: '{text}' from user {user_id}")
 
-            # --- Open Subscriber Commands (Available to all 25+ members) ---
             if first_word in ("/start", "/menu", "/help") or clean_cmd in ("start", "menu", "help", "меню", "допомога"):
-                await self.send_message(chat_id, self._build_control_panel_text(chat_id), self._build_keyboard(chat_id, is_admin))
+                await self.send_message(chat_id, self._build_control_panel_text(), self._build_keyboard())
 
             elif first_word in ("/status", "/стан") or clean_cmd in ("status", "стан", "статус"):
-                await self.send_message(chat_id, self._build_control_panel_text(chat_id), self._build_keyboard(chat_id, is_admin))
-
-            elif first_word in ("/battles", "/битви", "/purple", "/фіол") or clean_cmd in ("battles", "битви", "purple", "фіол"):
-                await self.send_message(chat_id, "🔍 <i>Аналізую битви та шукаю найдешевший фіол...</i>")
-                msg_txt = await self._get_battles_intel_text(sniper_only=False)
-                await self.send_message(chat_id, msg_txt)
-
-            elif first_word in ("/snipe", "/снайп", "/hot", "/гарячі") or clean_cmd in ("snipe", "снайп", "hot"):
-                await self.send_message(chat_id, "🎯 <i>Шукаю битви на фінішній прямі (15–20 хв до кінця)...</i>")
-                msg_txt = await self._get_battles_intel_text(sniper_only=True)
-                await self.send_message(chat_id, msg_txt)
-
-            elif first_word in ("/sniper_on",) or clean_cmd in ("sniper_on", "снайпер_вкл"):
-                self.subscribers_db.set_sniper_alerts(chat_id, True)
-                await self.send_message(
-                    chat_id,
-                    "🎯 <b>Снайпінг битв:</b> Сповіщення за 15–20 хв до кінця раунду <b>УВІМКНЕНО 🟢</b>\n\n"
-                    "Ви отримуватимете особисте сповіщення, щойно у грі з'явиться бій на завершальній стадії з фіолетовим дропом.\n"
-                    "Цей моніторинг повністю незалежний від моніторингу ринку спорядження."
-                )
-
-            elif first_word in ("/sniper_off",) or clean_cmd in ("sniper_off", "снайпер_викл"):
-                self.subscribers_db.set_sniper_alerts(chat_id, False)
-                await self.send_message(
-                    chat_id,
-                    "🎯 <b>Снайпінг битв:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
-                    "Автоматичні пуші вимкнено. Ви завжди можете перевірити ситуацію вручну через /snipe."
-                )
-
-            elif first_word in ("/market_on",) or clean_cmd in ("market_on", "ринок_вкл"):
-                if not is_admin:
-                    await self.send_message(chat_id, "⛔ Пошук спорядження є приватним функціоналом і доступний лише власнику.")
-                    return
-                self.subscribers_db.set_market_alerts(chat_id, True)
-                await self.send_message(
-                    chat_id,
-                    "⚔️ <b>Приватний моніторинг ринку:</b> Сповіщення про вигідні ціни <b>УВІМКНЕНО 🟢</b>\n(Сповіщення надходять лише вам як власнику)."
-                )
-
-            elif first_word in ("/market_off",) or clean_cmd in ("market_off", "ринок_викл"):
-                if not is_admin:
-                    await self.send_message(chat_id, "⛔ Пошук спорядження є приватним функціоналом і доступний лише власнику.")
-                    return
-                self.subscribers_db.set_market_alerts(chat_id, False)
-                await self.send_message(
-                    chat_id,
-                    "⚔️ <b>Приватний моніторинг ринку:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>"
-                )
-
-            elif first_word in ("/subscribers", "/users", "/підписники") or clean_cmd in ("subscribers", "users", "підписники"):
-                if not is_admin:
-                    await self.send_message(chat_id, "⛔ Список підписників доступний лише адміністратору бота.")
-                    return
-                all_subs = self.subscribers_db.get_all_subscribers()
-                sub_text = f"👥 <b>Підписники бота ({len(all_subs)} чол.):</b>\n\n"
-                for cid, u in all_subs.items():
-                    name = u.get("first_name", "Fighter")
-                    uname = f"@{u['username']}" if u.get("username") and u['username'] != "Unknown" else "без юзернейму"
-                    s_ico = "🎯" if u.get("sniper_alerts", True) else "⚪"
-                    m_ico = "⚔️" if u.get("market_alerts", True) else "⚪"
-                    sub_text += f"• <code>{cid}</code>: <b>{name}</b> ({uname}) [{s_ico} Битви | {m_ico} Ринок]\n"
-                sub_text += "\n<i>Легенда: 🎯 — пуш битв, ⚔️ — пуш ринку, ⚪ — вимкнено</i>"
-                await self.send_message(chat_id, sub_text)
+                await self.send_message(chat_id, self._build_control_panel_text(), self._build_keyboard())
 
             # --- Administrative Commands (Restricted to Admin) ---
             elif first_word in ("/stop", "/pause") or clean_cmd in ("stop", "pause", "стоп", "пауза", "зупинити", "зупинка"):

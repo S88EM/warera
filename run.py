@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--sniper", action="store_true", help="Фільтрувати тільки битви у снайперському вікні (15–20 хв до кінця раунду)")
     parser.add_argument("--battles-watch", action="store_true", help="Запустити живий консольний моніторинг битв (оновлення кожні 15 сек)")
     parser.add_argument("--battles-web", action="store_true", help="Запустити інтерактивний веб-дашборд моніторингу фіолетового дропу")
+    parser.add_argument("--sniper-bot", action="store_true", help="Запустити тільки автономний Sniper Telegram Bot для сокланівців")
     parser.add_argument("--nick", type=str, default=None, help="Нікнейм гравця для аналізу робітників")
     parser.add_argument("--port", type=int, default=8080, help="Порт веб-дашборду (за замовчуванням: 8080 для маркету, 8085 для робітників, 8086 для битв)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Хост веб-сервера (за замовчуванням: 0.0.0.0)")
@@ -56,6 +57,19 @@ def main():
         import battle_dashboard
         target_port = args.port if args.port != 8080 else 8086
         battle_dashboard.start_dashboard(host=args.host, port=target_port)
+        return
+
+    if args.sniper_bot:
+        import sniper_bot
+        bot = sniper_bot.SniperBotController()
+        if not bot.token:
+            print("❌ TELEGRAM_SNIPER_BOT_TOKEN не задано в .env або конфізі!")
+            return
+        print("🚀 Запуск автономного Sniper Telegram Bot для клану...")
+        try:
+            asyncio.run(bot.start_polling())
+        except KeyboardInterrupt:
+            print("\nSniper Bot зупинено.")
         return
         import worker_analyzer
         asyncio.run(worker_analyzer.async_main(target_nick=args.nick))

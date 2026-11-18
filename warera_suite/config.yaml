@@ -32,6 +32,7 @@ options:
   monitor_uncommon: false
   monitor_common: false
   telegram_bot_token: ""
+  telegram_sniper_bot_token: ""
   telegram_chat_id: ""
   warera_api_key: ""
   warera_cookie: ""
@@ -52,6 +53,7 @@ schema:
   monitor_uncommon: bool
   monitor_common: bool
   telegram_bot_token: password?
+  telegram_sniper_bot_token: password?
   telegram_chat_id: str?
   warera_api_key: password?
   warera_cookie: str?

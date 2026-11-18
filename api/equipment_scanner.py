@@ -367,11 +367,23 @@ class EquipmentScannerApp:
         except Exception as e:
             console.print(f"[yellow]⚠️ Не вдалося запустити фоновий снайпер битв: {e}[/yellow]\n")
 
-        # Start Telegram bot controller
+        # Start dedicated Sniper Telegram Bot controller (for clan members & battle sniper)
+        sniper_tg_task = None
+        sniper_token = getattr(config, "TELEGRAM_SNIPER_BOT_TOKEN", None)
+        if sniper_token:
+            try:
+                from sniper_bot import SniperBotController
+                sniper_bot = SniperBotController(token=sniper_token)
+                sniper_tg_task = asyncio.create_task(sniper_bot.start_polling())
+                console.print("[green]✓ Снайпер Telegram-бот активовано (окремий публічний бот для сокланівців).[/green]\n")
+            except Exception as e:
+                console.print(f"[yellow]⚠️ Не вдалося запустити Sniper Bot: {e}[/yellow]\n")
+
+        # Start Telegram bot controller (Private Market Bot)
         tg_task = None
         if self.tg_bot:
             tg_task = asyncio.create_task(self.tg_bot.start_polling())
-            console.print("[green]✓ Telegram-керування активовано (команди /start, /mode, /clear, /stop, /run, /interval, /quality, /roll, /status, /scan, /stats, /version).[/green]\n")
+            console.print("[green]✓ Приватний ринковий Telegram-бот активовано (тільки для власника).[/green]\n")
 
         cycle = 0
         try:
@@ -405,6 +417,8 @@ class EquipmentScannerApp:
                     pass
             if tg_task:
                 tg_task.cancel()
+            if sniper_tg_task:
+                sniper_tg_task.cancel()
             await self.notifier.close()
             await self.api.close()
             console.print("[bold red]Роботу сканера спорядження завершено.[/bold red]")
