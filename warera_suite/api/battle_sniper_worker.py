@@ -97,11 +97,11 @@ class BattleSniperWorker:
         fire_tag = "🔥 <b>СУПЕР ЛОТ!</b> " if min_dmg < 100_000 else ""
 
         lines = [
-            f"🎯 {fire_tag}<b>СНАЙПЕРСЬКЕ ВІКНО: {eta} до кінця!</b>",
+            f"🎯 {fire_tag}<b>Шанс на фіол: {eta} до кінця!</b>",
             f"",
             f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
             f"🏳️ <b>Раунд #{r_num}:</b> {att} (<b>{att_pts}</b>) vs {dff} (<b>{def_pts}</b>) / 300 очок",
-            f"⏱ <b>До нагородження:</b> <b>~{mins} хвилин</b> (дані на 95% фінальні)",
+            f"⏱ <b>До нагородження:</b> <b>~{mins} хвилин</b>",
             f"",
             f"🎁 <b>Мінімальний поріг для фіолу:</b> <code>{self.format_dmg(min_dmg)} dmg</code>",
             f"📦 <b>Предмет на кону:</b> <b>{item_name}</b> (Ранг #{cutoff_rank})",
