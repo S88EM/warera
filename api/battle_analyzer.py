@@ -182,7 +182,7 @@ class WarEraBattleAnalyzer:
             "https://api5.warera.io/trpc",
             "https://api6.warera.io/trpc",
         ]
-        self._rate_limited_until: float = 0.0
+        self._host_rate_limits: Dict[str, float] = {}
         self._ranks_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._current_host_idx = 0
         self._client: Optional[httpx.AsyncClient] = None
@@ -217,18 +217,20 @@ class WarEraBattleAnalyzer:
             await self._client.aclose()
 
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None) -> Any:
-        now = time.time()
-        if now < self._rate_limited_until:
-            return None
-
         client = await self.get_client()
         input_param = "{}" if payload is None else json.dumps(payload, separators=(',', ':'))
 
         async with self._semaphore:
-            # Pacing delay between requests to stay well below the 100 req/min limit
-            await asyncio.sleep(0.06)
-            for attempt in range(2):
+            # Pacing delay between requests to stay well below limits
+            await asyncio.sleep(0.04)
+            now = time.time()
+            for _ in range(len(self.api_hosts)):
                 host = self.api_hosts[self._current_host_idx]
+                if now < self._host_rate_limits.get(host, 0.0):
+                    # Host is cooling down, rotate to next node immediately
+                    self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
+                    continue
+
                 url = f"{host}/{endpoint}"
                 try:
                     r = await client.get(url, params={"input": input_param})
@@ -236,11 +238,11 @@ class WarEraBattleAnalyzer:
                         data = r.json()
                         return data.get("result", {}).get("data")
                     elif r.status_code == 429:
-                        # Instant backoff: do not execute blocking sleeps in loop!
-                        self._rate_limited_until = time.time() + 25.0
+                        # Cooldown only this specific host for 15s and rotate immediately
+                        self._host_rate_limits[host] = time.time() + 15.0
                         self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                        logger.warning(f"Rate limit on {host}/{endpoint}. Backing off for 25s...")
-                        return None
+                        logger.warning(f"Rate limit on {host}/{endpoint}. Rotating to next API node...")
+                        continue
                     else:
                         self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
                 except Exception:
@@ -472,6 +474,15 @@ class WarEraBattleAnalyzer:
 
         await self.load_metadata()
         raw_battles = await self.fetch_active_battles()
+        if not raw_battles:
+            if self._cached_intel:
+                logger.info("fetch_active_battles empty, reusing existing cached intel")
+                return self._cached_intel
+            # If no cached intel yet, rotate node and retry once
+            self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
+            raw_battles = await self.fetch_active_battles()
+            if not raw_battles and self._cached_intel:
+                return self._cached_intel
 
         sem = asyncio.Semaphore(6)
 
@@ -634,11 +645,14 @@ class WarEraBattleAnalyzer:
             dmg = b.get('bestPurpleMinDamage') or 999999999999
             return (is_sniper, has_purple, dmg)
 
-        analyzed_battles.sort(key=sort_key)
-
-        self._cached_intel = analyzed_battles
-        self._cached_intel_time = time.time()
-        return analyzed_battles
+        if analyzed_battles:
+            analyzed_battles.sort(key=sort_key)
+            self._cached_intel = analyzed_battles
+            self._cached_intel_time = time.time()
+            return analyzed_battles
+        elif self._cached_intel:
+            return self._cached_intel
+        return []
 
 
 _SHARED_ANALYZER: Optional['WarEraBattleAnalyzer'] = None

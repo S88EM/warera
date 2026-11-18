@@ -169,7 +169,15 @@ class SniperBotController:
             battles = await analyzer.get_all_battles_intel()
 
             if not battles:
-                return "⚔️ <b>Немає активних битв або сервери WarEra недоступні.</b>"
+                # If cold start, brief pause and force retry once across API cluster
+                await asyncio.sleep(0.6)
+                battles = await analyzer.get_all_battles_intel(force_refresh=True)
+
+            if not battles:
+                return (
+                    "⏳ <b>Оновлюю дані битв із серверів WarEra...</b>\n\n"
+                    "Бот зараз синхронізує активні сутички. Будь ласка, спробуйте ще раз через кілька секунд."
+                )
 
             max_dmg = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
             formatted_max = f"{max_dmg:,}".replace(",", " ")
