@@ -1,6 +1,6 @@
 name: "WarEra Suite"
 slug: "warera_suite"
-version: "1.5.4"
+version: "1.5.5"
 description: "Автономний комплекс для WarEra: Штаб клану (Combat Intelligence), аналіз фабрик і кадрів (Workforce), сканер ринку спорядження з Web UI та Telegram сповіщеннями"
 url: "https://warera.io"
 arch:
@@ -20,6 +20,7 @@ panel_title: "WarEra"
 options:
   enable_telegram_alerts: true
   enable_equipment_scanner: true
+  enable_battle_sniper: true
   enable_web_dashboard: true
   pricing_mode: "live"
   equipment_scan_interval: 1
@@ -42,6 +43,7 @@ options:
 schema:
   enable_telegram_alerts: bool
   enable_equipment_scanner: bool
+  enable_battle_sniper: bool
   enable_web_dashboard: bool
   pricing_mode: list(live|history)
   equipment_scan_interval: int(1,60)

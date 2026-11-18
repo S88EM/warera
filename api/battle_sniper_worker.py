@@ -186,6 +186,8 @@ class BattleSniperWorker:
 
     async def start(self):
         """Main loop of the background sniper worker."""
+        if self.is_running:
+            return
         self.is_running = True
         logger.info(f"WarEra Battle Sniper Worker started (poll interval: {self.check_interval}s).")
         try:

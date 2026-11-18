@@ -181,6 +181,7 @@ async def main():
 
     enable_web = opts.get("enable_web_dashboard", True)
     enable_equip = opts.get("enable_equipment_scanner", True)
+    enable_sniper = opts.get("enable_battle_sniper", True)
     enable_tg = opts.get("enable_telegram_alerts", True)
     pricing_mode = os.environ.get("PRICING_MODE", "live")
     equip_interval = os.environ.get("EQUIPMENT_SCAN_INTERVAL", "1")
@@ -216,13 +217,32 @@ async def main():
 
     tasks = []
 
-    # 2. Start Equipment Scanner (stat / god-roll scanner)
+    # 2. Start Equipment Scanner or standalone Battle Sniper
     if enable_equip:
         try:
             tasks.append(asyncio.create_task(app.start(start_web=False)))
             print("[HA Launcher] ✅ Сканер вигідних цін спорядження активовано")
         except Exception as e:
             print(f"[HA Launcher] ⚠️ Модуль equipment_scanner недоступний або має помилку: {e}")
+    else:
+        print("[HA Launcher] ℹ️ Сканер спорядження на ринку вимкнено.")
+        # Start Battle Sniper and Bot autonomously even when market scanner is off!
+        if enable_sniper:
+            try:
+                from battle_sniper_worker import get_sniper_worker
+                tasks.append(asyncio.create_task(get_sniper_worker().start()))
+                print("[HA Launcher] ✅ Автономний фоновий снайпер битв активовано")
+            except Exception as e:
+                print(f"[HA Launcher] ⚠️ Не вдалося запустити снайпер битв: {e}")
+
+            if sniper_token:
+                try:
+                    from sniper_bot import SniperBotController
+                    sniper_bot = SniperBotController(token=sniper_token)
+                    tasks.append(asyncio.create_task(sniper_bot.start_polling()))
+                    print("[HA Launcher] ✅ Снайпер Telegram-бот активовано")
+                except Exception as e:
+                    print(f"[HA Launcher] ⚠️ Не вдалося запустити Sniper Bot: {e}")
 
     if not tasks:
         print("[HA Launcher] ⚠️ Сканер спорядження вимкнено. Очікування запитів до Web UI...")
