@@ -8,6 +8,7 @@ Features:
 """
 
 import asyncio
+import base64
 import json
 import logging
 import time
@@ -290,7 +291,11 @@ class WarEraBattleAnalyzer:
             return data.get("items", [])
         return []
 
-    async def fetch_ranking(self, target_id: str, is_round: bool = True, limit: int = 50) -> List[Dict[str, Any]]:
+    def _make_cursor(self, offset: int) -> str:
+        raw = json.dumps([{"t": "num", "v": offset}, {"t": "str", "v": "6afde6eeccf0b1e6a33f647e"}])
+        return "v2." + base64.b64encode(raw.encode()).decode()
+
+    async def fetch_ranking(self, target_id: str, is_round: bool = True, limit: int = 100) -> List[Dict[str, Any]]:
         if not target_id:
             return []
         now = time.time()
@@ -313,6 +318,49 @@ class WarEraBattleAnalyzer:
         data = await self._call_trpc("battleRanking.getRanking", payload)
         if isinstance(data, dict):
             items = data.get("items", [])
+            total_count = data.get("itemCount", len(items))
+
+            # In large battles (like resistance revolts with 2000+ players),
+            # purple loot drops can extend well beyond rank 100 (e.g. rank 1255).
+            # If the 100th item is still purple, binary-search the exact boundary.
+            if items and total_count > len(items):
+                last_code = items[-1].get('lootItem', {}).get('code')
+                if get_item_tier_info(last_code)['is_purple_plus']:
+                    low = len(items)
+                    high = total_count - 1
+                    best_purple = items[-1]
+                    next_below = None
+                    probes = 0
+                    while low <= high and probes < 7:
+                        probes += 1
+                        mid = (low + high) // 2
+                        p_probe = dict(payload)
+                        p_probe["limit"] = 2
+                        p_probe["cursor"] = self._make_cursor(mid)
+                        probe_data = await self._call_trpc("battleRanking.getRanking", p_probe)
+                        if not isinstance(probe_data, dict):
+                            break
+                        probe_items = probe_data.get("items", [])
+                        if not probe_items:
+                            high = mid - 1
+                            continue
+                        p_item = probe_items[0]
+                        p_code = p_item.get('lootItem', {}).get('code')
+                        if get_item_tier_info(p_code)['is_purple_plus']:
+                            best_purple = p_item
+                            if len(probe_items) > 1 and not get_item_tier_info(probe_items[1].get('lootItem', {}).get('code'))['is_purple_plus']:
+                                next_below = probe_items[1]
+                                break
+                            low = mid + 1
+                        else:
+                            next_below = p_item
+                            high = mid - 1
+
+                    if best_purple.get('rank') != items[-1].get('rank'):
+                        items.append(best_purple)
+                    if next_below:
+                        items.append(next_below)
+
             self._ranks_cache[target_id] = (now, items)
             return items
         if target_id in self._ranks_cache:
@@ -407,7 +455,7 @@ class WarEraBattleAnalyzer:
             "last_purple_item": last_holder["item_info"],
             "next_player_below": next_player,
             "gap_to_next": gap,
-            "total_purple_plus_items": len(purple_holders),
+            "total_purple_plus_items": max(len(purple_holders), last_rank) if last_rank else len(purple_holders),
             "ranks_count": len(ranks),
             "purple_items_summary": [h["item_code"] for h in purple_holders],
             "full_ranks": full_ranks
