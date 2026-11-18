@@ -196,7 +196,8 @@ class SniperBotController:
                         and b.get("roundCutoff", {}).get("has_purple")
                         and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) > max_dmg
                     ]
-                    sorted_by_time = sorted(battles, key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
+                    active_only = [b for b in battles if b.get("timing", {}).get("minutesLeft", 0) > 0 and b.get("roundCutoff", {}).get("has_purple")]
+                    sorted_by_time = sorted(active_only or battles, key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
                     next_battle = sorted_by_time[0] if sorted_by_time else None
                     next_eta = next_battle['timing']['formattedEta'].lstrip("~") if next_battle else "—"
                     next_name = next_battle['region']['name'] if next_battle else "—"

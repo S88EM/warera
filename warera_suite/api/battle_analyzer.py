@@ -12,6 +12,7 @@ import base64
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
 
@@ -203,8 +204,6 @@ class WarEraBattleAnalyzer:
                 "Accept": "application/json",
                 "User-Agent": "WarEraBattleIntel/1.2",
             }
-            # Pure Public Zero-Auth: All WarEra battle endpoints (getBattles, getRanking)
-            # are open and require NO API key. We strictly DO NOT send the user's private key.
             self._client = httpx.AsyncClient(
                 headers=headers,
                 timeout=15.0,
@@ -219,6 +218,7 @@ class WarEraBattleAnalyzer:
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None) -> Any:
         client = await self.get_client()
         input_param = "{}" if payload is None else json.dumps(payload, separators=(',', ':'))
+        api_key = config.get_api_key()
 
         async with self._semaphore:
             # Pacing delay between requests to stay well below limits
@@ -232,8 +232,13 @@ class WarEraBattleAnalyzer:
                     continue
 
                 url = f"{host}/{endpoint}"
+                headers = {}
+                # WarEra rules: api2 accepts API tokens; api3-api6 forbid API tokens and require public anonymous requests
+                if "api2.warera.io" in host and api_key:
+                    headers["x-api-key"] = api_key
+
                 try:
-                    r = await client.get(url, params={"input": input_param})
+                    r = await client.get(url, params={"input": input_param}, headers=headers)
                     if r.status_code == 200:
                         data = r.json()
                         return data.get("result", {}).get("data")
@@ -243,6 +248,9 @@ class WarEraBattleAnalyzer:
                         self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
                         logger.warning(f"Rate limit on {host}/{endpoint}. Rotating to next API node...")
                         continue
+                    elif r.status_code == 403:
+                        self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
+                        continue
                     else:
                         self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
                 except Exception:
@@ -251,18 +259,45 @@ class WarEraBattleAnalyzer:
         return None
 
     async def load_metadata(self, force: bool = False):
-        if self._meta_loaded and not force:
+        if self._regions_cache and self._countries_cache and not force:
             return
 
-        c_data = await self._call_trpc("country.getAllCountries", {})
-        if isinstance(c_data, list):
-            self._countries_cache = {c['_id']: c for c in c_data if isinstance(c, dict) and '_id' in c}
+        cache_dir = Path(__file__).parent
+        reg_file = cache_dir / "regions_cache.json"
+        cnt_file = cache_dir / "countries_cache.json"
 
-        r_data = await self._call_trpc("region.getRegionsObject", {})
-        if isinstance(r_data, dict):
-            self._regions_cache = r_data
+        if reg_file.exists() and not self._regions_cache:
+            try:
+                self._regions_cache = json.loads(reg_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
 
-        self._meta_loaded = True
+        if cnt_file.exists() and not self._countries_cache:
+            try:
+                self._countries_cache = json.loads(cnt_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        if not self._regions_cache or force:
+            r_data = await self._call_trpc("region.getRegionsObject", {})
+            if isinstance(r_data, dict) and r_data:
+                self._regions_cache = r_data
+                try:
+                    reg_file.write_text(json.dumps(r_data, ensure_ascii=False), encoding="utf-8")
+                except Exception:
+                    pass
+
+        if not self._countries_cache or force:
+            c_data = await self._call_trpc("country.getAllCountries", {})
+            if isinstance(c_data, list) and c_data:
+                self._countries_cache = {c['_id']: c for c in c_data if isinstance(c, dict) and '_id' in c}
+                try:
+                    cnt_file.write_text(json.dumps(self._countries_cache, ensure_ascii=False), encoding="utf-8")
+                except Exception:
+                    pass
+
+        if self._regions_cache and self._countries_cache:
+            self._meta_loaded = True
 
     async def get_username(self, user_id: str) -> str:
         if not user_id:
@@ -484,7 +519,41 @@ class WarEraBattleAnalyzer:
             if not raw_battles and self._cached_intel:
                 return self._cached_intel
 
-        sem = asyncio.Semaphore(6)
+        # Prioritize ranking fetch to stay well within WarEra API limits (max 5-8 ranking calls)
+        fetch_battle_ids = set()
+        active_candidates = []
+        for b in raw_battles:
+            curr = b.get('currentRound', {})
+            if not isinstance(curr, dict):
+                curr = {}
+            att_p = curr.get('attacker', {}).get('points', 0)
+            def_p = curr.get('defender', {}).get('points', 0)
+            ticks = curr.get('live', {}).get('ticksCount', 0)
+            max_p = max(att_p, def_p)
+            eta = calculate_round_eta(ticks, att_p, def_p, 300)
+            mins = eta.get('minutesLeft', 999)
+            is_sniper = eta.get('isSniperWindow', False)
+
+            if max_p >= 300:
+                continue
+
+            prio = 3 if is_sniper else (2 if mins <= 45 else 1)
+            active_candidates.append((prio, mins, b.get('_id')))
+
+        active_candidates.sort(key=lambda x: (-x[0], x[1]))
+        count = 0
+        for prio, mins, bid in active_candidates:
+            if prio == 3:
+                fetch_battle_ids.add(bid)
+                count += 1
+            elif prio == 2 and count < 8:
+                fetch_battle_ids.add(bid)
+                count += 1
+            elif count < 5:
+                fetch_battle_ids.add(bid)
+                count += 1
+
+        sem = asyncio.Semaphore(4)
 
         async def _analyze_battle(b: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             async with sem:
@@ -504,11 +573,10 @@ class WarEraBattleAnalyzer:
                 def_country = self._countries_cache.get(def_c_id, {})
                 region = self._regions_cache.get(reg_id, {})
 
-                round_task = self.fetch_ranking(round_id, is_round=True) if round_id else asyncio.sleep(0)
-                battle_task = self.fetch_ranking(b_id, is_round=False)
-                ranks_res = await asyncio.gather(round_task, battle_task, return_exceptions=True)
-                round_ranks = ranks_res[0] if isinstance(ranks_res[0], list) else []
-                battle_ranks = ranks_res[1] if isinstance(ranks_res[1], list) else []
+                round_ranks = []
+                if b_id in fetch_battle_ids and round_id:
+                    round_ranks = await self.fetch_ranking(round_id, is_round=True)
+                battle_ranks = []
 
                 round_att = current_round.get('attacker', {})
                 round_def = current_round.get('defender', {})
