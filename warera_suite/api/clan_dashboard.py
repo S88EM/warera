@@ -42,6 +42,9 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
         body { font-family: 'Inter', sans-serif; background-color: #0a0d14; color: #f3f4f6; }
         .glass-panel { background: rgba(17, 22, 34, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(33, 44, 66, 0.8); }
         .tab-btn.active { background: #2563eb; color: #ffffff; font-weight: 600; }
+        .view-btn.active { background: #2563eb; color: #ffffff; font-weight: 600; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0a0d14; }
         ::-webkit-scrollbar-thumb { background: #212c42; border-radius: 4px; }
@@ -51,29 +54,29 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
 <body class="min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
 
     <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-4 py-3">
-        <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-shield-halved text-lg"></i>
+    <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-3 sm:px-4 py-2.5 sm:py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0">
+                    <i class="fa-solid fa-shield-halved text-base sm:text-lg"></i>
                 </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-extrabold text-white text-base tracking-tight" id="headerClanTitle">WarEra · Штаб Клану</span>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase tracking-wider flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live Intel
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <span class="font-extrabold text-white text-sm sm:text-base tracking-tight truncate" id="headerClanTitle">WarEra · Штаб Клану</span>
+                        <span class="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live
                         </span>
                     </div>
-                    <div class="text-xs text-gray-400">Бойова готовність, білди, статус таблетки та розрахунок залпу</div>
+                    <div class="text-[11px] text-gray-400 truncate hidden sm:block">Бойова готовність, білди, статус таблетки та розрахунок залпу</div>
                 </div>
             </div>
 
             <!-- Header Actions -->
-            <div class="flex items-center gap-2 flex-wrap">
-                <button onclick="copyDiscordReport()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5">
-                    <i class="fa-solid fa-copy"></i> Скопіювати звіт
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <button onclick="copyDiscordReport()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5" title="Скопіювати бойовий звіт">
+                    <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Скопіювати </span>звіт
                 </button>
-                <button onclick="loadClanData(true)" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs border border-bordercolor transition-colors" title="Оновити дані">
+                <button onclick="loadClanData(true)" class="p-1.5 sm:p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs border border-bordercolor transition-colors" title="Оновити дані">
                     <i class="fa-solid fa-rotate" id="refreshIcon"></i>
                 </button>
             </div>
@@ -81,51 +84,51 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
     </header>
 
     <!-- Main Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
         <!-- Clan Hero Header Banner -->
-        <section class="glass-panel rounded-2xl p-5 border border-bordercolor shadow-xl relative overflow-hidden">
+        <section class="glass-panel rounded-2xl p-4 sm:p-5 border border-bordercolor shadow-xl relative overflow-hidden">
             <div class="absolute -right-10 -bottom-10 opacity-5 pointer-events-none text-9xl">
                 <i class="fa-solid fa-shield-halved"></i>
             </div>
             
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5 relative z-10">
                 <!-- Clan Branding -->
-                <div class="flex items-center gap-4">
-                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-950 to-cardbg border-2 border-indigo-500/40 p-1 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
+                <div class="flex items-center gap-3 sm:gap-4">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-indigo-950 to-cardbg border-2 border-indigo-500/40 p-1 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
                         <img id="clanAvatar" src="https://media.warera.io/avatars/mu/mu-69af3162a583a3b5f9941e71-1790698677633-kmc5qgys.png" alt="MU Logo" class="w-full h-full object-cover rounded-xl" onerror="this.src=''; this.parentElement.innerHTML='<i class=\'fa-solid fa-shield text-2xl text-indigo-400\'></i>';">
                     </div>
-                    <div>
-                        <div class="flex items-center gap-2.5 flex-wrap">
-                            <h1 id="clanName" class="text-2xl font-black text-white tracking-tight">Завантаження клану...</h1>
-                            <span id="clanTierBadge" class="px-2 py-0.5 rounded text-xs font-bold bg-blue-950 text-blue-300 border border-blue-700/60 uppercase">Platinum</span>
-                            <span class="px-2 py-0.5 rounded text-xs font-mono bg-purple-950 text-purple-300 border border-purple-700/60" id="clanRankBadge">Ранг #--</span>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 id="clanName" class="text-xl sm:text-2xl font-black text-white tracking-tight truncate">Завантаження клану...</h1>
+                            <span id="clanTierBadge" class="px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-blue-950 text-blue-300 border border-blue-700/60 uppercase">Platinum</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] sm:text-xs font-mono bg-purple-950 text-purple-300 border border-purple-700/60" id="clanRankBadge">Ранг #--</span>
                         </div>
-                        <div class="text-xs text-gray-400 flex items-center gap-3 mt-1.5 flex-wrap">
+                        <div class="text-[11px] sm:text-xs text-gray-400 flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap">
                             <span id="clanUpgrades"><i class="fa-solid fa-landmark text-indigo-400 mr-1"></i>Штаб: -- ур. · Казарми: -- ур.</span>
-                            <span>·</span>
+                            <span class="hidden sm:inline">·</span>
                             <span id="clanWealth"><i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: -- Coins</span>
-                            <span>·</span>
-                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-unlock text-[10px] mr-1"></i>Публічний доступ для сокланів</span>
+                            <span class="hidden sm:inline">·</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-unlock text-[10px] mr-1"></i>Публічний доступ</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Live Salvo Highlight Card -->
-                <div class="bg-gradient-to-br from-rose-950/40 to-cardbg p-3.5 rounded-xl border border-rose-500/30 flex items-center gap-4 shrink-0 shadow-lg">
-                    <div class="w-12 h-12 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-2xl shrink-0">
+                <div class="bg-gradient-to-br from-rose-950/40 to-cardbg p-3 sm:p-3.5 rounded-xl border border-rose-500/30 flex items-center gap-3 sm:gap-4 shrink-0 shadow-lg">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xl sm:text-2xl shrink-0">
                         <i class="fa-solid fa-crosshairs"></i>
                     </div>
-                    <div>
-                        <div class="text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
-                            <span>Залп клану за таблетку (HP+Голод)</span>
+                    <div class="min-w-0">
+                        <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
+                            <span>Залп клану за таблетку</span>
                             <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer" title="Сумарний дамаг бойових бійців клану за 1 повну таблетку (8 год) з повним зливом 100% HP та їжі. Еко-воїни виключені з розрахунку."></i>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-white mt-0.5" id="statClanSalvo">--</div>
-                        <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span>🔥 Залишок у активних: <b id="statActiveSalvo" class="text-rose-400 font-extrabold">--</b></span>
+                        <div class="text-[10px] sm:text-[11px] text-gray-400 flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
+                            <span>🔥 Залишок: <b id="statActiveSalvo" class="text-rose-400 font-extrabold">--</b></span>
                             <span class="text-gray-600">|</span>
-                            <span>Факт сьогодні: <b id="statClanToday" class="text-emerald-400 font-extrabold">--</b></span>
+                            <span>Сьогодні: <b id="statClanToday" class="text-emerald-400 font-extrabold">--</b></span>
                             <span class="text-gray-600">|</span>
                             <span>Вчора: <b id="statClanYesterday" class="text-indigo-300 font-bold">--</b></span>
                         </div>
@@ -135,85 +138,117 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
         </section>
 
         <!-- 4 Key Stat Summary Cards -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
             <!-- 1. Вар білди -->
-            <div class="glass-panel p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Бойові білди (War)</span>
                     <i class="fa-solid fa-swords text-emerald-400"></i>
                 </div>
-                <div class="mt-2 text-2xl font-black text-emerald-400" id="statWarCount">--</div>
-                <div class="text-xs text-gray-400 mt-1" id="statWarSub">-- бійців клану (≥70% вар)</div>
+                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-emerald-400" id="statWarCount">--</div>
+                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statWarSub">-- бійців (≥70% вар)</div>
             </div>
 
             <!-- 2. Таблетка (Бойова готовність) -->
-            <div class="glass-panel p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Під таблеткою (+60%)</span>
                     <i class="fa-solid fa-capsules text-purple-400"></i>
                 </div>
-                <div class="mt-2 text-2xl font-black text-purple-300" id="statPillActive">--</div>
-                <div class="text-xs text-gray-400 mt-1" id="statPillSub">-- готові прийняти наказ</div>
+                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-purple-300" id="statPillActive">--</div>
+                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statPillSub">-- готові прийняти наказ</div>
             </div>
 
             <!-- 3. Еко-тил / Гібриди -->
-            <div class="glass-panel p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Еко-тил & Гібриди</span>
                     <i class="fa-solid fa-tractor text-amber-400"></i>
                 </div>
-                <div class="mt-2 text-2xl font-black text-amber-300" id="statEcoCount">--</div>
-                <div class="text-xs text-gray-400 mt-1" id="statEcoSub">-- еко / -- гібриди</div>
+                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-amber-300" id="statEcoCount">--</div>
+                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statEcoSub">-- еко · -- гібрид</div>
             </div>
 
             <!-- 4. Активність / AFK -->
-            <div class="glass-panel p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
+                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Детектор онлайну</span>
                     <i class="fa-solid fa-clock text-blue-400"></i>
                 </div>
-                <div class="mt-2 text-2xl font-black text-blue-400" id="statOnlineCount">--</div>
-                <div class="text-xs text-gray-400 mt-1" id="statAfkSub">-- інактив (>24 год)</div>
+                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-blue-400" id="statOnlineCount">--</div>
+                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statAfkSub">-- інактив (>24 год)</div>
             </div>
         </section>
 
         <!-- Beginner Tip / Rule Banner -->
-        <section class="bg-blue-950/30 border border-blue-500/40 rounded-xl p-3.5 text-xs text-blue-200 flex items-center gap-3">
-            <i class="fa-solid fa-capsules text-purple-400 text-lg shrink-0"></i>
+        <section class="bg-blue-950/30 border border-blue-500/40 rounded-xl p-3 sm:p-3.5 text-[11px] sm:text-xs text-blue-200 flex items-center gap-2.5 sm:gap-3">
+            <i class="fa-solid fa-capsules text-purple-400 text-base sm:text-lg shrink-0"></i>
             <div>
                 <span class="font-bold text-white">Головний бойовий критерій:</span> 
-                Весь урон наноситься <b>виключно під дією таблетки (+60% атаки)</b>. До кінця дії таблетки повністю <b>зливається 100% HP та весь запас голоду (їжа)</b>. Враховано бонус фіолетового сету IV (броня та уворот).
+                Весь урон наноситься <b>виключно під дією таблетки (+60% атаки)</b>. До кінця дії повністю <b>зливається 100% HP та весь запас голоду (їжа)</b>.
             </div>
         </section>
 
         <!-- Controls, Filter Tabs & Search -->
-        <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
-            <!-- Filter Pills -->
-            <div class="flex items-center gap-1.5 flex-wrap text-xs">
-                <button onclick="setFilter('ALL')" id="filterALL" class="tab-btn px-3 py-1.5 rounded-lg active transition-colors">Всі (<span id="cntAll">0</span>)</button>
-                <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors">⚔️ Вар (<span id="cntWar">0</span>)</button>
-                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors">💊 П'є зараз (<span id="cntPillActive">0</span>)</button>
-                <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors">⚪ Готовий (<span id="cntPillReady">0</span>)</button>
-                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors">⏳ Відкат (<span id="cntPillCooldown">0</span>)</button>
-                <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-sky-400 hover:bg-gray-700 transition-colors">⚖️ Гібриди (<span id="cntHybrid">0</span>)</button>
-                <button onclick="setFilter('ECO')" id="filterECO" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors">🚜 Еко (<span id="cntEco">0</span>)</button>
-                <button onclick="setFilter('AFK')" id="filterAFK" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors">💤 Інактив (<span id="cntAfk">0</span>)</button>
+        <section class="flex flex-col gap-2.5 sm:gap-3">
+            <!-- Filter Pills (Horizontal swipe on mobile) -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs shrink-0 w-full">
+                <button onclick="setFilter('ALL')" id="filterALL" class="tab-btn px-3 py-1.5 rounded-lg active transition-colors whitespace-nowrap shrink-0">Всі (<span id="cntAll">0</span>)</button>
+                <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚔️ Вар (<span id="cntWar">0</span>)</button>
+                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💊 П'є зараз (<span id="cntPillActive">0</span>)</button>
+                <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚪ Готовий (<span id="cntPillReady">0</span>)</button>
+                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⏳ Відкат (<span id="cntPillCooldown">0</span>)</button>
+                <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-sky-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚖️ Гібриди (<span id="cntHybrid">0</span>)</button>
+                <button onclick="setFilter('ECO')" id="filterECO" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">🚜 Еко (<span id="cntEco">0</span>)</button>
+                <button onclick="setFilter('AFK')" id="filterAFK" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💤 Інактив (<span id="cntAfk">0</span>)</button>
             </div>
 
-            <!-- Search box -->
-            <div class="relative min-w-[200px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                <input type="text" id="memberSearchInput" oninput="renderMembersTable()" placeholder="Пошук бійця за ніком..." class="w-full bg-cardbg border border-bordercolor rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors">
+            <!-- Search box, Mobile Sort & View Switcher -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div class="relative flex-1 min-w-[200px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                    <input type="text" id="memberSearchInput" oninput="renderMembersTable()" placeholder="Пошук бійця за ніком..." class="w-full bg-cardbg border border-bordercolor rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+
+                <!-- Sort & View Controls -->
+                <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                    <!-- Mobile Sort Dropdown -->
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <select id="sortSelect" onchange="changeSort(this.value)" class="bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 font-medium cursor-pointer">
+                            <option value="damage">🎯 Залп за таблетку</option>
+                            <option value="today">💥 Дамаг сьогодні</option>
+                            <option value="yesterday">📜 Дамаг вчора</option>
+                            <option value="pill">💊 Статус таблетки</option>
+                            <option value="build">⚔️ Білд (Вар/Еко)</option>
+                            <option value="weekly">🏆 Дамаг тижня</option>
+                            <option value="online">🟢 Онлайн</option>
+                            <option value="name">🔤 Ім'я бійця</option>
+                        </select>
+                        <button onclick="toggleSortOrder()" id="sortOrderBtn" class="p-1.5 rounded-lg bg-cardbg border border-bordercolor text-gray-300 hover:text-white hover:border-gray-500 transition-colors" title="Змінити порядок сортування">
+                            <i class="fa-solid fa-arrow-down-wide-short text-xs" id="sortOrderIcon"></i>
+                        </button>
+                    </div>
+
+                    <!-- View Switcher (Cards / Table) -->
+                    <div class="flex items-center bg-cardbg p-0.5 rounded-lg border border-bordercolor text-xs shrink-0">
+                        <button id="viewCardsBtn" onclick="setViewMode('cards')" class="view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white" title="Вигляд картками">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i> <span class="hidden xs:inline">Картки</span>
+                        </button>
+                        <button id="viewTableBtn" onclick="setViewMode('table')" class="view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white" title="Вигляд таблицею">
+                            <i class="fa-solid fa-table-list text-xs"></i> <span class="hidden xs:inline">Таблиця</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- Clan Roster Table -->
-        <section class="glass-panel rounded-2xl border border-bordercolor shadow-xl overflow-hidden">
+        <!-- Clan Roster: Table View (Sticky name column) -->
+        <section id="clanTableSection" class="glass-panel rounded-2xl border border-bordercolor shadow-xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-cardbg/80 border-b border-bordercolor text-gray-400 font-semibold select-none">
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('name')">Боєць <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors sticky left-0 bg-[#111622] z-20 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.5)]" onclick="sortRoster('name')">Боєць <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('role')">Роль <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('build')">Білд <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
@@ -236,6 +271,14 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
         </section>
 
+        <!-- Clan Roster: Mobile Cards View -->
+        <section id="clanCardsSection" class="flex flex-col gap-2.5">
+            <div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">
+                <i class="fa-solid fa-spinner fa-spin text-xl mb-2 text-blue-500"></i>
+                <div>Завантаження бойового складу клану...</div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Footer -->
@@ -251,6 +294,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
         let currentFilter = 'ALL';
         let sortField = 'damage';
         let sortAsc = false;
+        let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
 
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
@@ -392,13 +436,320 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 sortAsc = !sortAsc;
             } else {
                 sortField = field;
-                sortAsc = false;
+                sortAsc = (field === 'name' || field === 'role');
             }
+            updateSortControls();
             renderMembersTable();
+        }
+
+        function changeSort(field) {
+            sortField = field;
+            sortAsc = (field === 'name' || field === 'role');
+            updateSortControls();
+            renderMembersTable();
+        }
+
+        function toggleSortOrder() {
+            sortAsc = !sortAsc;
+            updateSortControls();
+            renderMembersTable();
+        }
+
+        function updateSortControls() {
+            const icon = document.getElementById('sortOrderIcon');
+            if (icon) {
+                icon.className = sortAsc ? 'fa-solid fa-arrow-up-short-wide text-xs' : 'fa-solid fa-arrow-down-wide-short text-xs';
+            }
+            const select = document.getElementById('sortSelect');
+            if (select && select.value !== sortField) {
+                select.value = sortField;
+            }
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            localStorage.setItem('warera_clan_view', mode);
+            updateViewModeUI();
+        }
+
+        function updateViewModeUI() {
+            const tableSec = document.getElementById('clanTableSection');
+            const cardsSec = document.getElementById('clanCardsSection');
+            const cardsBtn = document.getElementById('viewCardsBtn');
+            const tableBtn = document.getElementById('viewTableBtn');
+
+            if (tableSec && cardsSec) {
+                if (currentViewMode === 'cards') {
+                    tableSec.classList.add('hidden');
+                    cardsSec.classList.remove('hidden');
+                } else {
+                    tableSec.classList.remove('hidden');
+                    cardsSec.classList.add('hidden');
+                }
+            }
+
+            if (cardsBtn && tableBtn) {
+                if (currentViewMode === 'cards') {
+                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
+                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                } else {
+                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
+                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                }
+            }
+        }
+
+        function renderTableRow(m) {
+            let onlineDot = 'bg-emerald-400';
+            if (m.hours_offline >= 24) {
+                onlineDot = 'bg-rose-500';
+            } else if (m.hours_offline >= 3) {
+                onlineDot = 'bg-amber-400';
+            }
+
+            let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
+            if (m.pill_status === 'ACTIVE') {
+                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            } else if (m.pill_status === 'READY') {
+                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            } else if (m.pill_status === 'COOLDOWN') {
+                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            }
+
+            let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
+            if (m.build_type === 'ECO') {
+                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
+            } else if (m.build_type === 'HYBRID') {
+                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
+            }
+
+            let roleColor = 'text-gray-400';
+            if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
+            if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
+            if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
+
+            return `
+                <tr class="hover:bg-hoverbg/50 transition-colors group">
+                    <!-- Боєць (Sticky column) -->
+                    <td class="p-3 whitespace-nowrap sticky left-0 bg-[#111622] group-hover:bg-[#1a2234] z-10 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.4)]">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
+                                ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                    <span>${m.username}</span>
+                                    <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-400">Ранг ${m.military_rank}</div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Роль у клані -->
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="${roleColor} text-xs">${m.role_label}</span>
+                    </td>
+
+                    <!-- Білд -->
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${buildBadgeClass}">
+                            ${m.build_label}
+                        </span>
+                    </td>
+
+                    <!-- Таблетка -->
+                    <td class="p-3 whitespace-nowrap">
+                        <div>
+                            <span class="px-2 py-0.5 rounded text-[11px] border ${pillBadgeClass}" title="${m.pill_tip}">
+                                ${m.pill_label}
+                            </span>
+                        </div>
+                        ${m.build_type === 'ECO' ? `
+                            <div class="text-[10px] text-gray-500 mt-1">економічний білд</div>
+                        ` : `
+                            <div class="text-[10px] text-gray-300 font-medium flex items-center gap-1 mt-1">
+                                <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
+                                <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
+                            </div>
+                            <div class="text-[10px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-400'} mt-0.5" title="${m.pill_status === 'ACTIVE' ? 'Потенціал урону до кінця діючої таблетки (злив HP+їжі)' : 'Потенціал урону за повну 8г таблетку (злив HP+їжі)'}">
+                                💥 ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)} <span class="font-normal text-gray-500">урону</span>
+                            </div>
+                        `}
+                    </td>
+
+                    <!-- Дамаг сьогодні (з 02:00) -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
+                            ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
+                        </div>
+                        <div class="text-[10px] text-gray-500">з 02:00</div>
+                    </td>
+
+                    <!-- Дамаг вчора -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-xs ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'}" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку 02:00'}">
+                            ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                        </div>
+                        <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                    </td>
+
+                    <!-- Залп за таблетку -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        ${m.build_type === 'ECO' ? `
+                            <div class="text-gray-500 font-mono text-xs">—</div>
+                            <div class="text-[10px] text-gray-500">еко-тил</div>
+                        ` : `
+                            <div class="font-black text-rose-400 text-sm">~${formatMillions(m.pill_full_dmg)}</div>
+                            <div class="text-[10px] text-gray-400">повний злив</div>
+                        `}
+                    </td>
+
+                    <!-- Дамаг тижня -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-gray-200 text-xs">${formatMillions(m.weekly_damage)}</div>
+                        <div class="text-[10px] text-gray-400">всього: ${formatMillions(m.total_damage)}</div>
+                    </td>
+
+                    <!-- Онлайн -->
+                    <td class="p-3 whitespace-nowrap">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full ${onlineDot} shrink-0"></span>
+                            <span class="text-xs ${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-300'}">${m.last_seen_label}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderMemberCard(m) {
+            let onlineDot = 'bg-emerald-400';
+            if (m.hours_offline >= 24) {
+                onlineDot = 'bg-rose-500';
+            } else if (m.hours_offline >= 3) {
+                onlineDot = 'bg-amber-400';
+            }
+
+            let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
+            if (m.pill_status === 'ACTIVE') {
+                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            } else if (m.pill_status === 'READY') {
+                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            } else if (m.pill_status === 'COOLDOWN') {
+                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            }
+
+            let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
+            if (m.build_type === 'ECO') {
+                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
+            } else if (m.build_type === 'HYBRID') {
+                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
+            }
+
+            let roleColor = 'text-gray-400';
+            if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
+            if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
+            if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
+
+            return `
+                <div class="glass-panel rounded-2xl border border-bordercolor/80 p-3.5 shadow-lg flex flex-col gap-2.5 hover:border-gray-600 transition-all">
+                    <!-- Row 1: Avatar, Name, Level, Role, Pill status -->
+                    <div class="flex items-start justify-between gap-2.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="relative shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center">
+                                    ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                                </div>
+                                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${onlineDot} border-2 border-cardbg" title="${m.last_seen_label}"></span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-extrabold text-white text-sm truncate">${m.username}</span>
+                                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
+                                    <span class="${roleColor} font-medium">${m.role_label}</span>
+                                    <span>•</span>
+                                    <span class="text-[10px]">Ранг ${m.military_rank}</span>
+                                    <span>•</span>
+                                    <span class="${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-400'}">${m.last_seen_label}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pill Status -->
+                        <div class="shrink-0 text-right">
+                            <span class="px-2 py-0.5 rounded text-[10px] border inline-block ${pillBadgeClass}" title="${m.pill_tip}">
+                                ${m.pill_label}
+                            </span>
+                            ${m.build_type !== 'ECO' ? `
+                                <div class="text-[10px] text-gray-300 font-medium flex items-center justify-end gap-1 mt-1">
+                                    <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
+                                    <span>${m.pill_time_label}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Build & Salvo summary -->
+                    <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-darkbg/50 border border-bordercolor/50 text-xs">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-medium border ${buildBadgeClass}">
+                            ${m.build_label}
+                        </span>
+                        ${m.build_type === 'ECO' ? `
+                            <span class="text-[11px] text-gray-500">економічний тил</span>
+                        ` : `
+                            <div class="text-[11px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-300'} flex items-center gap-1">
+                                <span>💥 Залп:</span>
+                                <span class="${m.pill_status === 'ACTIVE' ? 'text-purple-300 font-extrabold' : 'text-rose-400 font-bold'}">
+                                    ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)}
+                                </span>
+                                <span class="text-[10px] font-normal text-gray-400">урону</span>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Row 3: 4 Key Metrics Grid -->
+                    <div class="grid grid-cols-4 gap-1 bg-darkbg/80 rounded-xl p-2 border border-bordercolor/60 text-center">
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Сьогодні</div>
+                            <div class="text-xs font-bold ${m.today_damage > 0 ? 'text-emerald-400 font-black' : 'text-gray-400'} mt-1 truncate" title="Точно: ${formatNumber(m.today_damage)}">
+                                ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">з 02:00</div>
+                        </div>
+
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Вчора</div>
+                            <div class="text-xs font-bold ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'} mt-1 truncate" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку'}">
+                                ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                        </div>
+
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Залп 8г</div>
+                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate">
+                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)}`}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">HP+їжа</div>
+                        </div>
+
+                        <div class="px-1">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Тиждень</div>
+                            <div class="text-xs font-bold text-gray-300 mt-1 truncate" title="Всього: ${formatMillions(m.total_damage)}">
+                                ${formatMillions(m.weekly_damage)}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">всього</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function renderMembersTable() {
             const tbody = document.getElementById('clanTableBody');
+            const cardsContainer = document.getElementById('clanCardsSection');
             if (!tbody || !clanData) return;
 
             let list = [...clanData.members];
@@ -428,6 +779,9 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
 
             if (list.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
+                if (cardsContainer) {
+                    cardsContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">Не знайдено бійців за вказаними критеріями</div>`;
+                }
                 return;
             }
 
@@ -449,135 +803,16 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                 return 0;
             });
 
-            tbody.innerHTML = list.map(m => {
-                // Online indicator
-                let onlineDot = 'bg-emerald-400';
-                if (m.hours_offline >= 24) {
-                    onlineDot = 'bg-rose-500';
-                } else if (m.hours_offline >= 3) {
-                    onlineDot = 'bg-amber-400';
-                }
+            // Populate Table
+            tbody.innerHTML = list.map(m => renderTableRow(m)).join('');
 
-                // Pill Badge
-                let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
-                if (m.pill_status === 'ACTIVE') {
-                    pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
-                } else if (m.pill_status === 'READY') {
-                    pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
-                } else if (m.pill_status === 'COOLDOWN') {
-                    pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
-                }
+            // Populate Cards
+            if (cardsContainer) {
+                cardsContainer.innerHTML = list.map(m => renderMemberCard(m)).join('');
+            }
 
-                // Build Badge
-                let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
-                if (m.build_type === 'ECO') {
-                    buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
-                } else if (m.build_type === 'HYBRID') {
-                    buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
-                }
-
-                // Role Badge
-                let roleColor = 'text-gray-400';
-                if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
-                if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
-                if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
-
-                const dmgMinM = formatMillions(m.theoretical_daily_dmg_min);
-                const dmgMaxM = formatMillions(m.theoretical_daily_dmg_max);
-
-                return `
-                    <tr class="hover:bg-hoverbg/50 transition-colors">
-                        <!-- Боєць -->
-                        <td class="p-3 whitespace-nowrap">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
-                                    ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
-                                </div>
-                                <div>
-                                    <div class="font-bold text-white text-xs flex items-center gap-1.5">
-                                        <span>${m.username}</span>
-                                        <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
-                                    </div>
-                                    <div class="text-[10px] text-gray-400">Ранг ${m.military_rank}</div>
-                                </div>
-                            </div>
-                        </td>
-
-                        <!-- Роль у клані -->
-                        <td class="p-3 whitespace-nowrap">
-                            <span class="${roleColor} text-xs">${m.role_label}</span>
-                        </td>
-
-                        <!-- Білд -->
-                        <td class="p-3 whitespace-nowrap">
-                            <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${buildBadgeClass}">
-                                ${m.build_label}
-                            </span>
-                        </td>
-
-                        <!-- Таблетка -->
-                        <td class="p-3 whitespace-nowrap">
-                            <div>
-                                <span class="px-2 py-0.5 rounded text-[11px] border ${pillBadgeClass}" title="${m.pill_tip}">
-                                    ${m.pill_label}
-                                </span>
-                            </div>
-                            ${m.build_type === 'ECO' ? `
-                                <div class="text-[10px] text-gray-500 mt-1">економічний білд</div>
-                            ` : `
-                                <div class="text-[10px] text-gray-300 font-medium flex items-center gap-1 mt-1">
-                                    <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
-                                    <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
-                                </div>
-                                <div class="text-[10px] font-bold ${m.pill_status === 'ACTIVE' ? 'text-purple-300' : 'text-gray-400'} mt-0.5" title="${m.pill_status === 'ACTIVE' ? 'Потенціал урону до кінця діючої таблетки (злив HP+їжі)' : 'Потенціал урону за повну 8г таблетку (злив HP+їжі)'}">
-                                    💥 ~${formatMillions(m.pill_status === 'ACTIVE' ? m.pill_current_dmg : m.pill_full_dmg)} <span class="font-normal text-gray-500">урону</span>
-                                </div>
-                            `}
-                        </td>
-
-                        <!-- Дамаг сьогодні (з 02:00) -->
-                        <td class="p-3 whitespace-nowrap text-right">
-                            <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
-                                ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
-                            </div>
-                            <div class="text-[10px] text-gray-500">з 02:00</div>
-                        </td>
-
-                        <!-- Дамаг вчора -->
-                        <td class="p-3 whitespace-nowrap text-right">
-                            <div class="font-bold text-xs ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'}" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку 02:00'}">
-                                ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
-                            </div>
-                            <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
-                        </td>
-
-                        <!-- Залп за таблетку -->
-                        <td class="p-3 whitespace-nowrap text-right">
-                            ${m.build_type === 'ECO' ? `
-                                <div class="text-gray-500 font-mono text-xs">—</div>
-                                <div class="text-[10px] text-gray-500">еко-тил</div>
-                            ` : `
-                                <div class="font-black text-rose-400 text-sm">~${formatMillions(m.pill_full_dmg)}</div>
-                                <div class="text-[10px] text-gray-400">повний злив</div>
-                            `}
-                        </td>
-
-                        <!-- Дамаг тижня -->
-                        <td class="p-3 whitespace-nowrap text-right">
-                            <div class="font-bold text-gray-200 text-xs">${formatMillions(m.weekly_damage)}</div>
-                            <div class="text-[10px] text-gray-400">всього: ${formatMillions(m.total_damage)}</div>
-                        </td>
-
-                        <!-- Онлайн -->
-                        <td class="p-3 whitespace-nowrap">
-                            <div class="flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full ${onlineDot} shrink-0"></span>
-                                <span class="text-xs ${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-300'}">${m.last_seen_label}</span>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            updateViewModeUI();
+            updateSortControls();
         }
 
         function copyDiscordReport() {
@@ -624,6 +859,15 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
         // Auto load on start
         window.addEventListener('DOMContentLoaded', () => {
             loadClanData(false);
+        });
+
+        window.addEventListener('resize', () => {
+            if (!localStorage.getItem('warera_clan_view')) {
+                const autoMode = window.innerWidth < 768 ? 'cards' : 'table';
+                if (autoMode !== currentViewMode) {
+                    setViewMode(autoMode);
+                }
+            }
         });
     </script>
 </body>
