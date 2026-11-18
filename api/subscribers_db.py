@@ -128,6 +128,42 @@ class SubscribersDB:
         self.save()
         return th
 
+    def is_authorized(self, chat_id: str) -> bool:
+        """Checks if user is authorized. If no password set, all users are authorized."""
+        required_pwd = str(getattr(config, "SNIPER_BOT_PASSWORD", "") or "").strip()
+        if not required_pwd:
+            return True
+        cid = str(chat_id).strip()
+        if self.is_admin(cid):
+            return True
+        user = self._subscribers.get(cid, {})
+        return bool(user.get("authorized", False))
+
+    def authorize_user(self, chat_id: str, password_attempt: str) -> bool:
+        """Verifies password attempt and authorizes user if correct."""
+        required_pwd = str(getattr(config, "SNIPER_BOT_PASSWORD", "") or "").strip()
+        if not required_pwd:
+            return True
+        cid = str(chat_id).strip()
+        if self.is_admin(cid):
+            return True
+        if str(password_attempt).strip() == required_pwd:
+            if cid not in self._subscribers:
+                self.register_user(cid)
+            self._subscribers[cid]["authorized"] = True
+            self.save()
+            return True
+        return False
+
+    def revoke_user(self, chat_id: str) -> bool:
+        """Revokes authorization for a user."""
+        cid = str(chat_id).strip()
+        if cid in self._subscribers:
+            self._subscribers[cid]["authorized"] = False
+            self.save()
+            return True
+        return False
+
     def set_sniper_alerts(self, chat_id: str, enabled: bool) -> bool:
         cid = str(chat_id).strip()
         if cid not in self._subscribers:
@@ -155,10 +191,10 @@ class SubscribersDB:
         return self._subscribers[cid]
 
     def get_sniper_chat_ids(self) -> List[str]:
-        """Returns all chat IDs who have battle sniping alerts enabled."""
+        """Returns all chat IDs who have battle sniping alerts enabled AND are authorized."""
         res = []
         for cid, u in self._subscribers.items():
-            if u.get("sniper_alerts", True):
+            if u.get("sniper_alerts", True) and self.is_authorized(cid):
                 res.append(cid)
         return res
 

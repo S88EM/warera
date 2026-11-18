@@ -78,6 +78,7 @@ def load_ha_options() -> dict:
     fallbacks = {
         "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
         "telegram_sniper_bot_token": os.getenv("TELEGRAM_SNIPER_BOT_TOKEN", ""),
+        "sniper_bot_password": os.getenv("SNIPER_BOT_PASSWORD", ""),
         "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
         "warera_api_key": os.getenv("WARERA_API_KEY", ""),
         "warera_cookie": os.getenv("WARERA_COOKIE", ""),
@@ -109,6 +110,7 @@ def apply_configuration(opts: dict):
         "warera_x_gr": "WARERA_X_GR",
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
         "telegram_sniper_bot_token": "TELEGRAM_SNIPER_BOT_TOKEN",
+        "sniper_bot_password": "SNIPER_BOT_PASSWORD",
         "telegram_chat_id": "TELEGRAM_CHAT_ID",
         "equipment_scan_interval": "EQUIPMENT_SCAN_INTERVAL",
         "pricing_mode": "PRICING_MODE",
@@ -195,6 +197,8 @@ async def main():
     print(f"[HA Launcher] 📱 Telegram сповіщення ринку: {'Увімкнено' if enable_tg else 'Вимкнено'}")
     print(f"[HA Launcher] 🎯 Sniper Telegram Bot (для клану): {'Увімкнено' if sniper_token else 'Очікує на токен'}")
     print(f"[HA Launcher] 🎯 Поріг снайпінгу фіолу: ≤ {max_dmg} dmg (відсіювання вище)")
+    bot_pwd = os.environ.get("SNIPER_BOT_PASSWORD", "")
+    print(f"[HA Launcher] 🔒 Захист снайпер-бота паролем: {'Увімкнено (пароль встановлено)' if bot_pwd else 'Вимкнено (вільний доступ)'}")
     print("-" * 65)
 
     import equipment_scanner

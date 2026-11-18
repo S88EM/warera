@@ -11,7 +11,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 
 # Application Versioning
-APP_VERSION = "b.0001.23"
+APP_VERSION = "b.0001.24"
 
 # Load API key from API_key.txt if present
 def get_api_key() -> str:
@@ -87,3 +87,5 @@ DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
 
 # Battle Purple Sniper thresholds
 SNIPER_MAX_DAMAGE: int = int(os.getenv("SNIPER_MAX_DAMAGE", "75000"))
+
+SNIPER_BOT_PASSWORD: str = os.getenv("SNIPER_BOT_PASSWORD", "")

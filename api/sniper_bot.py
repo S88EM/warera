@@ -274,6 +274,18 @@ class SniperBotController:
             logger.error(f"Error in Sniper Bot get_battles_text: {e}")
             return f"⚠️ <b>Помилка аналізу битв:</b> <code>{e}</code>"
 
+    async def send_auth_prompt(self, chat_id: str):
+        """Sends clan password prompt to unauthorized users."""
+        text = (
+            "🔒 <b>Доступ обмежено паролем</b>\n\n"
+            "Цей снайпер-бот призначений виключно для бійців нашого клану.\n\n"
+            "Щоб отримати доступ до снайпінгу та сповіщень, введіть пароль клану:\n"
+            "• Надішліть: <code>/auth &lt;пароль&gt;</code>\n"
+            "• Або просто напишіть пароль повідомленням у цей чат.\n\n"
+            "<i>(Після разового введення пароля доступ надається назавжди).</i>"
+        )
+        await self.send_message(chat_id, text)
+
     async def handle_update(self, update: dict):
         # 1. Inline Buttons
         if "callback_query" in update:
@@ -291,6 +303,12 @@ class SniperBotController:
                 username=from_user.get("username"),
                 first_name=from_user.get("first_name")
             )
+
+            # Security gate: require password authorization
+            if not self.subscribers_db.is_authorized(chat_id):
+                await self.answer_callback(cb_id, "🔒 Доступ обмежено паролем клану!", show_alert=True)
+                await self.send_auth_prompt(chat_id)
+                return
 
             if data == "sniper_toggle_alerts":
                 curr = self.subscribers_db.get_user_prefs(chat_id).get("sniper_alerts", True)
@@ -376,6 +394,28 @@ class SniperBotController:
                 first_word = first_word.split("@")[0]
             clean_cmd = first_word.lstrip("/")
 
+            # Security gate: check if user is authorized or attempting to authenticate
+            if not self.subscribers_db.is_authorized(chat_id):
+                auth_success = False
+                # 1. /start <password> deep link or /auth <password>
+                if first_word in ("/start", "/auth", "/login", "/пароль", "/вхід") and len(words) > 1:
+                    auth_success = self.subscribers_db.authorize_user(chat_id, words[1].strip())
+                # 2. Plain password text
+                elif text and not text.startswith("/"):
+                    auth_success = self.subscribers_db.authorize_user(chat_id, text.strip())
+
+                if auth_success:
+                    await self.send_message(
+                        chat_id,
+                        "🎉 <b>Доступ надано!</b> Ласкаво просимо до Снайпера Клану WarEra ⚔️\n\n"
+                        "Пароль успішно підтверджено. Тепер ви маєте повний доступ до снайпінгу битв."
+                    )
+                    await self.send_message(chat_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                    return
+                else:
+                    await self.send_auth_prompt(chat_id)
+                    return
+
             if first_word in ("/start", "/menu", "/help") or clean_cmd in ("start", "menu", "help", "меню", "допомога"):
                 await self.send_message(chat_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
 
@@ -420,6 +460,14 @@ class SniperBotController:
                     "🎯 <b>Снайпінг битв:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
                     "Автоматичні пуші вимкнено. Ви завжди можете перевірити ситуацію вручну через /snipe."
                 )
+
+            elif first_word in ("/revoke", "/відкликати") and len(words) > 1:
+                if not self._is_admin(from_user.get("id"), chat_id):
+                    await self.send_message(chat_id, "⛔ Команда доступна лише адміністратору.")
+                    return
+                target_cid = words[1].strip()
+                self.subscribers_db.revoke_user(target_cid)
+                await self.send_message(chat_id, f"🔒 Доступ для користувача <code>{target_cid}</code> відкликано.")
 
             elif first_word in ("/subscribers", "/users") or clean_cmd in ("subscribers", "users", "бійці"):
                 if not self._is_admin(from_user.get("id"), chat_id):
