@@ -25,8 +25,11 @@ class BattleSniperWorker:
         self.analyzer = get_shared_battle_analyzer()
         self.max_damage = getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         
-        # Track alerted rounds so we only alert once per battle round: {f"{battle_id}_{round_id}"}
-        self.alerted_rounds: Set[str] = set()
+        # Track alerted rounds per user so:
+        # 1. A user is alerted only once per battle round.
+        # 2. If an alert was skipped because damage exceeded personal threshold, and the user
+        #    subsequently raises their threshold, they can still receive it while in the sniper window.
+        self.alerted_user_rounds: Set[str] = set()
         self.cycle_count = 0
         self.total_alerts_sent = 0
         self.last_check_time: Optional[str] = None
@@ -74,30 +77,36 @@ class BattleSniperWorker:
             logger.error(f"Error sending sniper alert to {chat_id}: {e}")
 
     def build_alert_message(self, battle: Dict[str, Any]) -> str:
-        reg = battle["region"]["name"]
-        btype = "Війна" if battle["type"] == "war" else "Повстання"
-        r_num = battle["round"]["number"]
-        att = battle["attacker"]["name"]
-        dff = battle["defender"]["name"]
-        att_pts = battle["attacker"]["roundPoints"]
-        def_pts = battle["defender"]["roundPoints"]
+        reg = battle.get("region", {}).get("name", "Невідомий регіон")
+        btype = "Війна" if battle.get("type") == "war" else "Повстання"
+        r_num = battle.get("round", {}).get("number", 1)
+        att = battle.get("attacker", {}).get("name", "Атакуючі")
+        dff = battle.get("defender", {}).get("name", "Захисники")
+        att_pts = battle.get("attacker", {}).get("roundPoints", 0)
+        def_pts = battle.get("defender", {}).get("roundPoints", 0)
         
         tm = battle.get("timing", {})
         eta = tm.get("formattedEta", "15–20 хв")
+        clean_eta = eta.replace("🎯", "").replace("до кінця", "").strip()
         mins = tm.get("minutesLeft", 18)
         
-        rc = battle["roundCutoff"]
-        min_dmg = rc["min_damage_for_purple"]
-        cutoff_rank = rc["cutoff_rank"]
-        item_name = rc["last_purple_item"]["name"]
-        holder = rc["last_purple_player"]["username"]
+        rc = battle.get("roundCutoff") or {}
+        if not rc.get("has_purple") and battle.get("battleCutoff", {}).get("has_purple"):
+            rc = battle.get("battleCutoff") or {}
+
+        min_dmg = rc.get("min_damage_for_purple") or 0
+        cutoff_rank = rc.get("cutoff_rank") or "?"
+        item_info = rc.get("last_purple_item") or {}
+        item_name = item_info.get("name") or "Фіолетовий предмет (Epic+)"
+        player_info = rc.get("last_purple_player") or {}
+        holder = player_info.get("username") or "Вільний слот"
         gap = rc.get("gap_to_next", 0)
         total_purple = rc.get("total_purple_plus_items", 1)
 
         fire_tag = "🔥 <b>СУПЕР ЛОТ!</b> " if min_dmg < 100_000 else ""
 
         lines = [
-            f"🎯 {fire_tag}<b>Шанс на фіол: {eta} до кінця!</b>",
+            f"🎯 {fire_tag}<b>Шанс на фіол: {clean_eta} до кінця!</b>",
             f"",
             f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
             f"🏳️ <b>Раунд #{r_num}:</b> {att} (<b>{att_pts}</b>) vs {dff} (<b>{def_pts}</b>) / 300 очок",
@@ -125,7 +134,7 @@ class BattleSniperWorker:
             logger.error(f"Error fetching battles intel: {e}")
             return
 
-        # Find all battles in the sniper window (10 <= minutesLeft <= 25) with purple drops
+        # Find all battles in the sniper window with purple drops (round or battle level)
         sniper_candidates = []
         active_round_keys = set()
 
@@ -140,14 +149,18 @@ class BattleSniperWorker:
 
             tm = b.get("timing", {})
             rc = b.get("roundCutoff", {})
+            bc = b.get("battleCutoff", {})
+            has_purple = bool(rc.get("has_purple") or bc.get("has_purple"))
 
             # Must be in sniper window and have purple items
-            if tm.get("isSniperWindow") and rc.get("has_purple"):
-                if alert_key not in self.alerted_rounds:
-                    sniper_candidates.append((alert_key, b))
+            if tm.get("isSniperWindow") and has_purple:
+                sniper_candidates.append((alert_key, b))
 
-        # Cleanup alerted_rounds for rounds that have finished
-        self.alerted_rounds = {k for k in self.alerted_rounds if k in active_round_keys}
+        # Cleanup alerted_user_rounds for rounds that have finished
+        self.alerted_user_rounds = {
+            k for k in self.alerted_user_rounds 
+            if any(k.startswith(f"{active_k}_") for active_k in active_round_keys)
+        }
 
         if not sniper_candidates:
             return
@@ -155,32 +168,34 @@ class BattleSniperWorker:
         # Get subscribers who want battle sniper push alerts
         target_chat_ids = self.subscribers_db.get_sniper_chat_ids()
         if not target_chat_ids:
-            logger.info("Sniper battles detected, but no subscribers have sniper_alerts enabled.")
-            for alert_key, _ in sniper_candidates:
-                self.alerted_rounds.add(alert_key)
             return
 
         for alert_key, battle in sniper_candidates:
-            msg = self.build_alert_message(battle)
+            rc = battle.get("roundCutoff") or {}
+            if not rc.get("has_purple") and battle.get("battleCutoff", {}).get("has_purple"):
+                rc = battle.get("battleCutoff") or {}
+            min_dmg = rc.get("min_damage_for_purple") or 0
             url = battle.get("wareraUrl", f"https://app.warera.io/battle/{battle.get('battleId')}")
-            logger.info(f"🚨 Firing sniper alert for {battle['region']['name']} to {len(target_chat_ids)} users!")
-
-            # Send individually to subscribers whose personal threshold is >= min_dmg
-            rc = battle.get("roundCutoff", {})
-            min_dmg = rc.get("min_damage_for_purple", 0)
+            cached_msg: Optional[str] = None
 
             for cid in target_chat_ids:
+                user_alert_key = f"{alert_key}_{cid}"
+                if user_alert_key in self.alerted_user_rounds:
+                    continue
+
                 user_th = self.subscribers_db.get_user_threshold(cid)
                 if min_dmg <= user_th:
+                    if cached_msg is None:
+                        cached_msg = self.build_alert_message(battle)
+                    logger.info(f"🚨 Firing sniper alert for {battle.get('region', {}).get('name', 'Battle')} to {cid} (min_dmg: {min_dmg} <= th: {user_th})")
                     try:
-                        await self.send_telegram_alert(cid, msg, url)
+                        await self.send_telegram_alert(cid, cached_msg, url)
+                        self.alerted_user_rounds.add(user_alert_key)
                         await asyncio.sleep(0.05)  # Telegram broadcast throttling
                     except Exception as e:
                         logger.error(f"Failed to deliver to {cid}: {e}")
                 else:
                     logger.debug(f"Skipping alert for {cid}: min_dmg {min_dmg} > personal threshold {user_th}")
-
-            self.alerted_rounds.add(alert_key)
 
     async def start(self):
         """Main loop of the background sniper worker."""

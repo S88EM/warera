@@ -254,7 +254,7 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год) з повним зливом HP та їжі">Залп за таблетку (HP+Голод) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год, 2 хвилі: старт 0:00 + реген 7.5г) та добовий потенціал бійця (24г)">Залп (8г) / Доба <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('weekly')">Дамаг тижня <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('online')">Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                         </tr>
@@ -596,14 +596,14 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                         <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
                     </td>
 
-                    <!-- Залп за таблетку -->
+                    <!-- Залп за таблетку та доба -->
                     <td class="p-3 whitespace-nowrap text-right">
                         ${m.build_type === 'ECO' ? `
                             <div class="text-gray-500 font-mono text-xs">—</div>
                             <div class="text-[10px] text-gray-500">еко-тил</div>
                         ` : `
-                            <div class="font-black text-rose-400 text-sm">~${formatMillions(m.pill_full_dmg)}</div>
-                            <div class="text-[10px] text-gray-400">можливий урон</div>
+                            <div class="font-black text-rose-400 text-sm" title="Залп за таблетку (8 год, 2 хвилі на Стейках 15%): Хвиля 1 ~${formatMillions(m.start_salvo_dmg || 0)} (${m.start_salvo_hits || 0} уд.) + Хвиля 2 ~${formatMillions(m.regen_salvo_dmg || 0)} (${m.regen_salvo_hits || 0} уд.) = ${m.pill_full_hits || 0} уд. • На смаженій рибі (20%): ~${formatMillions(m.pill_fish_dmg || 0)}">~${formatMillions(m.pill_full_dmg)}</div>
+                            <div class="text-[10px] text-gray-400" title="Повний добовий потенціал бійця (24 год регену та стейків): ~${formatMillions(m.daily_theoretical_dmg || 0)} (~${m.daily_theoretical_hits || 0} уд.) • вартість удару: ${m.hp_cost_per_hit} HP">доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}</div>
                         `}
                     </td>
 
@@ -731,11 +731,13 @@ CLAN_DASHBOARD_HTML = r"""<!DOCTYPE html>
                         </div>
 
                         <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум дамагу за 1 повну таблетку 8 годин (злив 100% HP та їжі)">Залп (8г)</div>
-                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум за 1 повну таблетку 8г (2 хвилі) та доба">Залп (8г)</div>
+                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Хвиля 1: ~${formatMillions(m.start_salvo_dmg || 0)} + Хвиля 2: ~${formatMillions(m.regen_salvo_dmg || 0)}">
                                 ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)}`}
                             </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">можливий урон</div>
+                            <div class="text-[9px] text-gray-500 mt-0.5 truncate" title="Добовий потенціал: ~${formatMillions(m.daily_theoretical_dmg || 0)}">
+                                ${m.build_type === 'ECO' ? 'еко-тил' : `доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}`}
+                            </div>
                         </div>
 
                         <div class="px-1">

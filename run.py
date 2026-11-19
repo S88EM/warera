@@ -61,16 +61,25 @@ def main():
 
     if args.sniper_bot:
         import sniper_bot
+        from battle_sniper_worker import get_sniper_worker
         bot = sniper_bot.SniperBotController()
         if not bot.token:
             print("❌ TELEGRAM_SNIPER_BOT_TOKEN не задано в .env або конфізі!")
             return
-        print("🚀 Запуск автономного Sniper Telegram Bot для клану...")
+        print("🚀 Запуск автономного Sniper Telegram Bot та фонового моніторингу для клану...")
+        async def run_sniper_all():
+            worker = get_sniper_worker()
+            await asyncio.gather(
+                bot.start_polling(),
+                worker.start(),
+            )
         try:
-            asyncio.run(bot.start_polling())
+            asyncio.run(run_sniper_all())
         except KeyboardInterrupt:
             print("\nSniper Bot зупинено.")
         return
+
+    if args.workers:
         import worker_analyzer
         asyncio.run(worker_analyzer.async_main(target_nick=args.nick))
         return

@@ -28,12 +28,24 @@ class SubscribersDB:
                 self.file_path = Path(__file__).parent / "bot_subscribers.json"
 
         self._subscribers: Dict[str, Dict[str, Any]] = {}
+        self._last_mtime: float = 0.0
         self.load()
+
+    def _ensure_fresh(self):
+        """Checks if bot_subscribers.json was modified on disk by another component/process and reloads it."""
+        try:
+            if self.file_path.exists():
+                mtime = self.file_path.stat().st_mtime
+                if mtime > getattr(self, "_last_mtime", 0.0):
+                    self.load()
+        except Exception as e:
+            logger.debug(f"Error checking subscribers file freshness: {e}")
 
     def load(self):
         """Loads subscribers from persistent JSON storage and seeds initial chat IDs from config."""
         if self.file_path.exists():
             try:
+                self._last_mtime = self.file_path.stat().st_mtime
                 with open(self.file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, dict):
@@ -65,6 +77,8 @@ class SubscribersDB:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self._subscribers, f, indent=2, ensure_ascii=False)
+            if self.file_path.exists():
+                self._last_mtime = self.file_path.stat().st_mtime
         except Exception as e:
             logger.error(f"Error saving subscribers to {self.file_path}: {e}")
 
@@ -113,6 +127,7 @@ class SubscribersDB:
 
     def get_user_threshold(self, chat_id: str) -> int:
         """Returns the individual damage cutoff threshold for this user."""
+        self._ensure_fresh()
         cid = str(chat_id).strip()
         user = self.get_user_prefs(cid)
         default_th = int(getattr(config, "SNIPER_MAX_DAMAGE", 75000))
@@ -120,6 +135,7 @@ class SubscribersDB:
 
     def set_user_threshold(self, chat_id: str, threshold: int) -> int:
         """Sets the individual damage cutoff threshold for this specific user."""
+        self._ensure_fresh()
         cid = str(chat_id).strip()
         if cid not in self._subscribers:
             self.register_user(cid)
@@ -130,6 +146,7 @@ class SubscribersDB:
 
     def is_authorized(self, chat_id: str) -> bool:
         """Checks if user is authorized. If no password set, all users are authorized."""
+        self._ensure_fresh()
         required_pwd = str(getattr(config, "SNIPER_BOT_PASSWORD", "") or "").strip()
         if not required_pwd:
             return True
@@ -185,6 +202,7 @@ class SubscribersDB:
         return enabled
 
     def get_user_prefs(self, chat_id: str) -> Dict[str, Any]:
+        self._ensure_fresh()
         cid = str(chat_id).strip()
         if cid not in self._subscribers:
             return self.register_user(cid)
@@ -192,6 +210,7 @@ class SubscribersDB:
 
     def get_sniper_chat_ids(self) -> List[str]:
         """Returns all chat IDs who have battle sniping alerts enabled AND are authorized."""
+        self._ensure_fresh()
         res = []
         for cid, u in self._subscribers.items():
             if u.get("sniper_alerts", True) and self.is_authorized(cid):
@@ -203,6 +222,7 @@ class SubscribersDB:
         Returns ONLY the admin/owner chat IDs who have market gear alerts enabled.
         PRIVACY SHIELD: Regular users NEVER receive equipment alerts.
         """
+        self._ensure_fresh()
         admin_cids = {str(cid).strip() for cid in config.TELEGRAM_CHAT_IDS}
         res = []
         for cid, u in self._subscribers.items():
@@ -217,7 +237,9 @@ class SubscribersDB:
         return res
 
     def get_all_subscribers(self) -> Dict[str, Dict[str, Any]]:
+        self._ensure_fresh()
         return self._subscribers
 
     def count(self) -> int:
+        self._ensure_fresh()
         return len(self._subscribers)

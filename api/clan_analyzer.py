@@ -377,7 +377,7 @@ class WarEraClanAnalyzer:
             # 24h health pool = current full bar + 24 hours of natural regen
             daily_hp_pool = health_max + (24.0 * health_regen)
 
-            # Armor and Dodge computation with Epic Set guarantee
+            # Armor and Dodge computation: character stats + equipment with softcap
             curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
             curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
 
@@ -391,15 +391,22 @@ class WarEraClanAnalyzer:
             total_raw_armor = curr_armor_stat + effective_gear_armor
             total_raw_dodge = curr_dodge_stat + effective_gear_dodge
 
+            # In-game softcap from API if already computed by game server for equipped gear
+            game_armor_softcap = float(skills.get("armor", {}).get("totalAfterSoftCap", 0))
+            game_dodge_softcap = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
+
             # Apply WarEra soft cap curve (soft cap at 40%, 50% efficiency above 40%)
-            eff_armor_pct = min(total_raw_armor, 40.0) + max(0.0, total_raw_armor - 40.0) * 0.5
-            eff_dodge_pct = min(total_raw_dodge, 40.0) + max(0.0, total_raw_dodge - 40.0) * 0.5
+            calc_armor_softcap = min(total_raw_armor, 40.0) + max(0.0, total_raw_armor - 40.0) * 0.5
+            calc_dodge_softcap = min(total_raw_dodge, 40.0) + max(0.0, total_raw_dodge - 40.0) * 0.5
+
+            eff_armor_pct = max(game_armor_softcap, calc_armor_softcap)
+            eff_dodge_pct = max(game_dodge_softcap, calc_dodge_softcap)
 
             # Effective HP cost per hit
-            # Armor reduces damage, Dodge has (1 - dodge%) chance of taking 0 HP cost
+            # Armor reduces damage taken, Dodge gives chance of 0 HP cost (only ammo & weapon durability consumed)
             base_hit_cost = 10.0 # game constant
             hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor_pct / 100.0)) * (1.0 - (eff_dodge_pct / 100.0))
-            hp_cost_per_hit = max(hp_cost_per_hit, 1.0) # at least 1 HP cost
+            hp_cost_per_hit = max(hp_cost_per_hit, 0.8) # floor at 0.8 HP cost
 
             # Hits per day from natural HP pool
             hits_per_day_natural = daily_hp_pool / hp_cost_per_hit
@@ -431,31 +438,66 @@ class WarEraClanAnalyzer:
 
             avg_dmg_per_hit = simulated_atk * crit_multiplier * mu_order_bonus
 
-            # Pill Combat Capacity: ALL damage is dealt ONLY under the pill!
-            # By the end of the pill, 100% of HP and Hunger are drained!
+            # Pill Combat Capacity: 2 distinct waves as deployed in WarEra battles
+            # Wave 1 (0:00 Start): Drink pill (+60%), drain 100% initial HP, eat all available Steaks, drain HP again
+            # Wave 2 (7:30 Finish): Wait 7.5 hours under active pill, drain natural HP regen, eat regen Steaks, drain HP again
             # CRITICAL RULE: ECO warriors do NOT take pills and are strictly excluded from salvo!
             if build_type == "ECO":
+                start_salvo_hp = 0
+                start_salvo_hits = 0
+                start_salvo_dmg = 0
+                regen_salvo_hp = 0
+                regen_salvo_hits = 0
+                regen_salvo_dmg = 0
+                full_pill_hp_pool = 0
                 full_pill_hits = 0
                 full_pill_dmg = 0
+                full_pill_fish_hits = 0
+                full_pill_fish_dmg = 0
                 current_pill_hits = 0
                 current_pill_dmg = 0
+                daily_theoretical_hits = 0
+                daily_theoretical_dmg = 0
                 theoretical_daily_dmg_min = 0
                 theoretical_daily_dmg_max = 0
             else:
-                HP_PER_HUNGER = 35.0 # Average HP restored per hunger unit (steak 50 HP, bread 25 HP)
+                # Food restores HP as a PERCENTAGE of character's total HP (health_max):
+                # Bread = 10%, Steak = 15%, Cooked Fish = 20%
+                FOOD_STEAK_PCT = 0.15 # Steak (15% of max HP per hunger unit)
+                FOOD_FISH_PCT = 0.20  # Cooked Fish (20% of max HP per hunger unit)
+                
+                HP_PER_HUNGER = health_max * FOOD_STEAK_PCT # Standard combat ration (Steak 15%)
+                HP_PER_HUNGER_FISH = health_max * FOOD_FISH_PCT # Elite ration (Cooked Fish 20%)
 
-                # 1. Full 8-Hour Pill Session (Standard clan battle deployment):
                 full_pill_duration = 8.0
-                full_pill_hp_pool = (health_max + (full_pill_duration * health_regen)) + \
-                                    ((hunger_max + (full_pill_duration * hunger_regen)) * HP_PER_HUNGER)
-                full_pill_hits = round(full_pill_hp_pool / hp_cost_per_hit)
-                full_pill_dmg = round(full_pill_hits * avg_dmg_per_hit)
+                regen_wait_hours = 7.5
+
+                # Wave 1: Start salvo (initial HP bar + full initial hunger bar on steaks)
+                start_salvo_hp = health_max + (hunger_max * HP_PER_HUNGER)
+                start_salvo_hits = round(start_salvo_hp / hp_cost_per_hit)
+                start_salvo_dmg = round(start_salvo_hits * avg_dmg_per_hit)
+
+                # Wave 2: Regen salvo after 7.5h wait under active pill
+                regen_salvo_hp = (regen_wait_hours * health_regen) + ((regen_wait_hours * hunger_regen) * HP_PER_HUNGER)
+                regen_salvo_hits = round(regen_salvo_hp / hp_cost_per_hit)
+                regen_salvo_dmg = round(regen_salvo_hits * avg_dmg_per_hit)
+
+                # Full 8-Hour Pill Session (Wave 1 + Wave 2):
+                full_pill_hp_pool = start_salvo_hp + regen_salvo_hp
+                full_pill_hits = start_salvo_hits + regen_salvo_hits
+                full_pill_dmg = start_salvo_dmg + regen_salvo_dmg
+
+                # Cooked Fish (20%) ceiling comparison:
+                fish_start_hp = health_max + (hunger_max * HP_PER_HUNGER_FISH)
+                fish_regen_hp = (regen_wait_hours * health_regen) + ((regen_wait_hours * hunger_regen) * HP_PER_HUNGER_FISH)
+                full_pill_fish_hits = round((fish_start_hp + fish_regen_hp) / hp_cost_per_hit)
+                full_pill_fish_dmg = round(full_pill_fish_hits * avg_dmg_per_hit)
 
                 # 2. Current remaining damage for active pill (or ready to drink):
                 if pill_status == "ACTIVE":
                     rem_h = pill_remaining_hours
-                    current_pill_hp_pool = (health_curr + (rem_h * health_regen)) + \
-                                           ((hunger_curr + (rem_h * hunger_regen)) * HP_PER_HUNGER)
+                    current_pill_hp_pool = (health_curr + (hunger_curr * HP_PER_HUNGER)) + \
+                                           ((rem_h * health_regen) + (rem_h * hunger_regen * HP_PER_HUNGER))
                     current_pill_hits = round(current_pill_hp_pool / hp_cost_per_hit)
                     current_pill_dmg = round(current_pill_hits * avg_dmg_per_hit)
                 elif pill_status == "READY":
@@ -466,8 +508,18 @@ class WarEraClanAnalyzer:
                     current_pill_hits = 0
                     current_pill_dmg = 0
 
+                # Full 24-Hour Day Capacity (Full pill 8h + remaining 16.5h of natural day regen and steaks):
+                rest_day_hours = 24.0 - regen_wait_hours
+                rest_hp_pool = (rest_day_hours * health_regen) + ((rest_day_hours * hunger_regen) * HP_PER_HUNGER)
+                rest_hits = round(rest_hp_pool / hp_cost_per_hit)
+                # Without pill buff during rest hours, average damage is normal (divided by 1.60)
+                rest_dmg = round(rest_hits * (avg_dmg_per_hit / 1.60))
+
+                daily_theoretical_hits = full_pill_hits + rest_hits
+                daily_theoretical_dmg = full_pill_dmg + rest_dmg
+
                 theoretical_daily_dmg_min = full_pill_dmg
-                theoretical_daily_dmg_max = full_pill_dmg
+                theoretical_daily_dmg_max = daily_theoretical_dmg
 
             # 4. Activity & Online
             last_conn_iso = dates.get("lastConnectionAt")
@@ -519,17 +571,25 @@ class WarEraClanAnalyzer:
                 "pill_remaining_tip": pill_remaining_tip,
                 "pill_full_dmg": full_pill_dmg,
                 "pill_full_hits": full_pill_hits,
+                "pill_fish_dmg": full_pill_fish_dmg,
+                "pill_fish_hits": full_pill_fish_hits,
                 "pill_current_dmg": current_pill_dmg,
                 "pill_current_hits": current_pill_hits,
+                "start_salvo_dmg": start_salvo_dmg,
+                "start_salvo_hits": start_salvo_hits,
+                "regen_salvo_dmg": regen_salvo_dmg,
+                "regen_salvo_hits": regen_salvo_hits,
+                "daily_theoretical_dmg": daily_theoretical_dmg,
+                "daily_theoretical_hits": daily_theoretical_hits,
                 # Gear & Combat Specs
                 "effective_armor": round(eff_armor_pct, 1),
                 "effective_dodge": round(eff_dodge_pct, 1),
                 "hp_cost_per_hit": round(hp_cost_per_hit, 2),
                 "hits_per_day_natural": full_pill_hits,
-                "hits_per_day_max": full_pill_hits,
+                "hits_per_day_max": daily_theoretical_hits,
                 "avg_dmg_per_hit": round(avg_dmg_per_hit),
                 "theoretical_daily_dmg_min": full_pill_dmg,
-                "theoretical_daily_dmg_max": full_pill_dmg,
+                "theoretical_daily_dmg_max": daily_theoretical_dmg,
                 # In-game stats
                 "weekly_damage": weekly_dmg,
                 "total_damage": total_dmg,
