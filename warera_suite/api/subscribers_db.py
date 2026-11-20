@@ -103,6 +103,8 @@ class SubscribersDB:
                 user["damage_threshold"] = default_th
             if "contract_alerts" not in user:
                 user["contract_alerts"] = False
+            if "min_bounty_rate" not in user:
+                user["min_bounty_rate"] = 0.0
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -114,6 +116,7 @@ class SubscribersDB:
                 "first_name": first_name or "Fighter",
                 "sniper_alerts": True,
                 "contract_alerts": False,
+                "min_bounty_rate": 0.0,
                 "market_alerts": True if admin else False,
                 "damage_threshold": default_th,
                 "joined_at": now_str,
@@ -142,6 +145,27 @@ class SubscribersDB:
         self._subscribers[cid]["damage_threshold"] = th
         self.save()
         return th
+
+    def get_user_min_bounty_rate(self, chat_id: str) -> float:
+        """Returns the individual minimum bounty rate per 1k damage for this user (default 0.0 = all)."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        user = self.get_user_prefs(cid)
+        try:
+            return float(user.get("min_bounty_rate", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def set_user_min_bounty_rate(self, chat_id: str, rate: float) -> float:
+        """Sets the individual minimum bounty rate per 1k damage for this specific user."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        r = round(max(0.0, float(rate)), 4)
+        self._subscribers[cid]["min_bounty_rate"] = r
+        self.save()
+        return r
 
     def is_authorized(self, chat_id: str) -> bool:
         """Checks if user is authorized. If no password set, all users are authorized."""
@@ -196,6 +220,8 @@ class SubscribersDB:
         self.save()
         return enabled
 
+    set_bounty_alerts = set_contract_alerts
+
     def set_market_alerts(self, chat_id: str, enabled: bool) -> bool:
         cid = str(chat_id).strip()
         # PRIVACY SHIELD: Non-admins cannot enable market alerts under any circumstances!
@@ -232,6 +258,8 @@ class SubscribersDB:
             if u.get("contract_alerts", False) and self.is_authorized(cid):
                 res.append(cid)
         return res
+
+    get_bounty_chat_ids = get_contract_chat_ids
 
     def get_market_chat_ids(self) -> List[str]:
         """

@@ -51,15 +51,19 @@ class SniperBotController:
         user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         formatted_max = f"{user_th:,}".replace(",", " ")
 
+        min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+        rate_display = f"≥ {min_rate} 🪙 / 1k" if min_rate > 0 else "Всі (від 0.01)"
+
         return (
-            f"🎯 <b>WarEra · Снайпер битв та Контракти на урон</b>\n\n"
-            f"🎯 <b>Ваш особистий поріг:</b> ≤ <code>{formatted_max} dmg</code> (фіол)\n"
+            f"🎯 <b>WarEra · Снайпер битв та Баунті (Bounties)</b>\n\n"
+            f"🎯 <b>Поріг урону (фіол):</b> ≤ <code>{formatted_max} dmg</code>\n"
+            f"💵 <b>Ваш поріг баунті:</b> <code>{rate_display}</code>\n"
             f"🔔 <b>Сповіщення снайпера (фіол):</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
-            f"💰 <b>Сповіщення про контракти:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n"
+            f"💰 <b>Сповіщення про баунті:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n"
             f"📡 <b>Моніторинг:</b> 🟢 <b>АКТИВНИЙ (~50с цикл)</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
             f"⏳ <i>Снайпер сповіщає за 15–20 хв до кінця раунду (урон ≤ {formatted_max}).</i>\n"
-            f"💵 <i>Контракти сповіщають миттєво, щойно з'являється оплата за 1k урону.</i>\n\n"
+            f"💵 <i>Баунті сповіщає миттєво при появі оплати за 1k урону ({rate_display}).</i>\n\n"
             f"<i>Скористайтеся кнопками нижче:</i>"
         )
 
@@ -68,10 +72,13 @@ class SniperBotController:
         sniper_on = user_prefs.get("sniper_alerts", True)
         contract_on = user_prefs.get("contract_alerts", False)
         toggle_sniper_text = "🎯 Снайпер: 🟢 ВКЛ" if sniper_on else "🎯 Снайпер: 🔴 ВИКЛ"
-        toggle_contract_text = "💰 Контракти: 🟢 ВКЛ" if contract_on else "💰 Контракти: 🔴 ВИКЛ"
+        toggle_contract_text = "💰 Баунті: 🟢 ВКЛ" if contract_on else "💰 Баунті: 🔴 ВИКЛ"
 
         user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         formatted_th = f"{user_th // 1000}k" if user_th < 1000000 else f"{user_th // 1000000}M"
+
+        min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+        rate_btn = f"💵 Баунті: ≥ {min_rate}" if min_rate > 0 else "💵 Баунті: Всі"
 
         return {
             "inline_keyboard": [
@@ -80,15 +87,16 @@ class SniperBotController:
                     {"text": "⚔️ Битви з фіолом", "callback_data": "sniper_cmd_battles"},
                 ],
                 [
-                    {"text": "💰 Контракти (Оплата за урон)", "callback_data": "sniper_cmd_contracts"},
+                    {"text": "💰 Баунті (Виплати)", "callback_data": "sniper_cmd_contracts"},
+                    {"text": rate_btn, "callback_data": "sniper_menu_bounty_rate"},
+                ],
+                [
                     {"text": f"⚙️ Поріг: {formatted_th}", "callback_data": "sniper_menu_threshold"},
+                    {"text": "🔄 Оновити", "callback_data": "sniper_cmd_status"},
                 ],
                 [
                     {"text": toggle_sniper_text, "callback_data": "sniper_toggle_alerts"},
                     {"text": toggle_contract_text, "callback_data": "sniper_toggle_contracts"},
-                ],
-                [
-                    {"text": "🔄 Оновити меню", "callback_data": "sniper_cmd_status"}
                 ]
             ]
         }
@@ -101,16 +109,22 @@ class SniperBotController:
         url = f"https://api.telegram.org/bot{self.token}/setMyCommands"
         commands = [
             {"command": "start", "description": "🎯 Головне меню та налаштування"},
-            {"command": "contracts", "description": "💰 Виплати та контракти за урон"},
-            {"command": "contracts_on", "description": "💰 Увімкнути пуші про контракти"},
-            {"command": "contracts_off", "description": "🔕 Вимкнути пуші про контракти"},
+            {"command": "bounties", "description": "💰 Активні баунті за урон"},
+            {"command": "bounty_rate", "description": "💵 Налаштувати мінімальну ставку баунті"},
+            {"command": "bounties_on", "description": "💰 Увімкнути пуші про баунті"},
+            {"command": "bounties_off", "description": "🔕 Вимкнути пуші про баунті"},
             {"command": "snipe", "description": "🎯 Битви на фінішній прямі (15-20 хв)"},
             {"command": "battles", "description": "⚔️ Всі активні битви з фіолом"},
+            {"command": "threshold", "description": "⚙️ Налаштувати поріг урону"},
             {"command": "sniper_on", "description": "🔔 Увімкнути снайпер-сповіщення"},
             {"command": "sniper_off", "description": "🔕 Вимкнути снайпер-сповіщення"},
             {"command": "status", "description": "🔄 Статус моніторингу"},
             {"command": "help", "description": "ℹ️ Довідка та інструкція"}
         ]
+        try:
+            await client.post(url, json={"commands": commands})
+        except Exception as e:
+            logger.debug(f"Failed to set Sniper Bot Telegram commands: {e}")
         try:
             await client.post(url, json={"commands": commands})
         except Exception as e:
@@ -304,12 +318,15 @@ class SniperBotController:
             contracts = await analyzer.get_active_contracts()
             if not contracts:
                 return (
-                    "💰 <b>WarEra · Активні контракти (виплати за урон):</b>\n\n"
+                    "💰 <b>WarEra · Активні Баунті (виплати за урон):</b>\n\n"
                     "<i>Наразі немає битв з активними виплатами за урон або пул монет вичерпано.</i>"
                 )
 
-            msg = "💰 <b>WarEra · Активні контракти на урон (Bounties):</b>\n\n"
-            msg += "<i>Заробляйте монети за кожну 1 000 нанесеного дамагу на стороні наймача:</i>\n\n"
+            user_min = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+
+            msg = "💰 <b>WarEra · Активні Баунті за урон (Bounties):</b>\n\n"
+            if user_min > 0:
+                msg += f"<i>(Ваш фільтр сповіщень: від ≥ {user_min} 🪙 / 1k dmg)</i>\n\n"
 
             for idx, c in enumerate(contracts[:8], 1):
                 reg = c['region']
@@ -331,7 +348,7 @@ class SniperBotController:
             return msg
         except Exception as e:
             logger.error(f"Error in Sniper Bot get_contracts_text: {e}")
-            return f"⚠️ <b>Помилка аналізу контрактів:</b> <code>{e}</code>"
+            return f"⚠️ <b>Помилка аналізу баунті:</b> <code>{e}</code>"
 
     async def send_auth_prompt(self, chat_id: str):
         """Sends clan password prompt to unauthorized users."""
@@ -382,7 +399,48 @@ class SniperBotController:
                 curr = self.subscribers_db.get_user_prefs(chat_id).get("contract_alerts", False)
                 new_val = self.subscribers_db.set_contract_alerts(chat_id, not curr)
                 status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
-                await self.answer_callback(cb_id, f"💰 Контракти: {status_txt}")
+                await self.answer_callback(cb_id, f"💰 Баунті: {status_txt}")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
+            elif data == "sniper_menu_bounty_rate":
+                curr_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id)
+                rate_str = f"≥ {curr_rate} 🪙 / 1k" if curr_rate > 0 else "Всі (без обмежень)"
+                br_text = (
+                    f"💵 <b>Налаштування мінімальної ставки Баунті</b>\n\n"
+                    f"Ваш поточний мінімальний поріг: <b>{rate_str}</b>\n\n"
+                    f"Бот надсилатиме сповіщення лише про ті битви, де виплата за 1 000 урону не менша за цей поріг.\n\n"
+                    f"Оберіть бажаний поріг або введіть команду вручну:\n"
+                    f"• <code>/bounty_rate 0.07</code>\n"
+                    f"• <code>/rate 0.05</code>"
+                )
+                br_kb = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "≥ 0.02 🪙", "callback_data": "set_br_0.02"},
+                            {"text": "≥ 0.03 🪙", "callback_data": "set_br_0.03"},
+                            {"text": "≥ 0.05 🪙", "callback_data": "set_br_0.05"},
+                        ],
+                        [
+                            {"text": "≥ 0.07 🪙", "callback_data": "set_br_0.07"},
+                            {"text": "≥ 0.10 🪙", "callback_data": "set_br_0.10"},
+                            {"text": "Всі (0.0)", "callback_data": "set_br_0.0"},
+                        ],
+                        [
+                            {"text": "🔙 Назад", "callback_data": "sniper_cmd_status"}
+                        ]
+                    ]
+                }
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, br_text, br_kb)
+                return
+
+            elif data.startswith("set_br_"):
+                new_rate = float(data.replace("set_br_", ""))
+                self.subscribers_db.set_user_min_bounty_rate(chat_id, new_rate)
+                rate_disp = f"≥ {new_rate} 🪙 / 1k" if new_rate > 0 else "Всі баунті"
+                await self.answer_callback(cb_id, f"Поріг баунті: {rate_disp}")
                 if msg_id:
                     await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
                 return
@@ -501,8 +559,8 @@ class SniperBotController:
                 txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
-            elif first_word in ("/contracts", "/контракти", "/bounties", "/найманці") or clean_cmd in ("contracts", "контракти", "bounties", "найманці"):
-                await self.send_message(chat_id, "💰 <i>Шукаю відкриті контракти з оплатою за урон...</i>")
+            elif first_word in ("/bounties", "/баунті", "/contracts", "/контракти", "/найманці") or clean_cmd in ("bounties", "баунті", "contracts", "контракти", "найманці"):
+                await self.send_message(chat_id, "💰 <i>Шукаю відкриті баунті з оплатою за урон...</i>")
                 txt = await self._get_contracts_text(chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
@@ -540,20 +598,48 @@ class SniperBotController:
                     "Автоматичні пуші вимкнено. Ви завжди можете перевірити ситуацію вручну через /snipe."
                 )
 
-            elif first_word in ("/contracts_on", "/bounties_on") or clean_cmd in ("contracts_on", "bounties_on"):
+            elif first_word in ("/bounty_rate", "/rate", "/баунті_рейт", "/рейт") or clean_cmd in ("bounty_rate", "rate", "баунті_рейт", "рейт"):
+                if len(words) > 1:
+                    raw_val = words[1].replace(",", ".")
+                    try:
+                        val = float(raw_val)
+                        if val < 0:
+                            val = 0.0
+                        self.subscribers_db.set_user_min_bounty_rate(chat_id, val)
+                        disp = f"≥ {val} 🪙 / 1k" if val > 0 else "Всі (без обмежень)"
+                        await self.send_message(
+                            chat_id,
+                            f"✅ <b>Ваш поріг баунті оновлено:</b> <code>{disp}</code>\n\n"
+                            f"Тепер ви отримуватимете пуш-сповіщення тільки про баунті з виплатою від {val} монет за 1k урону."
+                        )
+                    except ValueError:
+                        await self.send_message(chat_id, "⚠️ Будь ласка, вкажіть число, наприклад: <code>/bounty_rate 0.07</code> або <code>/rate 0.05</code>")
+                else:
+                    curr_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id)
+                    disp = f"≥ {curr_rate} 🪙 / 1k" if curr_rate > 0 else "Всі (без обмежень)"
+                    await self.send_message(
+                        chat_id,
+                        f"💵 <b>Ваш поточний мінімальний поріг баунті:</b> <code>{disp}</code>\n\n"
+                        f"Щоб змінити, введіть: <code>/bounty_rate 0.07</code> або оберіть значення в меню /start."
+                    )
+
+            elif first_word in ("/bounties_on", "/contracts_on") or clean_cmd in ("bounties_on", "contracts_on"):
                 self.subscribers_db.set_contract_alerts(chat_id, True)
+                curr_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id)
+                rate_disp = f"≥ {curr_rate} 🪙 / 1k" if curr_rate > 0 else "від 0.01 🪙"
                 await self.send_message(
                     chat_id,
-                    "💰 <b>Контракти на урон:</b> Автосповіщення <b>УВІМКНЕНО 🟢</b>\n\n"
-                    "Ви отримуватимете сповіщення в особисті повідомлення щойно з'явиться новий контракт з оплатою за урон у будь-якій битві."
+                    f"💰 <b>Баунті на урон:</b> Сповіщення <b>УВІМКНЕНО 🟢</b>\n\n"
+                    f"🎯 <b>Ваш фільтр ставки:</b> <code>{rate_disp}</code>\n"
+                    f"Ви отримуватимете особисте сповіщення, щойно з'явиться баунті з виплатою від {rate_disp}."
                 )
 
-            elif first_word in ("/contracts_off", "/bounties_off") or clean_cmd in ("contracts_off", "bounties_off"):
+            elif first_word in ("/bounties_off", "/contracts_off") or clean_cmd in ("bounties_off", "contracts_off"):
                 self.subscribers_db.set_contract_alerts(chat_id, False)
                 await self.send_message(
                     chat_id,
-                    "💰 <b>Контракти на урон:</b> Автосповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
-                    "Автоматичні пуші про контракти вимкнено. Ви можете перевірити активні контракти в будь-який час через /contracts."
+                    "💰 <b>Баунті на урон:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
+                    "Автоматичні пуші вимкнено. Ви можете перевірити активні виплати в будь-який час через /bounties."
                 )
 
             elif first_word in ("/revoke", "/відкликати") and len(words) > 1:

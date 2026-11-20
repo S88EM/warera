@@ -190,7 +190,7 @@
                 <!-- Bounties / Contracts Filter -->
                 <select id="bountyFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-amber-300 focus:outline-none focus:border-amber-500 font-medium">
                     <option value="all">Всі битви</option>
-                    <option value="bounties_only">💰 Тільки з контрактами (Оплата)</option>
+                    <option value="bounties_only">💰 Тільки з Баунті (Оплата за урон)</option>
                 </select>
             </div>
 
@@ -388,7 +388,7 @@
 
                 // Bounty Contract Badge
                 const bountyBadge = b.hasBounty
-                    ? `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-coins text-amber-400"></i>Контракт: ${b.maxBountyRate} / 1k</span>`
+                    ? `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-coins text-amber-400"></i>Баунті: ${b.maxBountyRate} / 1k</span>`
                     : '';
 
                 // Timing Badge

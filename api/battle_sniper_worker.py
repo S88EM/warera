@@ -91,12 +91,12 @@ class BattleSniperWorker:
 
         pool_formatted = f"{pool:,.2f} монет".replace(",", " ")
         lines = [
-            f"💰 <b>Новий контракт на урон у битві!</b>{sniper_tag}",
+            f"💰 <b>Нове Баунті у битві!</b>{sniper_tag}",
             "",
             f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
             f"🏳️ <b>Сторона:</b> <b>{side_badge}</b> ({country})",
-            f"💵 <b>Оплата:</b> <code>{rate} монет / 1k dmg</code>",
-            f"🏦 <b>Пул винагороди:</b> <code>{pool_formatted}</code>",
+            f"💵 <b>Виплата:</b> <code>{rate} монет / 1k dmg</code>",
+            f"🏦 <b>Пул баунті:</b> <code>{pool_formatted}</code>",
             f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}"
         ]
         return "\n".join(lines)
@@ -234,6 +234,7 @@ class BattleSniperWorker:
                     active_contract_keys.add(c_key)
 
                     url = c.get("wareraUrl", f"https://app.warera.io/battle/{b_id}")
+                    rate = float(c.get("ratePer1k", 0.0) or 0.0)
                     cached_contract_msg: Optional[str] = None
 
                     for cid in target_contract_chat_ids:
@@ -241,16 +242,22 @@ class BattleSniperWorker:
                         if user_contract_key in self.alerted_user_contracts:
                             continue
 
+                        # Check user's personal minimum bounty rate threshold
+                        user_min_rate = self.subscribers_db.get_user_min_bounty_rate(cid)
+                        if rate < user_min_rate:
+                            logger.debug(f"Skipping bounty alert for {cid}: rate {rate} < min {user_min_rate}")
+                            continue
+
                         if cached_contract_msg is None:
                             cached_contract_msg = self.build_contract_alert_message(c)
 
-                        logger.info(f"💰 Firing contract alert for {c.get('region')} ({side}) to {cid}")
+                        logger.info(f"💰 Firing bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate} >= min: {user_min_rate})")
                         try:
-                            await self.send_telegram_alert(cid, cached_contract_msg, url, btn_text="💰 Відкрити контракт на WarEra ↗")
+                            await self.send_telegram_alert(cid, cached_contract_msg, url, btn_text="💰 Відкрити баунті на WarEra ↗")
                             self.alerted_user_contracts.add(user_contract_key)
                             await asyncio.sleep(0.05)
                         except Exception as e:
-                            logger.error(f"Failed to deliver contract alert to {cid}: {e}")
+                            logger.error(f"Failed to deliver bounty alert to {cid}: {e}")
 
                 # Cleanup old contract keys
                 self.alerted_user_contracts = {
