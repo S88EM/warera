@@ -105,6 +105,10 @@ class SubscribersDB:
                 user["contract_alerts"] = False
             if "min_bounty_rate" not in user:
                 user["min_bounty_rate"] = 0.0
+            if "auction_alerts" not in user:
+                user["auction_alerts"] = False
+            if "min_contract_budget" not in user:
+                user["min_contract_budget"] = 0.0
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -117,6 +121,8 @@ class SubscribersDB:
                 "sniper_alerts": True,
                 "contract_alerts": False,
                 "min_bounty_rate": 0.0,
+                "auction_alerts": False,
+                "min_contract_budget": 0.0,
                 "market_alerts": True if admin else False,
                 "damage_threshold": default_th,
                 "joined_at": now_str,
@@ -166,6 +172,27 @@ class SubscribersDB:
         self._subscribers[cid]["min_bounty_rate"] = r
         self.save()
         return r
+
+    def get_user_min_contract_budget(self, chat_id: str) -> float:
+        """Returns the minimum contract auction budget threshold for this user (default 0.0 = all)."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        user = self.get_user_prefs(cid)
+        try:
+            return float(user.get("min_contract_budget", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def set_user_min_contract_budget(self, chat_id: str, budget: float) -> float:
+        """Sets the minimum contract auction budget threshold for this specific user."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        b = round(max(0.0, float(budget)), 2)
+        self._subscribers[cid]["min_contract_budget"] = b
+        self.save()
+        return b
 
     def is_authorized(self, chat_id: str) -> bool:
         """Checks if user is authorized. If no password set, all users are authorized."""
@@ -222,6 +249,15 @@ class SubscribersDB:
 
     set_bounty_alerts = set_contract_alerts
 
+    def set_auction_alerts(self, chat_id: str, enabled: bool) -> bool:
+        """Enables or disables mercenary contract auction notifications for this user."""
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        self._subscribers[cid]["auction_alerts"] = enabled
+        self.save()
+        return enabled
+
     def set_market_alerts(self, chat_id: str, enabled: bool) -> bool:
         cid = str(chat_id).strip()
         # PRIVACY SHIELD: Non-admins cannot enable market alerts under any circumstances!
@@ -260,6 +296,15 @@ class SubscribersDB:
         return res
 
     get_bounty_chat_ids = get_contract_chat_ids
+
+    def get_auction_chat_ids(self) -> List[str]:
+        """Returns all chat IDs who have contract auction alerts enabled AND are authorized."""
+        self._ensure_fresh()
+        res = []
+        for cid, u in self._subscribers.items():
+            if u.get("auction_alerts", False) and self.is_authorized(cid):
+                res.append(cid)
+        return res
 
     def get_market_chat_ids(self) -> List[str]:
         """

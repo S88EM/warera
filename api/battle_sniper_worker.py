@@ -31,6 +31,7 @@ class BattleSniperWorker:
         #    subsequently raises their threshold, they can still receive it while in the sniper window.
         self.alerted_user_rounds: Set[str] = set()
         self.alerted_user_contracts: Set[str] = set()
+        self.alerted_user_auctions: Set[str] = set()
         self.cycle_count = 0
         self.total_alerts_sent = 0
         self.last_check_time: Optional[str] = None
@@ -98,6 +99,31 @@ class BattleSniperWorker:
             f"💵 <b>Виплата:</b> <code>{rate} монет / 1k dmg</code>",
             f"🏦 <b>Пул баунті:</b> <code>{pool_formatted}</code>",
             f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}"
+        ]
+        return "\n".join(lines)
+
+    def build_auction_alert_message(self, auction: Dict[str, Any]) -> str:
+        reg = auction.get("region", "Невідомий регіон")
+        btype = "Війна" if auction.get("type") == "war" else "Повстання"
+        side_badge = "🔴 АТАКА" if auction.get("side") == "attacker" else "🛡 ОБОРОНА"
+        country = f"{auction.get('flag', '🏳️')} {auction.get('country', 'Unknown')}"
+        budget = auction.get("budget", 0)
+        min_dmg = auction.get("minimumDamage", 0)
+        rate = auction.get("ratePer1k", 0.0)
+        r_num = auction.get("roundNumber", 1)
+        mins_left = max(0, int(auction.get("timeRemainingSec", 0) // 60))
+        secs_left = max(0, int(auction.get("timeRemainingSec", 0) % 60))
+        time_left_str = f"~{mins_left} хв {secs_left} с" if mins_left > 0 else f"{secs_left} с"
+
+        lines = [
+            f"📜 <b>Новий аукціон контракту для підрозділів! ⏱</b>",
+            "",
+            f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i> · Раунд #{r_num})",
+            f"🏳️ <b>Сторона:</b> <b>{side_badge}</b> ({country})",
+            f"💰 <b>Бюджет:</b> <code>{budget:,.2f} монет</code>".replace(",", " "),
+            f"🎯 <b>Вимога урону:</b> <code>{self.format_dmg(min_dmg)} dmg</code>",
+            f"💵 <b>Ставка:</b> <code>{rate} монет / 1k dmg</code>",
+            f"⏱ <b>До кінця прийому ставок:</b> <b>{time_left_str}</b>",
         ]
         return "\n".join(lines)
 
@@ -266,6 +292,50 @@ class BattleSniperWorker:
                 }
             except Exception as e:
                 logger.error(f"Error checking active contracts in worker cycle: {e}")
+
+        # 3. Process active mercenary contract auctions for users who opted in
+        target_auction_chat_ids = self.subscribers_db.get_auction_chat_ids()
+        if target_auction_chat_ids:
+            try:
+                active_auctions = await self.analyzer.get_active_contract_auctions()
+                active_auction_ids = {a["auctionId"] for a in active_auctions if a.get("auctionId")}
+
+                for a in active_auctions:
+                    a_id = a.get("auctionId")
+                    if not a_id:
+                        continue
+                    budget = float(a.get("budget", 0.0) or 0.0)
+                    url = a.get("wareraUrl", f"https://app.warera.io/battle/{a.get('battleId')}")
+                    cached_auction_msg: Optional[str] = None
+
+                    for cid in target_auction_chat_ids:
+                        user_auction_key = f"{a_id}_{cid}"
+                        if user_auction_key in self.alerted_user_auctions:
+                            continue
+
+                        user_min_budget = self.subscribers_db.get_user_min_contract_budget(cid)
+                        if budget < user_min_budget:
+                            logger.debug(f"Skipping auction {a_id} for {cid}: budget {budget} < min {user_min_budget}")
+                            continue
+
+                        if cached_auction_msg is None:
+                            cached_auction_msg = self.build_auction_alert_message(a)
+
+                        logger.info(f"📢 Firing auction alert {a_id} to {cid} (budget: {budget} >= min: {user_min_budget})")
+                        try:
+                            await self.send_telegram_alert(cid, cached_auction_msg, url, btn_text="📝 Відкрити аукціон у грі ↗")
+                            self.alerted_user_auctions.add(user_auction_key)
+                            await asyncio.sleep(0.05)
+                        except Exception as e:
+                            logger.error(f"Failed to deliver auction alert to {cid}: {e}")
+
+                # Cleanup old auction keys
+                self.alerted_user_auctions = {
+                    k for k in self.alerted_user_auctions
+                    if any(k.startswith(f"{aid}_") for aid in active_auction_ids)
+                }
+            except Exception as e:
+                logger.error(f"Error checking contract auctions in worker cycle: {e}")
 
     async def start(self):
         """Main loop of the background sniper worker."""

@@ -9,6 +9,7 @@ Features:
 
 import asyncio
 import base64
+from datetime import datetime, timezone
 import json
 import logging
 import time
@@ -797,6 +798,74 @@ class WarEraBattleAnalyzer:
         # Sort by rate per 1k descending, then pool descending
         contracts.sort(key=lambda x: (x['ratePer1k'], x['pool']), reverse=True)
         return contracts
+
+    async def get_active_contract_auctions(self) -> List[Dict[str, Any]]:
+        """
+        Fetches all active mercenary contract auctions from WarEra API,
+        enriches them with battle region, country, side, and calculates time remaining.
+        Sorted by contract budget descending, then rate descending.
+        """
+        battles = await self.get_all_battles_intel()
+        battles_by_id = {b.get('battleId'): b for b in battles}
+
+        try:
+            data = await self._call_trpc('trpc/mercenaryContractAuction.getActiveAuctions', {'json': None})
+            if not isinstance(data, dict):
+                return []
+
+            items = data.get('items', [])
+            auctions = []
+            now = datetime.now(timezone.utc)
+
+            for a in items:
+                b_id = a.get('battle')
+                b_info = battles_by_id.get(b_id, {})
+                side = a.get('forCountrySide', 'attacker')
+                side_info = b_info.get(side, {})
+                reg = b_info.get('region', {})
+
+                created_at_str = a.get('createdAt', '')
+                expires_at_str = a.get('expiresAt', '')
+
+                time_remaining_sec = 0.0
+                if expires_at_str:
+                    try:
+                        exp_dt = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
+                        time_remaining_sec = max(0.0, (exp_dt - now).total_seconds())
+                    except Exception:
+                        pass
+
+                budget = float(a.get('budget', 0.0) or 0.0)
+                min_damage = int(a.get('minimumDamage', 0) or 0)
+                rate = float(a.get('currentPerK') or a.get('initialPerK') or 0.0)
+
+                auctions.append({
+                    'auctionId': a.get('_id'),
+                    'battleId': b_id,
+                    'roundId': a.get('round'),
+                    'roundNumber': a.get('roundNumber', 1),
+                    'type': b_info.get('type', 'war'),
+                    'region': reg.get('name', 'Unknown'),
+                    'side': side,
+                    'sideName': 'Атака' if side == 'attacker' else 'Оборона',
+                    'country': side_info.get('name', 'Unknown'),
+                    'flag': side_info.get('flag', '🏳️'),
+                    'budget': budget,
+                    'minimumDamage': min_damage,
+                    'ratePer1k': rate,
+                    'timeRemainingSec': time_remaining_sec,
+                    'expiresAt': expires_at_str,
+                    'createdAt': created_at_str,
+                    'bidsCount': len(a.get('bids', [])),
+                    'wareraUrl': b_info.get('wareraUrl', f"https://app.warera.io/battle/{b_id}"),
+                })
+
+            # Sort by budget descending, then rate descending
+            auctions.sort(key=lambda x: (x['budget'], x['ratePer1k']), reverse=True)
+            return auctions
+        except Exception as e:
+            logger.error(f"Error fetching contract auctions: {e}")
+            return []
 
 
 _SHARED_ANALYZER: Optional['WarEraBattleAnalyzer'] = None

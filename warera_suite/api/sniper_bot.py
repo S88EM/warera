@@ -46,6 +46,7 @@ class SniperBotController:
         user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
         sniper_on = user_prefs.get("sniper_alerts", True)
         contract_on = user_prefs.get("contract_alerts", False)
+        auction_on = user_prefs.get("auction_alerts", False)
         subs_count = self.subscribers_db.count()
 
         user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
@@ -54,10 +55,14 @@ class SniperBotController:
         min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
         rate_display = f"≥ {min_rate} 🪙 / 1k" if min_rate > 0 else "Всі (від 0.01)"
 
+        min_budget = self.subscribers_db.get_user_min_contract_budget(chat_id) if chat_id else 0.0
+        budget_display = f"≥ {min_budget:g} 🪙" if min_budget > 0 else "Всі (від 0)"
+
         return (
             f"🎯 <b>WarEra · Центр бойової розвідки ⚔️</b>\n\n"
             f"🔔 <b>Снайпер фіолу:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b> (поріг ≤ {formatted_max} dmg)\n"
-            f"💰 <b>Сповіщення баунті:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b> ({rate_display})\n"
+            f"💰 <b>Баунті (урон):</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b> ({rate_display})\n"
+            f"📜 <b>Контракти (аукціони):</b> <b>{'🟢 УВІМКНЕНО' if auction_on else '🔴 ВИМКНЕНО'}</b> ({budget_display})\n"
             f"📡 <b>Моніторинг:</b> 🟢 <b>АКТИВНИЙ (~50с цикл)</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
             f"<i>Оберіть потрібний розділ нижче для швидкого пошуку та налаштувань:</i>"
@@ -67,8 +72,11 @@ class SniperBotController:
         user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
         sniper_on = user_prefs.get("sniper_alerts", True)
         contract_on = user_prefs.get("contract_alerts", False)
+        auction_on = user_prefs.get("auction_alerts", False)
+
         toggle_sniper_text = "🎯 Снайпер: 🟢 ВКЛ" if sniper_on else "🎯 Снайпер: 🔴 ВИКЛ"
         toggle_contract_text = "💰 Баунті: 🟢 ВКЛ" if contract_on else "💰 Баунті: 🔴 ВИКЛ"
+        toggle_auction_text = "📜 Контракти: 🟢 ВКЛ" if auction_on else "📜 Контракти: 🔴 ВИКЛ"
 
         return {
             "inline_keyboard": [
@@ -77,11 +85,15 @@ class SniperBotController:
                     {"text": "💰 Баунті (Виплати) ➡️", "callback_data": "menu_bounties"},
                 ],
                 [
+                    {"text": "📜 Контракти (Аукціони) ➡️", "callback_data": "menu_auctions"},
+                    {"text": "🔄 Оновити статус", "callback_data": "sniper_cmd_status"},
+                ],
+                [
                     {"text": toggle_sniper_text, "callback_data": "sniper_toggle_alerts"},
                     {"text": toggle_contract_text, "callback_data": "sniper_toggle_contracts"},
                 ],
                 [
-                    {"text": "🔄 Оновити статус", "callback_data": "sniper_cmd_status"}
+                    {"text": toggle_auction_text, "callback_data": "sniper_toggle_auctions"},
                 ]
             ]
         }
@@ -153,6 +165,39 @@ class SniperBotController:
             ]
         }
 
+    def _build_auctions_menu_text(self, chat_id: Optional[str] = None) -> str:
+        user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
+        auction_on = user_prefs.get("auction_alerts", False)
+        min_budget = self.subscribers_db.get_user_min_contract_budget(chat_id) if chat_id else 0.0
+        budget_str = f"≥ {min_budget:g} 🪙" if min_budget > 0 else "Всі (без обмежень)"
+
+        return (
+            f"📜 <b>Меню: Найманські аукціони контрактів</b>\n\n"
+            f"💰 <b>Ваш поріг бюджету:</b> <code>{budget_str}</code>\n"
+            f"🔔 <b>Автосповіщення:</b> <b>{'🟢 УВІМКНЕНО' if auction_on else '🔴 ВИМКНЕНО'}</b>\n\n"
+            f"⏱ <i>Коли країна виставляє новий контракт на битву, починається аукціон (тривалістю кілька хвилин). "
+            f"Військові підрозділи роблять ставки, щоб забрати цей контракт собі.</i>\n\n"
+            f"<i>Скористайтеся кнопками нижче:</i>"
+        )
+
+    def _build_auctions_menu_keyboard(self, chat_id: Optional[str] = None) -> dict:
+        min_budget = self.subscribers_db.get_user_min_contract_budget(chat_id) if chat_id else 0.0
+        budget_btn = f"≥ {min_budget:g} 🪙" if min_budget > 0 else "Всі"
+
+        return {
+            "inline_keyboard": [
+                [
+                    {"text": "📜 Всі контракти (Аукціони)", "callback_data": "cmd_list_auctions"},
+                ],
+                [
+                    {"text": f"💰 Змінити поріг бюджету: {budget_btn}", "callback_data": "menu_auction_budget"},
+                ],
+                [
+                    {"text": "🔙 Головне меню", "callback_data": "menu_main"}
+                ]
+            ]
+        }
+
     async def register_commands(self):
         """Registers command menu in Telegram UI for the sniper bot."""
         if not self.token:
@@ -161,8 +206,13 @@ class SniperBotController:
         url = f"https://api.telegram.org/bot{self.token}/setMyCommands"
         commands = [
             {"command": "start", "description": "🎯 Головне меню та налаштування"},
+            {"command": "contracts", "description": "📜 Всі активні контракти (аукціони)"},
+            {"command": "auctions", "description": "📜 Аукціони контрактів для підрозділів"},
+            {"command": "contract_budget", "description": "💰 Поріг бюджету контракту"},
+            {"command": "auctions_on", "description": "🔔 Увімкнути пуші про аукціони"},
+            {"command": "auctions_off", "description": "🔕 Вимкнути пуші про аукціони"},
             {"command": "bounties", "description": "💰 Активні баунті за урон"},
-            {"command": "bounty_rate", "description": "💵 Налаштувати мінімальну ставку баунті"},
+            {"command": "bounty_rate", "description": "💵 Мінімальна ставка баунті"},
             {"command": "bounties_on", "description": "💰 Увімкнути пуші про баунті"},
             {"command": "bounties_off", "description": "🔕 Вимкнути пуші про баунті"},
             {"command": "snipe", "description": "🎯 Битви на фінішній прямі (15-20 хв)"},
@@ -173,14 +223,6 @@ class SniperBotController:
             {"command": "status", "description": "🔄 Статус моніторингу"},
             {"command": "help", "description": "ℹ️ Довідка та інструкція"}
         ]
-        try:
-            await client.post(url, json={"commands": commands})
-        except Exception as e:
-            logger.debug(f"Failed to set Sniper Bot Telegram commands: {e}")
-        try:
-            await client.post(url, json={"commands": commands})
-        except Exception as e:
-            logger.debug(f"Failed to set Sniper Bot Telegram commands: {e}")
         try:
             await client.post(url, json={"commands": commands})
         except Exception as e:
@@ -402,6 +444,61 @@ class SniperBotController:
             logger.error(f"Error in Sniper Bot get_contracts_text: {e}")
             return f"⚠️ <b>Помилка аналізу баунті:</b> <code>{e}</code>"
 
+    async def _get_auctions_text(self, chat_id: Optional[str] = None) -> str:
+        try:
+            analyzer = get_shared_battle_analyzer()
+            auctions = await analyzer.get_active_contract_auctions()
+            if not auctions:
+                return (
+                    "📜 <b>WarEra · Активні Найманські Аукціони Контрактів:</b>\n\n"
+                    "<i>Наразі немає відкритих аукціонів контрактів від країн.</i>\n\n"
+                    "💡 <i>Коли країна виставляє контракт на битву, аукціон триває лише кілька хвилин! "
+                    "Підрозділи змагаються ставками за право забрати контракт. Бот надішле сповіщення миттєво, щойно з'явиться новий лот.</i>"
+                )
+
+            user_min = self.subscribers_db.get_user_min_contract_budget(chat_id) if chat_id else 0.0
+
+            msg = "📜 <b>WarEra · Активні Найманські Аукціони Контрактів:</b>\n\n"
+            if user_min > 0:
+                msg += f"<i>(Ваш фільтр бюджету: ≥ {user_min:g} 🪙)</i>\n\n"
+
+            for idx, a in enumerate(auctions[:8], 1):
+                reg = a['region']
+                btype = "Війна" if a['type'] == 'war' else "Повстання"
+                side_tag = "🔴 АТАКА" if a['side'] == 'attacker' else "🛡 ОБОРОНА"
+                country = f"{a['flag']} {a['country']}"
+                budget = a['budget']
+                min_dmg = a['minimumDamage']
+                rate = a['ratePer1k']
+                r_num = a['roundNumber']
+                bids = a['bidsCount']
+
+                time_sec = int(a.get('timeRemainingSec', 0))
+                if time_sec > 0:
+                    mins = time_sec // 60
+                    secs = time_sec % 60
+                    time_str = f"{mins}хв {secs:02d}с"
+                else:
+                    time_str = "завершується"
+
+                min_dmg_str = f"{min_dmg:,}".replace(",", " ") if min_dmg > 0 else "0"
+
+                msg += (
+                    f"<b>{idx}. {reg}</b> (<i>{btype}</i> • Р#{r_num})\n"
+                    f"   Сторона: <b>{side_tag}</b> ({country})\n"
+                    f"   💰 <b>Бюджет:</b> <code>{budget:g} монет</code>\n"
+                    f"   ⚔️ <b>Мін. урон:</b> <code>{min_dmg_str} dmg</code>\n"
+                    f"   💵 <b>Ставка:</b> <code>{rate} 🪙 / 1k dmg</code>\n"
+                    f"   ⏱ <b>До кінця торгів:</b> <code>~{time_str}</code> (ставок: {bids})\n"
+                    f"   👉 <a href=\"{a['wareraUrl']}\">Відкрити аукціон у грі ↗</a>\n\n"
+                )
+
+            msg += "💡 <i>Щоб ваш підрозділ взяв контракт, встигніть зробити ставку до завершення таймера!</i>"
+            return msg
+        except Exception as e:
+            logger.error(f"Error in Sniper Bot get_auctions_text: {e}")
+            return f"⚠️ <b>Помилка аналізу контрактів:</b> <code>{e}</code>"
+
     async def send_auth_prompt(self, chat_id: str):
         """Sends clan password prompt to unauthorized users."""
         text = (
@@ -456,6 +553,18 @@ class SniperBotController:
                     await self.edit_message(chat_id, msg_id, self._build_bounties_menu_text(chat_id), self._build_bounties_menu_keyboard(chat_id))
                 return
 
+            elif data == "menu_auctions":
+                await self.answer_callback(cb_id, "📜 Розділ: Контракти")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_auctions_menu_text(chat_id), self._build_auctions_menu_keyboard(chat_id))
+                return
+
+            elif data == "cmd_list_auctions":
+                await self.answer_callback(cb_id, "📜 Шукаю активні аукціони контрактів...")
+                txt = await self._get_auctions_text(chat_id=chat_id)
+                await self.send_message(chat_id, txt)
+                return
+
             elif data == "sniper_toggle_alerts":
                 curr = self.subscribers_db.get_user_prefs(chat_id).get("sniper_alerts", True)
                 new_val = self.subscribers_db.set_sniper_alerts(chat_id, not curr)
@@ -472,6 +581,56 @@ class SniperBotController:
                 await self.answer_callback(cb_id, f"💰 Баунті: {status_txt}")
                 if msg_id:
                     await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
+            elif data == "sniper_toggle_auctions":
+                curr = self.subscribers_db.get_user_prefs(chat_id).get("auction_alerts", False)
+                new_val = self.subscribers_db.set_auction_alerts(chat_id, not curr)
+                status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
+                await self.answer_callback(cb_id, f"📜 Контракти: {status_txt}")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
+            elif data == "menu_auction_budget":
+                curr_budget = self.subscribers_db.get_user_min_contract_budget(chat_id)
+                budget_str = f"≥ {curr_budget:g} 🪙" if curr_budget > 0 else "Всі (без обмежень)"
+                ab_text = (
+                    f"💰 <b>Налаштування мінімального бюджету Контракту</b>\n\n"
+                    f"Ваш поточний мінімальний поріг: <b>{budget_str}</b>\n\n"
+                    f"Бот надсилатиме сповіщення лише про ті аукціони, бюджет яких не менший за цей поріг.\n\n"
+                    f"Оберіть бажаний поріг або введіть команду вручну:\n"
+                    f"• <code>/contract_budget 50</code>\n"
+                    f"• <code>/cb 100</code>"
+                )
+                ab_kb = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "Всі (0 🪙)", "callback_data": "set_cb_0"},
+                            {"text": "≥ 25 🪙", "callback_data": "set_cb_25"},
+                            {"text": "≥ 50 🪙", "callback_data": "set_cb_50"},
+                        ],
+                        [
+                            {"text": "≥ 100 🪙", "callback_data": "set_cb_100"},
+                            {"text": "≥ 200 🪙", "callback_data": "set_cb_200"},
+                            {"text": "≥ 500 🪙", "callback_data": "set_cb_500"},
+                        ],
+                        [
+                            {"text": "🔙 Назад до меню контрактів", "callback_data": "menu_auctions"}
+                        ]
+                    ]
+                }
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, ab_text, ab_kb)
+                return
+
+            elif data.startswith("set_cb_"):
+                new_budget = float(data.replace("set_cb_", ""))
+                self.subscribers_db.set_user_min_contract_budget(chat_id, new_budget)
+                budget_disp = f"≥ {new_budget:g} 🪙" if new_budget > 0 else "Всі контракти"
+                await self.answer_callback(cb_id, f"Поріг бюджету: {budget_disp}")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_auctions_menu_text(chat_id), self._build_auctions_menu_keyboard(chat_id))
                 return
 
             elif data == "sniper_menu_bounty_rate":
@@ -623,9 +782,14 @@ class SniperBotController:
                 txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
-            elif first_word in ("/bounties", "/баунті", "/contracts", "/контракти", "/найманці") or clean_cmd in ("bounties", "баунті", "contracts", "контракти", "найманці"):
+            elif first_word in ("/bounties", "/баунті") or clean_cmd in ("bounties", "баунті"):
                 await self.send_message(chat_id, "💰 <i>Шукаю відкриті баунті з оплатою за урон...</i>")
                 txt = await self._get_contracts_text(chat_id=chat_id)
+                await self.send_message(chat_id, txt)
+
+            elif first_word in ("/contracts", "/контракти", "/auctions", "/аукціони") or clean_cmd in ("contracts", "контракти", "auctions", "аукціони"):
+                await self.send_message(chat_id, "📜 <i>Шукаю активні найманські аукціони контрактів...</i>")
+                txt = await self._get_auctions_text(chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
             elif first_word in ("/snipe", "/снайп", "/hot", "/гарячі") or clean_cmd in ("snipe", "снайп", "hot"):
@@ -687,7 +851,7 @@ class SniperBotController:
                         f"Щоб змінити, введіть: <code>/bounty_rate 0.07</code> або оберіть значення в меню /start."
                     )
 
-            elif first_word in ("/bounties_on", "/contracts_on") or clean_cmd in ("bounties_on", "contracts_on"):
+            elif first_word in ("/bounties_on", "/баунті_вкл") or clean_cmd in ("bounties_on", "баунті_вкл"):
                 self.subscribers_db.set_contract_alerts(chat_id, True)
                 curr_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id)
                 rate_disp = f"≥ {curr_rate} 🪙 / 1k" if curr_rate > 0 else "від 0.01 🪙"
@@ -698,12 +862,56 @@ class SniperBotController:
                     f"Ви отримуватимете особисте сповіщення, щойно з'явиться баунті з виплатою від {rate_disp}."
                 )
 
-            elif first_word in ("/bounties_off", "/contracts_off") or clean_cmd in ("bounties_off", "contracts_off"):
+            elif first_word in ("/bounties_off", "/баунті_викл") or clean_cmd in ("bounties_off", "баунті_викл"):
                 self.subscribers_db.set_contract_alerts(chat_id, False)
                 await self.send_message(
                     chat_id,
                     "💰 <b>Баунті на урон:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
                     "Автоматичні пуші вимкнено. Ви можете перевірити активні виплати в будь-який час через /bounties."
+                )
+
+            elif first_word in ("/contract_budget", "/cb", "/бюджет") or clean_cmd in ("contract_budget", "cb", "бюджет"):
+                if len(words) > 1:
+                    raw_val = words[1].replace(",", ".")
+                    try:
+                        val = float(raw_val)
+                        if val < 0:
+                            val = 0.0
+                        self.subscribers_db.set_user_min_contract_budget(chat_id, val)
+                        disp = f"≥ {val:g} 🪙" if val > 0 else "Всі (без обмежень)"
+                        await self.send_message(
+                            chat_id,
+                            f"✅ <b>Ваш поріг бюджету контракту оновлено:</b> <code>{disp}</code>\n\n"
+                            f"Тепер ви отримуватимете пуш-сповіщення тільки про аукціони з бюджетом від {val:g} монет."
+                        )
+                    except ValueError:
+                        await self.send_message(chat_id, "⚠️ Будь ласка, вкажіть число, наприклад: <code>/contract_budget 50</code> або <code>/cb 100</code>")
+                else:
+                    curr_budget = self.subscribers_db.get_user_min_contract_budget(chat_id)
+                    disp = f"≥ {curr_budget:g} 🪙" if curr_budget > 0 else "Всі (без обмежень)"
+                    await self.send_message(
+                        chat_id,
+                        f"💰 <b>Ваш поточний мінімальний поріг бюджету контракту:</b> <code>{disp}</code>\n\n"
+                        f"Щоб змінити, введіть: <code>/contract_budget 50</code> або оберіть значення в меню /start."
+                    )
+
+            elif first_word in ("/auctions_on", "/contracts_on", "/контракти_вкл") or clean_cmd in ("auctions_on", "contracts_on", "контракти_вкл"):
+                self.subscribers_db.set_auction_alerts(chat_id, True)
+                curr_budget = self.subscribers_db.get_user_min_contract_budget(chat_id)
+                budget_disp = f"≥ {curr_budget:g} 🪙" if curr_budget > 0 else "від 0 🪙"
+                await self.send_message(
+                    chat_id,
+                    f"📜 <b>Найманські аукціони контрактів:</b> Сповіщення <b>УВІМКНЕНО 🟢</b>\n\n"
+                    f"💰 <b>Ваш фільтр бюджету:</b> <code>{budget_disp}</code>\n"
+                    f"Ви отримуватимете особисте сповіщення, щойно країна виставить контракт на аукціон!"
+                )
+
+            elif first_word in ("/auctions_off", "/contracts_off", "/контракти_викл") or clean_cmd in ("auctions_off", "contracts_off", "контракти_викл"):
+                self.subscribers_db.set_auction_alerts(chat_id, False)
+                await self.send_message(
+                    chat_id,
+                    "📜 <b>Найманські аукціони контрактів:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
+                    "Автоматичні пуші вимкнено. Ви можете перевірити активні аукціони в будь-який час через /contracts."
                 )
 
             elif first_word in ("/revoke", "/відкликати") and len(words) > 1:
@@ -725,7 +933,8 @@ class SniperBotController:
                     uname = f"@{u['username']}" if u.get("username") and u['username'] != "Unknown" else "без юзернейму"
                     s_ico = "🎯" if u.get("sniper_alerts", True) else "⚪"
                     c_ico = "💰" if u.get("contract_alerts", False) else "⚪"
-                    sub_text += f"• <code>{cid}</code>: <b>{name}</b> ({uname}) [{s_ico} {c_ico}]\n"
+                    a_ico = "📜" if u.get("auction_alerts", False) else "⚪"
+                    sub_text += f"• <code>{cid}</code>: <b>{name}</b> ({uname}) [{s_ico} {c_ico} {a_ico}]\n"
                 await self.send_message(chat_id, sub_text)
 
     async def start_polling(self):

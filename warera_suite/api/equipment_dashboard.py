@@ -216,6 +216,22 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
+        # 2b-3. Active Mercenary Contract Auctions API endpoint (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/api/auctions"):
+            try:
+                if _loop_instance and _loop_instance.is_running():
+                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contract_auctions(), _loop_instance)
+                    data = future.result(timeout=6.0)
+                else:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    data = loop.run_until_complete(analyzer.get_active_contract_auctions())
+                    loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         # 2c. Battle & Purple Sniper Standalone HTML Dashboard (PUBLIC, Zero-Auth)
         if clean_path.endswith("/battles") or clean_path.endswith("/battles.html") or clean_path.endswith("/sniper"):
             import battle_dashboard
@@ -297,6 +313,22 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 asyncio.set_event_loop(loop)
                 data = loop.run_until_complete(analyzer.analyze_user(nick))
                 loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # 2b-3. Active Mercenary Contract Auctions API endpoint (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/api/auctions"):
+            try:
+                if _loop_instance and _loop_instance.is_running():
+                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contract_auctions(), _loop_instance)
+                    data = future.result(timeout=6.0)
+                else:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    data = loop.run_until_complete(analyzer.get_active_contract_auctions())
+                    loop.close()
                 self._send_json(data)
             except Exception as e:
                 self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
