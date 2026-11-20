@@ -175,7 +175,7 @@ def apply_configuration(opts: dict):
 
 async def main():
     print("=" * 65)
-    print("🚀 Запуск Home Assistant Add-on: WarEra Suite v1.7.0")
+    print("🚀 Запуск Home Assistant Add-on: WarEra Suite v1.7.1")
     print("=" * 65)
 
     opts = load_ha_options()

@@ -198,6 +198,24 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(cached)
             return
 
+        # 2b-2. Active Contracts / Bounties API endpoint (PUBLIC, Zero-Auth)
+        if clean_path.endswith("/api/contracts") or clean_path.endswith("/api/bounties"):
+            from battle_analyzer import get_shared_battle_analyzer
+            analyzer = get_shared_battle_analyzer()
+            try:
+                if _loop_instance and _loop_instance.is_running():
+                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contracts(), _loop_instance)
+                    data = future.result(timeout=6.0)
+                else:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    data = loop.run_until_complete(analyzer.get_active_contracts())
+                    loop.close()
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         # 2c. Battle & Purple Sniper Standalone HTML Dashboard (PUBLIC, Zero-Auth)
         if clean_path.endswith("/battles") or clean_path.endswith("/battles.html") or clean_path.endswith("/sniper"):
             import battle_dashboard

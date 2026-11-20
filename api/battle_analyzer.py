@@ -565,9 +565,38 @@ class WarEraBattleAnalyzer:
                 round_id = current_round.get('_id')
                 round_num = current_round.get('number', 1)
 
-                att_c_id = b.get('attacker', {}).get('country')
-                def_c_id = b.get('defender', {}).get('country')
-                reg_id = b.get('defender', {}).get('region')
+                raw_att = b.get('attacker', {})
+                raw_def = b.get('defender', {})
+
+                att_c_id = raw_att.get('country')
+                def_c_id = raw_def.get('country')
+                reg_id = raw_def.get('region')
+
+                att_rate = raw_att.get('moneyPer1kDamages')
+                att_pool = raw_att.get('moneyPool')
+                att_bounty = None
+                if att_rate and att_pool and att_pool > 0:
+                    att_bounty = {
+                        'ratePer1k': float(att_rate),
+                        'pool': round(float(att_pool), 2),
+                        'effectiveAt': raw_att.get('bountyEffectiveAt'),
+                    }
+
+                def_rate = raw_def.get('moneyPer1kDamages')
+                def_pool = raw_def.get('moneyPool')
+                def_bounty = None
+                if def_rate and def_pool and def_pool > 0:
+                    def_bounty = {
+                        'ratePer1k': float(def_rate),
+                        'pool': round(float(def_pool), 2),
+                        'effectiveAt': raw_def.get('bountyEffectiveAt'),
+                    }
+
+                has_bounty = bool(att_bounty or def_bounty)
+                max_bounty_rate = max(
+                    att_bounty['ratePer1k'] if att_bounty else 0.0,
+                    def_bounty['ratePer1k'] if def_bounty else 0.0,
+                )
 
                 att_country = self._countries_cache.get(att_c_id, {})
                 def_country = self._countries_cache.get(def_c_id, {})
@@ -666,7 +695,8 @@ class WarEraBattleAnalyzer:
                         'flag': att_country.get('flag', '🏳️'),
                         'roundPoints': att_round_pts,
                         'roundDamage': att_round_dmg,
-                        'wonRounds': att_won_rounds
+                        'wonRounds': att_won_rounds,
+                        'bounty': att_bounty,
                     },
                     'defender': {
                         'countryId': def_c_id,
@@ -675,8 +705,11 @@ class WarEraBattleAnalyzer:
                         'flag': def_country.get('flag', '🏳️'),
                         'roundPoints': def_round_pts,
                         'roundDamage': def_round_dmg,
-                        'wonRounds': def_won_rounds
+                        'wonRounds': def_won_rounds,
+                        'bounty': def_bounty,
                     },
+                    'hasBounty': has_bounty,
+                    'maxBountyRate': max_bounty_rate,
                     'round': {
                         'id': round_id,
                         'number': round_num,
@@ -721,6 +754,43 @@ class WarEraBattleAnalyzer:
         elif self._cached_intel:
             return self._cached_intel
         return []
+
+    async def get_active_contracts(self) -> List[Dict[str, Any]]:
+        """
+        Returns all active battle contracts (bounties/hiring payouts) across all current battles,
+        sorted by highest payment rate per 1k damage descending.
+        """
+        battles = await self.get_all_battles_intel()
+        contracts = []
+        for b in battles:
+            b_id = b.get('battleId')
+            reg = b.get('region', {})
+            timing = b.get('timing', {})
+            b_type = b.get('type', 'war')
+            url = b.get('wareraUrl')
+
+            for side in ('attacker', 'defender'):
+                side_info = b.get(side, {})
+                bounty = side_info.get('bounty')
+                if bounty:
+                    contracts.append({
+                        'battleId': b_id,
+                        'type': b_type,
+                        'region': reg.get('name', 'Unknown'),
+                        'side': side,
+                        'sideName': 'Атака' if side == 'attacker' else 'Оборона',
+                        'country': side_info.get('name', 'Unknown'),
+                        'flag': side_info.get('flag', '🏳️'),
+                        'ratePer1k': bounty.get('ratePer1k', 0.0),
+                        'pool': bounty.get('pool', 0.0),
+                        'effectiveAt': bounty.get('effectiveAt'),
+                        'isSniperWindow': timing.get('isSniperWindow', False),
+                        'etaMinutes': timing.get('minutesLeft', 0),
+                        'wareraUrl': url,
+                    })
+        # Sort by rate per 1k descending, then pool descending
+        contracts.sort(key=lambda x: (x['ratePer1k'], x['pool']), reverse=True)
+        return contracts
 
 
 _SHARED_ANALYZER: Optional['WarEraBattleAnalyzer'] = None

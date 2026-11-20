@@ -186,6 +186,12 @@
                     <option value="war">🔴 Війни</option>
                     <option value="resistance">🛡️ Повстання</option>
                 </select>
+
+                <!-- Bounties / Contracts Filter -->
+                <select id="bountyFilter" onchange="applyFilters()" class="bg-darkbg border border-bordercolor rounded-xl px-3 py-1.5 text-xs text-amber-300 focus:outline-none focus:border-amber-500 font-medium">
+                    <option value="all">Всі битви</option>
+                    <option value="bounties_only">💰 Тільки з контрактами (Оплата)</option>
+                </select>
             </div>
 
             <!-- Status counter -->
@@ -318,6 +324,7 @@
             const dmgFilter = document.getElementById('dmgFilter').value;
             const typeFilter = document.getElementById('typeFilter').value;
             const timingFilter = document.getElementById('timingFilter').value;
+            const bountyFilter = document.getElementById('bountyFilter') ? document.getElementById('bountyFilter').value : 'all';
 
             const filtered = allBattles.filter(b => {
                 // Search filter
@@ -327,6 +334,9 @@
                     const matchDef = b.defender.name.toLowerCase().includes(search);
                     if (!matchReg && !matchAtt && !matchDef) return false;
                 }
+
+                // Bounty / Contract filter
+                if (bountyFilter === 'bounties_only' && !b.hasBounty) return false;
 
                 // Type filter
                 if (typeFilter !== 'all' && b.type !== typeFilter) return false;
@@ -375,6 +385,11 @@
                 const typeBadge = isWar 
                     ? `<span class="px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-semibold"><i class="fa-solid fa-swords mr-1"></i>Війна</span>`
                     : `<span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><i class="fa-solid fa-shield mr-1"></i>Повстання</span>`;
+
+                // Bounty Contract Badge
+                const bountyBadge = b.hasBounty
+                    ? `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm"><i class="fa-solid fa-coins text-amber-400"></i>Контракт: ${b.maxBountyRate} / 1k</span>`
+                    : '';
 
                 // Timing Badge
                 let timeBadge = '';
@@ -492,6 +507,7 @@
                                     <span>${b.region.name}</span>
                                 </h3>
                                 ${typeBadge}
+                                ${bountyBadge}
                                 <span class="text-xs text-gray-400 font-medium">Раунд #${b.round.number}</span>
                             </div>
                             <div class="flex items-center gap-2">
@@ -510,19 +526,27 @@
                             <!-- Left: Combatants & Progress (5 cols) -->
                             <div class="lg:col-span-5 space-y-3">
                                 <!-- Attacker vs Defender -->
-                                <div class="flex items-center justify-between text-xs font-semibold">
-                                    <div class="flex items-center gap-1.5 text-red-400">
-                                        <i class="fa-solid fa-sword"></i>
-                                        <span>${b.attacker.name}</span>
+                                <div>
+                                    <div class="flex items-center justify-between text-xs font-semibold">
+                                        <div class="flex items-center gap-1.5 text-red-400">
+                                            <i class="fa-solid fa-sword"></i>
+                                            <span>${b.attacker.name}</span>
+                                        </div>
+                                        <div class="text-gray-400 font-mono text-sm">
+                                            <span class="${attPts > defPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${attPts}</span> : <span class="${defPts > attPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${defPts}</span>
+                                            <span class="text-xs font-normal text-gray-500">/ 300</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 text-blue-400">
+                                            <span>${b.defender.name}</span>
+                                            <i class="fa-solid fa-shield"></i>
+                                        </div>
                                     </div>
-                                    <div class="text-gray-400 font-mono text-sm">
-                                        <span class="${attPts > defPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${attPts}</span> : <span class="${defPts > attPts ? 'text-emerald-400 font-bold' : 'text-gray-300'}">${defPts}</span>
-                                        <span class="text-xs font-normal text-gray-500">/ 300</span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5 text-blue-400">
-                                        <span>${b.defender.name}</span>
-                                        <i class="fa-solid fa-shield"></i>
-                                    </div>
+                                    ${b.hasBounty ? `
+                                        <div class="flex items-center justify-between pt-1">
+                                            <div>${b.attacker.bounty ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold"><i class="fa-solid fa-coins text-[9px] text-amber-400"></i> ${b.attacker.bounty.ratePer1k} / 1k <span class="text-gray-400 font-normal">(${b.attacker.bounty.pool}g)</span></span>` : ''}</div>
+                                            <div>${b.defender.bounty ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold"><i class="fa-solid fa-coins text-[9px] text-amber-400"></i> ${b.defender.bounty.ratePer1k} / 1k <span class="text-gray-400 font-normal">(${b.defender.bounty.pool}g)</span></span>` : ''}</div>
+                                        </div>
+                                    ` : ''}
                                 </div>
 
                                 <!-- Dual Progress Bar -->

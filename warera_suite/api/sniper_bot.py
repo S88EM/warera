@@ -76,6 +76,9 @@ class SniperBotController:
                     {"text": "⚔️ Битви з фіолом", "callback_data": "sniper_cmd_battles"},
                 ],
                 [
+                    {"text": "💰 Контракти (Оплата за урон)", "callback_data": "sniper_cmd_contracts"},
+                ],
+                [
                     {"text": f"⚙️ Поріг: {formatted_th} dmg", "callback_data": "sniper_menu_threshold"},
                     {"text": toggle_text, "callback_data": "sniper_toggle_alerts"},
                 ],
@@ -94,6 +97,7 @@ class SniperBotController:
         commands = [
             {"command": "start", "description": "🎯 Головне меню та налаштування"},
             {"command": "snipe", "description": "🎯 Битви на фінішній прямі (15-20 хв)"},
+            {"command": "contracts", "description": "💰 Виплати та контракти за урон"},
             {"command": "battles", "description": "⚔️ Всі активні битви з фіолом"},
             {"command": "sniper_on", "description": "🔔 Увімкнути пуш-сповіщення"},
             {"command": "sniper_off", "description": "🔕 Вимкнути пуш-сповіщення"},
@@ -283,6 +287,41 @@ class SniperBotController:
             logger.error(f"Error in Sniper Bot get_battles_text: {e}")
             return f"⚠️ <b>Помилка аналізу битв:</b> <code>{e}</code>"
 
+    async def _get_contracts_text(self, chat_id: Optional[str] = None) -> str:
+        try:
+            analyzer = get_shared_battle_analyzer()
+            contracts = await analyzer.get_active_contracts()
+            if not contracts:
+                return (
+                    "💰 <b>WarEra · Активні контракти (виплати за урон):</b>\n\n"
+                    "<i>Наразі немає битв з активними виплатами за урон або пул монет вичерпано.</i>"
+                )
+
+            msg = "💰 <b>WarEra · Активні контракти на урон (Bounties):</b>\n\n"
+            msg += "<i>Заробляйте монети за кожну 1 000 нанесеного дамагу на стороні наймача:</i>\n\n"
+
+            for idx, c in enumerate(contracts[:8], 1):
+                reg = c['region']
+                btype = "Війна" if c['type'] == 'war' else "Повстання"
+                side_tag = "🔴 АТАКА" if c['side'] == 'attacker' else "🛡 ОБОРОНА"
+                country = f"{c['flag']} {c['country']}"
+                rate = c['ratePer1k']
+                pool = c['pool']
+                sniper_tag = " 🎯 [15-20 хв]" if c['isSniperWindow'] else ""
+
+                msg += (
+                    f"<b>{idx}. {reg}</b> (<i>{btype}</i>){sniper_tag}\n"
+                    f"   Сторона: <b>{side_tag}</b> ({country})\n"
+                    f"   💵 <b>Ставка:</b> <code>{rate} монет / 1k dmg</code>\n"
+                    f"   🏦 <b>Залишок пулу:</b> <code>{pool:,} монет</code>\n"
+                    f"   👉 <a href=\"{c['wareraUrl']}\">Перейти до битви ↗</a>\n\n"
+                ).replace(",", " ")
+
+            return msg
+        except Exception as e:
+            logger.error(f"Error in Sniper Bot get_contracts_text: {e}")
+            return f"⚠️ <b>Помилка аналізу контрактів:</b> <code>{e}</code>"
+
     async def send_auth_prompt(self, chat_id: str):
         """Sends clan password prompt to unauthorized users."""
         text = (
@@ -337,6 +376,12 @@ class SniperBotController:
             elif data == "sniper_cmd_battles":
                 await self.answer_callback(cb_id, "⚔️ Отримую активні битви...")
                 txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
+                await self.send_message(chat_id, txt)
+                return
+
+            elif data == "sniper_cmd_contracts":
+                await self.answer_callback(cb_id, "💰 Шукаю активні контракти...")
+                txt = await self._get_contracts_text(chat_id=chat_id)
                 await self.send_message(chat_id, txt)
                 return
 
@@ -434,6 +479,11 @@ class SniperBotController:
             elif first_word in ("/battles", "/битви", "/purple", "/фіол") or clean_cmd in ("battles", "битви", "purple", "фіол"):
                 await self.send_message(chat_id, "🔍 <i>Аналізую битви та шукаю фіолетовий дроп...</i>")
                 txt = await self._get_battles_text(sniper_only=False, chat_id=chat_id)
+                await self.send_message(chat_id, txt)
+
+            elif first_word in ("/contracts", "/контракти", "/bounties", "/найманці") or clean_cmd in ("contracts", "контракти", "bounties", "найманці"):
+                await self.send_message(chat_id, "💰 <i>Шукаю відкриті контракти з оплатою за урон...</i>")
+                txt = await self._get_contracts_text(chat_id=chat_id)
                 await self.send_message(chat_id, txt)
 
             elif first_word in ("/snipe", "/снайп", "/hot", "/гарячі") or clean_cmd in ("snipe", "снайп", "hot"):
