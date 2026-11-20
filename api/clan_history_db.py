@@ -13,12 +13,11 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 
+from data_manager import get_data_file
+
 def get_clan_db_path() -> Path:
-    """Return persistent DB path in Home Assistant (/data) or local directory."""
-    ha_data = Path("/data")
-    if ha_data.exists() and ha_data.is_dir():
-        return ha_data / "clan_history.db"
-    return Path(__file__).parent / "clan_history.db"
+    """Return persistent DB path in Home Assistant (/data) or local directory (data/)."""
+    return get_data_file("clan_history.db")
 
 class ClanHistoryDB:
     def __init__(self, db_path: Optional[Path] = None):

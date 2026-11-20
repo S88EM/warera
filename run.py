@@ -102,8 +102,7 @@ def main():
             print("\nВеб-дашборд зупинено.")
         return
 
-    import equipment_scanner
-    app = equipment_scanner.EquipmentScannerApp()
+    from orchestrator import TaskOrchestrator
 
     start_web = not args.cli
     if start_web:
@@ -111,8 +110,19 @@ def main():
         config.WEB_DASHBOARD_PORT = args.port
         config.ENABLE_WEB_DASHBOARD = True
 
+    orchestrator = TaskOrchestrator(
+        enable_market=True,
+        enable_sniper=True,
+        enable_clan_tracker=True,
+        enable_market_bot=True,
+        enable_sniper_bot=True,
+        enable_web=start_web,
+        web_host=args.host,
+        web_port=args.port,
+    )
+
     try:
-        asyncio.run(app.start(start_web=start_web))
+        asyncio.run(orchestrator.run())
     except KeyboardInterrupt:
         print("\nРоботу завершено.")
 

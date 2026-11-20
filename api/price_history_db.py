@@ -5,8 +5,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import statistics
 
-DEFAULT_DB_PATH = Path(__file__).parent / "market_history.db"
-DB_PATH = Path(os.getenv("MARKET_DB_PATH", str(DEFAULT_DB_PATH)))
+from data_manager import get_data_file
+
+DB_PATH = get_data_file("market_history.db")
 
 class MarketHistoryDB:
     def __init__(self, db_path: Path = DB_PATH):

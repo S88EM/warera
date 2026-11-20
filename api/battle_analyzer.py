@@ -262,9 +262,9 @@ class WarEraBattleAnalyzer:
         if self._regions_cache and self._countries_cache and not force:
             return
 
-        cache_dir = Path(__file__).parent
-        reg_file = cache_dir / "regions_cache.json"
-        cnt_file = cache_dir / "countries_cache.json"
+        from data_manager import get_data_file
+        reg_file = get_data_file("regions_cache.json")
+        cnt_file = get_data_file("countries_cache.json")
 
         if reg_file.exists() and not self._regions_cache:
             try:

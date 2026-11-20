@@ -21,7 +21,9 @@ env/
 venv/
 ENV/
 
-# Temporary databases and logs
+# Temporary databases, runtime data and logs
+data/*
+!data/.gitkeep
 *.db
 api/clan_history.db
 scratch/-journal

@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
 import config
+from data_manager import get_data_file
 
 logger = logging.getLogger("WarEraSubscribersDB")
 
@@ -20,12 +21,7 @@ class SubscribersDB:
         if storage_path:
             self.file_path = Path(storage_path)
         else:
-            # Check Home Assistant /data first, fallback to api/bot_subscribers.json
-            ha_data = Path("/data")
-            if ha_data.exists():
-                self.file_path = ha_data / "bot_subscribers.json"
-            else:
-                self.file_path = Path(__file__).parent / "bot_subscribers.json"
+            self.file_path = get_data_file("bot_subscribers.json")
 
         self._subscribers: Dict[str, Dict[str, Any]] = {}
         self._last_mtime: float = 0.0

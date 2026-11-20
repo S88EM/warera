@@ -201,61 +201,21 @@ async def main():
     print(f"[HA Launcher] 🔒 Захист снайпер-бота паролем: {'Увімкнено (пароль встановлено)' if bot_pwd else 'Вимкнено (вільний доступ)'}")
     print("-" * 65)
 
-    import equipment_scanner
-    import equipment_dashboard
-    app = equipment_scanner.EquipmentScannerApp()
+    from orchestrator import TaskOrchestrator
 
-    # 1. Start Ingress Web Dashboard connected to live scanner
-    if enable_web:
-        try:
-            loop = asyncio.get_running_loop()
-            equipment_dashboard.start_dashboard(
-                host="0.0.0.0",
-                port=8080,
-                app_instance=app,
-                loop=loop,
-            )
-            print("[HA Launcher] ✅ Ingress Web Dashboard запущено на порті 8080")
-        except Exception as e:
-            print(f"[HA Launcher] ❌ Помилка старту Web Dashboard: {e}")
+    orchestrator = TaskOrchestrator(
+        enable_market=enable_equip,
+        enable_sniper=enable_sniper,
+        enable_clan_tracker=True,
+        enable_market_bot=enable_tg,
+        enable_sniper_bot=bool(sniper_token),
+        enable_web=enable_web,
+        web_host="0.0.0.0",
+        web_port=8080,
+    )
 
-    tasks = []
-
-    # 2. Start Equipment Scanner or standalone Battle Sniper
-    if enable_equip:
-        try:
-            tasks.append(asyncio.create_task(app.start(start_web=False)))
-            print("[HA Launcher] ✅ Сканер вигідних цін спорядження активовано")
-        except Exception as e:
-            print(f"[HA Launcher] ⚠️ Модуль equipment_scanner недоступний або має помилку: {e}")
-    else:
-        print("[HA Launcher] ℹ️ Сканер спорядження на ринку вимкнено.")
-        # Start Battle Sniper and Bot autonomously even when market scanner is off!
-        if enable_sniper:
-            try:
-                from battle_sniper_worker import get_sniper_worker
-                tasks.append(asyncio.create_task(get_sniper_worker().start()))
-                print("[HA Launcher] ✅ Автономний фоновий снайпер битв активовано")
-            except Exception as e:
-                print(f"[HA Launcher] ⚠️ Не вдалося запустити снайпер битв: {e}")
-
-            if sniper_token:
-                try:
-                    from sniper_bot import SniperBotController
-                    sniper_bot = SniperBotController(token=sniper_token)
-                    tasks.append(asyncio.create_task(sniper_bot.start_polling()))
-                    print("[HA Launcher] ✅ Снайпер Telegram-бот активовано")
-                except Exception as e:
-                    print(f"[HA Launcher] ⚠️ Не вдалося запустити Sniper Bot: {e}")
-
-    if not tasks:
-        print("[HA Launcher] ⚠️ Сканер спорядження вимкнено. Очікування запитів до Web UI...")
-        while True:
-            await asyncio.sleep(3600)
-
-    # Run tasks until interrupted
     try:
-        await asyncio.gather(*tasks)
+        await orchestrator.run()
     except asyncio.CancelledError:
         print("[HA Launcher] Отримано сигнал зупинки.")
 

@@ -173,6 +173,44 @@ class EquipmentScannerApp:
             return self.latest_market_offers.get(item_code, [])
         return {k: len(v) for k, v in self.latest_market_offers.items()}
 
+    def get_cheapest_gear(self, item_codes: Optional[List[str]] = None, min_quality: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Returns the cheapest available gear offers for requested item codes (or all cached codes).
+        Extracts lowest price, stats, roll quality and direct purchase link.
+        Used by the combat damage and gear calculator.
+        """
+        results = []
+        codes = item_codes or list(self.latest_market_offers.keys())
+        for code in codes:
+            offers = self.latest_market_offers.get(code, [])
+            if not offers:
+                continue
+            valid_offers = [o for o in offers if isinstance(o, dict) and o.get("price")]
+            if not valid_offers:
+                continue
+            sorted_offers = sorted(valid_offers, key=lambda x: x.get("price", float("inf")))
+            cheapest = sorted_offers[0]
+            results.append({
+                "item_code": code,
+                "item_name": cheapest.get("name", code),
+                "price": cheapest.get("price", 0),
+                "seller": cheapest.get("seller", {}),
+                "skills": cheapest.get("skills", []),
+                "offer_id": cheapest.get("id"),
+                "url": f"https://app.warera.io/market/equipments?item={code}",
+            })
+        return results
+
+    async def get_raw_item_price(self, item_code: str) -> Optional[float]:
+        """Fetches current benchmark market price for non-equipment items (e.g. fish, cocaine, raw resources)."""
+        try:
+            prices = await self.api.get_prices()
+            if isinstance(prices, dict):
+                return prices.get(item_code)
+            return None
+        except Exception:
+            return None
+
     def resume(self):
         self.is_paused = False
         self.wake_event.set()
@@ -218,23 +256,6 @@ class EquipmentScannerApp:
                         console.print(f"[dim][{now_str}] 🔄 [Авто-оновлення бази історії]: додано {new_tx} нових угод.[/dim]")
                 except Exception:
                     pass
-
-    async def _background_clan_snapshot(self):
-        """Silently snapshot clan damage every 15 minutes and at 02:00 rollover."""
-        # Initial sleep so we do not stress the network or CPU during app boot
-        await asyncio.sleep(60)
-        while self.running:
-            try:
-                from clan_analyzer import WarEraClanAnalyzer
-                analyzer = WarEraClanAnalyzer()
-                await analyzer.analyze_clan()
-            except Exception:
-                pass
-
-            for _ in range(900):  # 15 minutes
-                if not self.running:
-                    return
-                await asyncio.sleep(1)
 
     async def run_scan_cycle(self, cycle_num: int) -> int:
         now_str = datetime.now().strftime("%H:%M:%S")
@@ -357,31 +378,7 @@ class EquipmentScannerApp:
         # Start background sync task (active when in history mode)
         sync_task = asyncio.create_task(self._background_db_sync())
 
-        # Start periodic clan damage tracker (snapshots every 15 min & 02:00 rollover)
-        clan_task = asyncio.create_task(self._background_clan_snapshot())
-
-        # Start background battle sniper worker (polls every 50s, pushes 15-20 min purple drops)
-        sniper_task = None
-        try:
-            from battle_sniper_worker import get_sniper_worker
-            sniper_task = asyncio.create_task(get_sniper_worker().start())
-            console.print("[green]✓ Снайпер битв активовано (фоновий моніторинг фіолетового дропу за 15-20 хв до кінця раунду).[/green]\n")
-        except Exception as e:
-            console.print(f"[yellow]⚠️ Не вдалося запустити фоновий снайпер битв: {e}[/yellow]\n")
-
-        # Start dedicated Sniper Telegram Bot controller (for clan members & battle sniper)
-        sniper_tg_task = None
-        sniper_token = getattr(config, "TELEGRAM_SNIPER_BOT_TOKEN", None)
-        if sniper_token:
-            try:
-                from sniper_bot import SniperBotController
-                sniper_bot = SniperBotController(token=sniper_token)
-                sniper_tg_task = asyncio.create_task(sniper_bot.start_polling())
-                console.print("[green]✓ Снайпер Telegram-бот активовано (окремий публічний бот для сокланівців).[/green]\n")
-            except Exception as e:
-                console.print(f"[yellow]⚠️ Не вдалося запустити Sniper Bot: {e}[/yellow]\n")
-
-        # Start Telegram bot controller (Private Market Bot)
+        # Start Telegram bot controller (Private Market Bot for owner if enabled)
         tg_task = None
         if self.tg_bot:
             tg_task = asyncio.create_task(self.tg_bot.start_polling())
@@ -409,18 +406,8 @@ class EquipmentScannerApp:
         finally:
             self.running = False
             sync_task.cancel()
-            clan_task.cancel()
-            if sniper_task:
-                try:
-                    from battle_sniper_worker import get_sniper_worker
-                    get_sniper_worker().stop()
-                    sniper_task.cancel()
-                except Exception:
-                    pass
             if tg_task:
                 tg_task.cancel()
-            if sniper_tg_task:
-                sniper_tg_task.cancel()
             await self.notifier.close()
             await self.api.close()
             console.print("[bold red]Роботу сканера спорядження завершено.[/bold red]")
