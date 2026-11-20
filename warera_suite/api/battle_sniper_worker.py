@@ -30,6 +30,7 @@ class BattleSniperWorker:
         # 2. If an alert was skipped because damage exceeded personal threshold, and the user
         #    subsequently raises their threshold, they can still receive it while in the sniper window.
         self.alerted_user_rounds: Set[str] = set()
+        self.alerted_user_contracts: Set[str] = set()
         self.cycle_count = 0
         self.total_alerts_sent = 0
         self.last_check_time: Optional[str] = None
@@ -50,7 +51,7 @@ class BattleSniperWorker:
             return "—"
         return f"{val:,}".replace(",", " ")
 
-    async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str):
+    async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str, btn_text: str = "⚔️ Відкрити битву на WarEra ↗"):
         token = config.TELEGRAM_SNIPER_BOT_TOKEN or config.TELEGRAM_BOT_TOKEN
         if not token:
             return
@@ -63,7 +64,7 @@ class BattleSniperWorker:
             "disable_web_page_preview": False,
             "reply_markup": {
                 "inline_keyboard": [
-                    [{"text": "⚔️ Відкрити битву на WarEra ↗", "url": battle_url}]
+                    [{"text": btn_text, "url": battle_url}]
                 ]
             }
         }
@@ -75,6 +76,32 @@ class BattleSniperWorker:
                 logger.error(f"Failed to send sniper alert to {chat_id}: {r.text}")
         except Exception as e:
             logger.error(f"Error sending sniper alert to {chat_id}: {e}")
+
+    def build_contract_alert_message(self, contract: Dict[str, Any]) -> str:
+        reg = contract.get("region", "Невідомий регіон")
+        btype = "Війна" if contract.get("type") == "war" else "Повстання"
+        side_badge = "🔴 АТАКА" if contract.get("side") == "attacker" else "🛡 ОБОРОНА"
+        country = f"{contract.get('flag', '🏳️')} {contract.get('country', 'Unknown')}"
+        rate = contract.get("ratePer1k", 0.0)
+        pool = contract.get("pool", 0.0)
+        r_num = contract.get("roundNumber", 1)
+        eta = contract.get("etaMinutes", 0)
+        time_str = f"~{eta} хв до кінця" if eta > 0 else "йде зараз"
+        sniper_tag = " 🎯 [15–20 хв]" if contract.get("isSniperWindow") else ""
+
+        pool_formatted = f"{pool:,.2f} монет".replace(",", " ")
+        lines = [
+            f"💰 <b>Новий контракт на урон у битві!</b>{sniper_tag}",
+            "",
+            f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
+            f"🏳️ <b>Сторона:</b> <b>{side_badge}</b> ({country})",
+            f"💵 <b>Оплата:</b> <code>{rate} монет / 1k dmg</code>",
+            f"🏦 <b>Пул винагороди:</b> <code>{pool_formatted}</code>",
+            f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}",
+            "",
+            f"💡 <i>Отримуйте монети за кожну 1 000 нанесеного дамагу на цій стороні!</i>"
+        ]
+        return "\n".join(lines)
 
     def build_alert_message(self, battle: Dict[str, Any]) -> str:
         reg = battle.get("region", {}).get("name", "Невідомий регіон")
@@ -162,40 +189,78 @@ class BattleSniperWorker:
             if any(k.startswith(f"{active_k}_") for active_k in active_round_keys)
         }
 
-        if not sniper_candidates:
-            return
+        # 1. Process sniper window purple drops
+        if sniper_candidates:
+            target_chat_ids = self.subscribers_db.get_sniper_chat_ids()
+            if target_chat_ids:
+                for alert_key, battle in sniper_candidates:
+                    rc = battle.get("roundCutoff") or {}
+                    if not rc.get("has_purple") and battle.get("battleCutoff", {}).get("has_purple"):
+                        rc = battle.get("battleCutoff") or {}
+                    min_dmg = rc.get("min_damage_for_purple") or 0
+                    url = battle.get("wareraUrl", f"https://app.warera.io/battle/{battle.get('battleId')}")
+                    cached_msg: Optional[str] = None
 
-        # Get subscribers who want battle sniper push alerts
-        target_chat_ids = self.subscribers_db.get_sniper_chat_ids()
-        if not target_chat_ids:
-            return
+                    for cid in target_chat_ids:
+                        user_alert_key = f"{alert_key}_{cid}"
+                        if user_alert_key in self.alerted_user_rounds:
+                            continue
 
-        for alert_key, battle in sniper_candidates:
-            rc = battle.get("roundCutoff") or {}
-            if not rc.get("has_purple") and battle.get("battleCutoff", {}).get("has_purple"):
-                rc = battle.get("battleCutoff") or {}
-            min_dmg = rc.get("min_damage_for_purple") or 0
-            url = battle.get("wareraUrl", f"https://app.warera.io/battle/{battle.get('battleId')}")
-            cached_msg: Optional[str] = None
+                        user_th = self.subscribers_db.get_user_threshold(cid)
+                        if min_dmg <= user_th:
+                            if cached_msg is None:
+                                cached_msg = self.build_alert_message(battle)
+                            logger.info(f"🚨 Firing sniper alert for {battle.get('region', {}).get('name', 'Battle')} to {cid} (min_dmg: {min_dmg} <= th: {user_th})")
+                            try:
+                                await self.send_telegram_alert(cid, cached_msg, url)
+                                self.alerted_user_rounds.add(user_alert_key)
+                                await asyncio.sleep(0.05)  # Telegram broadcast throttling
+                            except Exception as e:
+                                logger.error(f"Failed to deliver to {cid}: {e}")
+                        else:
+                            logger.debug(f"Skipping alert for {cid}: min_dmg {min_dmg} > personal threshold {user_th}")
 
-            for cid in target_chat_ids:
-                user_alert_key = f"{alert_key}_{cid}"
-                if user_alert_key in self.alerted_user_rounds:
-                    continue
+        # 2. Process active battle contracts (bounties) for users who opted in
+        target_contract_chat_ids = self.subscribers_db.get_contract_chat_ids()
+        if target_contract_chat_ids:
+            try:
+                active_contracts = await self.analyzer.get_active_contracts()
+                active_contract_keys = set()
 
-                user_th = self.subscribers_db.get_user_threshold(cid)
-                if min_dmg <= user_th:
-                    if cached_msg is None:
-                        cached_msg = self.build_alert_message(battle)
-                    logger.info(f"🚨 Firing sniper alert for {battle.get('region', {}).get('name', 'Battle')} to {cid} (min_dmg: {min_dmg} <= th: {user_th})")
-                    try:
-                        await self.send_telegram_alert(cid, cached_msg, url)
-                        self.alerted_user_rounds.add(user_alert_key)
-                        await asyncio.sleep(0.05)  # Telegram broadcast throttling
-                    except Exception as e:
-                        logger.error(f"Failed to deliver to {cid}: {e}")
-                else:
-                    logger.debug(f"Skipping alert for {cid}: min_dmg {min_dmg} > personal threshold {user_th}")
+                for c in active_contracts:
+                    b_id = c.get("battleId")
+                    r_id = c.get("roundId") or "r"
+                    side = c.get("side", "")
+                    eff = c.get("effectiveAt") or "init"
+                    c_key = f"{b_id}_{r_id}_{side}_{eff}"
+                    active_contract_keys.add(c_key)
+
+                    url = c.get("wareraUrl", f"https://app.warera.io/battle/{b_id}")
+                    cached_contract_msg: Optional[str] = None
+
+                    for cid in target_contract_chat_ids:
+                        user_contract_key = f"{c_key}_{cid}"
+                        if user_contract_key in self.alerted_user_contracts:
+                            continue
+
+                        if cached_contract_msg is None:
+                            cached_contract_msg = self.build_contract_alert_message(c)
+
+                        logger.info(f"💰 Firing contract alert for {c.get('region')} ({side}) to {cid}")
+                        try:
+                            await self.send_telegram_alert(cid, cached_contract_msg, url, btn_text="💰 Відкрити контракт на WarEra ↗")
+                            self.alerted_user_contracts.add(user_contract_key)
+                            await asyncio.sleep(0.05)
+                        except Exception as e:
+                            logger.error(f"Failed to deliver contract alert to {cid}: {e}")
+
+                # Cleanup old contract keys
+                self.alerted_user_contracts = {
+                    k for k in self.alerted_user_contracts
+                    if any(k.startswith(f"{active_k}_") for active_k in active_contract_keys)
+                }
+            except Exception as e:
+                logger.error(f"Error checking active contracts in worker cycle: {e}")
 
     async def start(self):
         """Main loop of the background sniper worker."""

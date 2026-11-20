@@ -45,26 +45,30 @@ class SniperBotController:
     def _build_panel_text(self, chat_id: Optional[str] = None) -> str:
         user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
         sniper_on = user_prefs.get("sniper_alerts", True)
+        contract_on = user_prefs.get("contract_alerts", False)
         subs_count = self.subscribers_db.count()
 
         user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         formatted_max = f"{user_th:,}".replace(",", " ")
 
         return (
-            f"🎯 <b>WarEra · Снайпер фіолетового дропу (T4 Epic+)</b>\n\n"
-            f"🎯 <b>Ваш особистий поріг:</b> ≤ <code>{formatted_max} dmg</code> (все що вище — відсіюється)\n"
-            f"🔔 <b>Ваші сповіщення:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
-            f"📡 <b>Статус моніторингу:</b> 🟢 <b>АКТИВНИЙ</b>\n"
+            f"🎯 <b>WarEra · Снайпер битв та Контракти на урон</b>\n\n"
+            f"🎯 <b>Ваш особистий поріг:</b> ≤ <code>{formatted_max} dmg</code> (фіол)\n"
+            f"🔔 <b>Сповіщення снайпера (фіол):</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
+            f"💰 <b>Сповіщення про контракти:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n"
+            f"📡 <b>Моніторинг:</b> 🟢 <b>АКТИВНИЙ (~50с цикл)</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
-            f"⏳ <i>Сповіщення надсилаються автоматично за 15–20 хв до кінця раунду, "
-            f"тільки якщо для фіолетового дропу потрібно НЕ БІЛЬШЕ {formatted_max} урону.</i>\n\n"
-            f"<i>Скористайтеся кнопками нижче для швидкого пошуку:</i>"
+            f"⏳ <i>Снайпер сповіщає за 15–20 хв до кінця раунду (урон ≤ {formatted_max}).</i>\n"
+            f"💵 <i>Контракти сповіщають миттєво, щойно з'являється оплата за 1k урону.</i>\n\n"
+            f"<i>Скористайтеся кнопками нижче:</i>"
         )
 
     def _build_keyboard(self, chat_id: Optional[str] = None) -> dict:
         user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
         sniper_on = user_prefs.get("sniper_alerts", True)
-        toggle_text = "🎯 Сповіщення: 🟢 ВКЛ" if sniper_on else "🎯 Сповіщення: 🔴 ВИКЛ"
+        contract_on = user_prefs.get("contract_alerts", False)
+        toggle_sniper_text = "🎯 Снайпер: 🟢 ВКЛ" if sniper_on else "🎯 Снайпер: 🔴 ВИКЛ"
+        toggle_contract_text = "💰 Контракти: 🟢 ВКЛ" if contract_on else "💰 Контракти: 🔴 ВИКЛ"
 
         user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
         formatted_th = f"{user_th // 1000}k" if user_th < 1000000 else f"{user_th // 1000000}M"
@@ -77,10 +81,11 @@ class SniperBotController:
                 ],
                 [
                     {"text": "💰 Контракти (Оплата за урон)", "callback_data": "sniper_cmd_contracts"},
+                    {"text": f"⚙️ Поріг: {formatted_th}", "callback_data": "sniper_menu_threshold"},
                 ],
                 [
-                    {"text": f"⚙️ Поріг: {formatted_th} dmg", "callback_data": "sniper_menu_threshold"},
-                    {"text": toggle_text, "callback_data": "sniper_toggle_alerts"},
+                    {"text": toggle_sniper_text, "callback_data": "sniper_toggle_alerts"},
+                    {"text": toggle_contract_text, "callback_data": "sniper_toggle_contracts"},
                 ],
                 [
                     {"text": "🔄 Оновити меню", "callback_data": "sniper_cmd_status"}
@@ -96,14 +101,20 @@ class SniperBotController:
         url = f"https://api.telegram.org/bot{self.token}/setMyCommands"
         commands = [
             {"command": "start", "description": "🎯 Головне меню та налаштування"},
-            {"command": "snipe", "description": "🎯 Битви на фінішній прямі (15-20 хв)"},
             {"command": "contracts", "description": "💰 Виплати та контракти за урон"},
+            {"command": "contracts_on", "description": "💰 Увімкнути пуші про контракти"},
+            {"command": "contracts_off", "description": "🔕 Вимкнути пуші про контракти"},
+            {"command": "snipe", "description": "🎯 Битви на фінішній прямі (15-20 хв)"},
             {"command": "battles", "description": "⚔️ Всі активні битви з фіолом"},
-            {"command": "sniper_on", "description": "🔔 Увімкнути пуш-сповіщення"},
-            {"command": "sniper_off", "description": "🔕 Вимкнути пуш-сповіщення"},
+            {"command": "sniper_on", "description": "🔔 Увімкнути снайпер-сповіщення"},
+            {"command": "sniper_off", "description": "🔕 Вимкнути снайпер-сповіщення"},
             {"command": "status", "description": "🔄 Статус моніторингу"},
             {"command": "help", "description": "ℹ️ Довідка та інструкція"}
         ]
+        try:
+            await client.post(url, json={"commands": commands})
+        except Exception as e:
+            logger.debug(f"Failed to set Sniper Bot Telegram commands: {e}")
         try:
             await client.post(url, json={"commands": commands})
         except Exception as e:
@@ -362,7 +373,16 @@ class SniperBotController:
                 curr = self.subscribers_db.get_user_prefs(chat_id).get("sniper_alerts", True)
                 new_val = self.subscribers_db.set_sniper_alerts(chat_id, not curr)
                 status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
-                await self.answer_callback(cb_id, f"🎯 Сповіщення: {status_txt}")
+                await self.answer_callback(cb_id, f"🎯 Снайпер: {status_txt}")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
+            elif data == "sniper_toggle_contracts":
+                curr = self.subscribers_db.get_user_prefs(chat_id).get("contract_alerts", False)
+                new_val = self.subscribers_db.set_contract_alerts(chat_id, not curr)
+                status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
+                await self.answer_callback(cb_id, f"💰 Контракти: {status_txt}")
                 if msg_id:
                     await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
                 return
@@ -520,6 +540,22 @@ class SniperBotController:
                     "Автоматичні пуші вимкнено. Ви завжди можете перевірити ситуацію вручну через /snipe."
                 )
 
+            elif first_word in ("/contracts_on", "/bounties_on") or clean_cmd in ("contracts_on", "bounties_on"):
+                self.subscribers_db.set_contract_alerts(chat_id, True)
+                await self.send_message(
+                    chat_id,
+                    "💰 <b>Контракти на урон:</b> Автосповіщення <b>УВІМКНЕНО 🟢</b>\n\n"
+                    "Ви отримуватимете сповіщення в особисті повідомлення щойно з'явиться новий контракт з оплатою за урон у будь-якій битві."
+                )
+
+            elif first_word in ("/contracts_off", "/bounties_off") or clean_cmd in ("contracts_off", "bounties_off"):
+                self.subscribers_db.set_contract_alerts(chat_id, False)
+                await self.send_message(
+                    chat_id,
+                    "💰 <b>Контракти на урон:</b> Автосповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
+                    "Автоматичні пуші про контракти вимкнено. Ви можете перевірити активні контракти в будь-який час через /contracts."
+                )
+
             elif first_word in ("/revoke", "/відкликати") and len(words) > 1:
                 if not self._is_admin(from_user.get("id"), chat_id):
                     await self.send_message(chat_id, "⛔ Команда доступна лише адміністратору.")
@@ -538,7 +574,8 @@ class SniperBotController:
                     name = u.get("first_name", "Fighter")
                     uname = f"@{u['username']}" if u.get("username") and u['username'] != "Unknown" else "без юзернейму"
                     s_ico = "🎯" if u.get("sniper_alerts", True) else "⚪"
-                    sub_text += f"• <code>{cid}</code>: <b>{name}</b> ({uname}) [{s_ico}]\n"
+                    c_ico = "💰" if u.get("contract_alerts", False) else "⚪"
+                    sub_text += f"• <code>{cid}</code>: <b>{name}</b> ({uname}) [{s_ico} {c_ico}]\n"
                 await self.send_message(chat_id, sub_text)
 
     async def start_polling(self):

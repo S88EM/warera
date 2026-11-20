@@ -769,12 +769,18 @@ class WarEraBattleAnalyzer:
             b_type = b.get('type', 'war')
             url = b.get('wareraUrl')
 
+            round_info = b.get('round', {})
+            r_id = round_info.get('id', '')
+            r_num = round_info.get('number', 1)
+
             for side in ('attacker', 'defender'):
                 side_info = b.get(side, {})
                 bounty = side_info.get('bounty')
                 if bounty:
                     contracts.append({
                         'battleId': b_id,
+                        'roundId': r_id,
+                        'roundNumber': r_num,
                         'type': b_type,
                         'region': reg.get('name', 'Unknown'),
                         'side': side,

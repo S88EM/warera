@@ -101,6 +101,8 @@ class SubscribersDB:
                 user["first_name"] = first_name
             if "damage_threshold" not in user:
                 user["damage_threshold"] = default_th
+            if "contract_alerts" not in user:
+                user["contract_alerts"] = False
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -111,6 +113,7 @@ class SubscribersDB:
                 "username": username or "Unknown",
                 "first_name": first_name or "Fighter",
                 "sniper_alerts": True,
+                "contract_alerts": False,
                 "market_alerts": True if admin else False,
                 "damage_threshold": default_th,
                 "joined_at": now_str,
@@ -185,6 +188,14 @@ class SubscribersDB:
         self.save()
         return enabled
 
+    def set_contract_alerts(self, chat_id: str, enabled: bool) -> bool:
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        self._subscribers[cid]["contract_alerts"] = enabled
+        self.save()
+        return enabled
+
     def set_market_alerts(self, chat_id: str, enabled: bool) -> bool:
         cid = str(chat_id).strip()
         # PRIVACY SHIELD: Non-admins cannot enable market alerts under any circumstances!
@@ -210,6 +221,15 @@ class SubscribersDB:
         res = []
         for cid, u in self._subscribers.items():
             if u.get("sniper_alerts", True) and self.is_authorized(cid):
+                res.append(cid)
+        return res
+
+    def get_contract_chat_ids(self) -> List[str]:
+        """Returns all chat IDs who have battle contract alerts enabled AND are authorized."""
+        self._ensure_fresh()
+        res = []
+        for cid, u in self._subscribers.items():
+            if u.get("contract_alerts", False) and self.is_authorized(cid):
                 res.append(cid)
         return res
 
