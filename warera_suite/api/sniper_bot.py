@@ -55,16 +55,12 @@ class SniperBotController:
         rate_display = f"≥ {min_rate} 🪙 / 1k" if min_rate > 0 else "Всі (від 0.01)"
 
         return (
-            f"🎯 <b>WarEra · Снайпер битв та Баунті (Bounties)</b>\n\n"
-            f"🎯 <b>Поріг урону (фіол):</b> ≤ <code>{formatted_max} dmg</code>\n"
-            f"💵 <b>Ваш поріг баунті:</b> <code>{rate_display}</code>\n"
-            f"🔔 <b>Сповіщення снайпера (фіол):</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n"
-            f"💰 <b>Сповіщення про баунті:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n"
+            f"🎯 <b>WarEra · Центр бойової розвідки ⚔️</b>\n\n"
+            f"🔔 <b>Снайпер фіолу:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b> (поріг ≤ {formatted_max} dmg)\n"
+            f"💰 <b>Сповіщення баунті:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b> ({rate_display})\n"
             f"📡 <b>Моніторинг:</b> 🟢 <b>АКТИВНИЙ (~50с цикл)</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
-            f"⏳ <i>Снайпер сповіщає за 15–20 хв до кінця раунду (урон ≤ {formatted_max}).</i>\n"
-            f"💵 <i>Баунті сповіщає миттєво при появі оплати за 1k урону ({rate_display}).</i>\n\n"
-            f"<i>Скористайтеся кнопками нижче:</i>"
+            f"<i>Оберіть потрібний розділ нижче для швидкого пошуку та налаштувань:</i>"
         )
 
     def _build_keyboard(self, chat_id: Optional[str] = None) -> dict:
@@ -74,29 +70,85 @@ class SniperBotController:
         toggle_sniper_text = "🎯 Снайпер: 🟢 ВКЛ" if sniper_on else "🎯 Снайпер: 🔴 ВИКЛ"
         toggle_contract_text = "💰 Баунті: 🟢 ВКЛ" if contract_on else "💰 Баунті: 🔴 ВИКЛ"
 
-        user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
-        formatted_th = f"{user_th // 1000}k" if user_th < 1000000 else f"{user_th // 1000000}M"
-
-        min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
-        rate_btn = f"💵 Баунті: ≥ {min_rate}" if min_rate > 0 else "💵 Баунті: Всі"
-
         return {
             "inline_keyboard": [
                 [
-                    {"text": f"🎯 Снайпер (≤ {formatted_th})", "callback_data": "sniper_cmd_snipe"},
-                    {"text": "⚔️ Битви з фіолом", "callback_data": "sniper_cmd_battles"},
-                ],
-                [
-                    {"text": "💰 Баунті (Виплати)", "callback_data": "sniper_cmd_contracts"},
-                    {"text": rate_btn, "callback_data": "sniper_menu_bounty_rate"},
-                ],
-                [
-                    {"text": f"⚙️ Поріг: {formatted_th}", "callback_data": "sniper_menu_threshold"},
-                    {"text": "🔄 Оновити", "callback_data": "sniper_cmd_status"},
+                    {"text": "🎯 Снайпер фіолу ➡️", "callback_data": "menu_sniper"},
+                    {"text": "💰 Баунті (Виплати) ➡️", "callback_data": "menu_bounties"},
                 ],
                 [
                     {"text": toggle_sniper_text, "callback_data": "sniper_toggle_alerts"},
                     {"text": toggle_contract_text, "callback_data": "sniper_toggle_contracts"},
+                ],
+                [
+                    {"text": "🔄 Оновити статус", "callback_data": "sniper_cmd_status"}
+                ]
+            ]
+        }
+
+    def _build_sniper_menu_text(self, chat_id: Optional[str] = None) -> str:
+        user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
+        sniper_on = user_prefs.get("sniper_alerts", True)
+        user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_max = f"{user_th:,}".replace(",", " ")
+
+        return (
+            f"🎯 <b>Меню: Снайпер фіолетового дропу (T4 Epic+)</b>\n\n"
+            f"⚙️ <b>Ваш особистий поріг:</b> ≤ <code>{formatted_max} dmg</code>\n"
+            f"🔔 <b>Автосповіщення:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b>\n\n"
+            f"⏳ <i>Бот відслідковує битви на фінішній прямі (15–20 хв до кінця раунду), "
+            f"де розраховано гарантований фіолетовий лут і потрібний дамаг не перевищує ваш поріг.</i>\n\n"
+            f"<i>Скористайтеся кнопками нижче:</i>"
+        )
+
+    def _build_sniper_menu_keyboard(self, chat_id: Optional[str] = None) -> dict:
+        user_th = self.subscribers_db.get_user_threshold(chat_id) if chat_id else getattr(config, "SNIPER_MAX_DAMAGE", 75000)
+        formatted_th = f"{user_th // 1000}k" if user_th < 1000000 else f"{user_th // 1000000}M"
+
+        return {
+            "inline_keyboard": [
+                [
+                    {"text": f"🎯 Снайпер (15–20 хв)", "callback_data": "sniper_cmd_snipe"},
+                    {"text": "⚔️ Всі битви з фіолом", "callback_data": "sniper_cmd_battles"},
+                ],
+                [
+                    {"text": f"⚙️ Змінити поріг: ≤ {formatted_th}", "callback_data": "sniper_menu_threshold"},
+                ],
+                [
+                    {"text": "🔙 Головне меню", "callback_data": "menu_main"}
+                ]
+            ]
+        }
+
+    def _build_bounties_menu_text(self, chat_id: Optional[str] = None) -> str:
+        user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
+        contract_on = user_prefs.get("contract_alerts", False)
+        min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+        rate_display = f"≥ {min_rate} 🪙 / 1k" if min_rate > 0 else "Всі (без обмежень)"
+
+        return (
+            f"💰 <b>Меню: Баунті за урон (Bounties)</b>\n\n"
+            f"💵 <b>Ваш поріг ставки:</b> <code>{rate_display}</code>\n"
+            f"💰 <b>Автосповіщення:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n\n"
+            f"💵 <i>У цьому розділі ви можете переглянути актуальні битви з грошовими нагородами "
+            f"за кожну 1 000 набитого дамагу на стороні наймача або налаштувати свій поріг ставки.</i>\n\n"
+            f"<i>Скористайтеся кнопками нижче:</i>"
+        )
+
+    def _build_bounties_menu_keyboard(self, chat_id: Optional[str] = None) -> dict:
+        min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+        rate_btn = f"≥ {min_rate} 🪙" if min_rate > 0 else "Всі"
+
+        return {
+            "inline_keyboard": [
+                [
+                    {"text": "💰 Список активних баунті", "callback_data": "sniper_cmd_contracts"},
+                ],
+                [
+                    {"text": f"💵 Змінити поріг ставки: {rate_btn}", "callback_data": "sniper_menu_bounty_rate"},
+                ],
+                [
+                    {"text": "🔙 Головне меню", "callback_data": "menu_main"}
                 ]
             ]
         }
@@ -386,7 +438,25 @@ class SniperBotController:
                 await self.send_auth_prompt(chat_id)
                 return
 
-            if data == "sniper_toggle_alerts":
+            if data == "menu_main" or data == "sniper_cmd_status":
+                await self.answer_callback(cb_id, "Головне меню")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                return
+
+            elif data == "menu_sniper":
+                await self.answer_callback(cb_id, "🎯 Розділ: Снайпер фіолу")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_sniper_menu_text(chat_id), self._build_sniper_menu_keyboard(chat_id))
+                return
+
+            elif data == "menu_bounties":
+                await self.answer_callback(cb_id, "💰 Розділ: Баунті")
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, self._build_bounties_menu_text(chat_id), self._build_bounties_menu_keyboard(chat_id))
+                return
+
+            elif data == "sniper_toggle_alerts":
                 curr = self.subscribers_db.get_user_prefs(chat_id).get("sniper_alerts", True)
                 new_val = self.subscribers_db.set_sniper_alerts(chat_id, not curr)
                 status_txt = "🟢 УВІМКНЕНО" if new_val else "🔴 ВИМКНЕНО"
@@ -428,7 +498,7 @@ class SniperBotController:
                             {"text": "Всі (0.0)", "callback_data": "set_br_0.0"},
                         ],
                         [
-                            {"text": "🔙 Назад", "callback_data": "sniper_cmd_status"}
+                            {"text": "🔙 Назад до меню баунті", "callback_data": "menu_bounties"}
                         ]
                     ]
                 }
@@ -442,7 +512,7 @@ class SniperBotController:
                 rate_disp = f"≥ {new_rate} 🪙 / 1k" if new_rate > 0 else "Всі баунті"
                 await self.answer_callback(cb_id, f"Поріг баунті: {rate_disp}")
                 if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                    await self.edit_message(chat_id, msg_id, self._build_bounties_menu_text(chat_id), self._build_bounties_menu_keyboard(chat_id))
                 return
 
             elif data == "sniper_cmd_snipe":
@@ -458,24 +528,18 @@ class SniperBotController:
                 return
 
             elif data == "sniper_cmd_contracts":
-                await self.answer_callback(cb_id, "💰 Шукаю активні контракти...")
+                await self.answer_callback(cb_id, "💰 Шукаю активні баунті...")
                 txt = await self._get_contracts_text(chat_id=chat_id)
                 await self.send_message(chat_id, txt)
-                return
-
-            elif data == "sniper_cmd_status":
-                await self.answer_callback(cb_id, "Оновлено!")
-                if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
                 return
 
             elif data == "sniper_menu_threshold":
                 curr_th = self.subscribers_db.get_user_threshold(chat_id)
                 th_text = (
-                    f"⚙️ <b>Налаштування вашого особистого порогу</b>\n\n"
+                    f"⚙️ <b>Налаштування вашого особистого порогу урону</b>\n\n"
                     f"Ваш поточний поріг: <b>{curr_th:,} dmg</b>\n\n"
                     f"Бот відсіює битви особисто для вас і надсилає пуші лише тоді, коли для фіолетового дропу потрібно не більше цього значення.\n\n"
-                    f"Оберіть бажаний поріг:"
+                    f"Оберіть бажаний поріг або введіть <code>/threshold 75k</code>:"
                 ).replace(",", " ")
                 th_kb = {
                     "inline_keyboard": [
@@ -489,7 +553,7 @@ class SniperBotController:
                         ],
                         [
                             {"text": "Без обмежень (Всі)", "callback_data": "set_th_999999999"},
-                            {"text": "🔙 Назад", "callback_data": "sniper_cmd_status"},
+                            {"text": "🔙 Назад до снайпера", "callback_data": "menu_sniper"},
                         ]
                     ]
                 }
@@ -503,7 +567,7 @@ class SniperBotController:
                 th_display = "Без обмежень" if new_th > 10000000 else f"{new_th:,} dmg".replace(",", " ")
                 await self.answer_callback(cb_id, f"Ваш особистий поріг: {th_display}")
                 if msg_id:
-                    await self.edit_message(chat_id, msg_id, self._build_panel_text(chat_id), self._build_keyboard(chat_id))
+                    await self.edit_message(chat_id, msg_id, self._build_sniper_menu_text(chat_id), self._build_sniper_menu_keyboard(chat_id))
                 return
 
         # 2. Text Commands
