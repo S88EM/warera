@@ -97,9 +97,7 @@ class BattleSniperWorker:
             f"🏳️ <b>Сторона:</b> <b>{side_badge}</b> ({country})",
             f"💵 <b>Оплата:</b> <code>{rate} монет / 1k dmg</code>",
             f"🏦 <b>Пул винагороди:</b> <code>{pool_formatted}</code>",
-            f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}",
-            "",
-            f"💡 <i>Отримуйте монети за кожну 1 000 нанесеного дамагу на цій стороні!</i>"
+            f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}"
         ]
         return "\n".join(lines)
 
