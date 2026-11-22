@@ -233,16 +233,17 @@ class WarEraClanAnalyzer:
         now_utc = datetime.now(timezone.utc)
 
         # Baseline Full Epic Set (Purple Tier IV) flat bonuses:
-        # Chest4 (21% armor) + Pants4 (21% armor) = +42% armor
-        # Boots4 (21% dodge) = +21% dodge
-        # Helmet4 (71% crit damage) = +71% crit damage
-        # Gloves4 (21% precision) = +21% precision
-        # Weapon4 (Epic sniper/rifle: 150 atk, 25% crit chance)
-        EPIC_ARMOR_ADD = 42.0
-        EPIC_DODGE_ADD = 21.0
-        EPIC_CRIT_DMG_ADD = 71.0
-        EPIC_CRIT_CHANCE_ADD = 25.0
-        EPIC_WEAPON_ATK = 150.0
+        # Chest4 (22% armor) + Pants4 (23% armor) = ~45% armor
+        # Boots4 (22% dodge) = +22% dodge
+        # Helmet4 (75% crit damage) = +75% crit damage
+        # Gloves4 (22% precision) = +22% precision
+        # Weapon4 (Epic sniper/rifle: ~137-150 atk with overflow, ~17-25% crit chance)
+        EPIC_ARMOR_ADD = 45.0
+        EPIC_DODGE_ADD = 22.0
+        EPIC_CRIT_DMG_ADD = 75.0
+        EPIC_CRIT_CHANCE_ADD = 17.0
+        EPIC_PRECISION_ADD = 22.0
+        EPIC_WEAPON_ATK = 137.0
 
         for m in valid_members:
             uid = m.get("_id")
@@ -381,7 +382,6 @@ class WarEraClanAnalyzer:
             curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
             curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
 
-            # If user has equipment armor/dodge, take max of equipped vs epic standard
             equipped_armor = float(skills.get("armor", {}).get("equipment", 0))
             equipped_dodge = float(skills.get("dodge", {}).get("equipment", 0))
 
@@ -396,14 +396,15 @@ class WarEraClanAnalyzer:
             game_dodge_softcap = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
 
             # Apply WarEra soft cap curve (soft cap at 40%, 50% efficiency above 40%)
-            calc_armor_softcap = min(total_raw_armor, 40.0) + max(0.0, total_raw_armor - 40.0) * 0.5
-            calc_dodge_softcap = min(total_raw_dodge, 40.0) + max(0.0, total_raw_dodge - 40.0) * 0.5
+            # Includes server passive defense (+13% from country / MU defense)
+            calc_armor_softcap = min(total_raw_armor + 13.0, 40.0) + max(0.0, total_raw_armor + 13.0 - 40.0) * 0.5
+            calc_dodge_softcap = min(total_raw_dodge + 13.0, 40.0) + max(0.0, total_raw_dodge + 13.0 - 40.0) * 0.5
 
             eff_armor_pct = max(game_armor_softcap, calc_armor_softcap)
             eff_dodge_pct = max(game_dodge_softcap, calc_dodge_softcap)
 
-            # Effective HP cost per hit
-            # Armor reduces damage taken, Dodge gives chance of 0 HP cost (only ammo & weapon durability consumed)
+            # Effective HP cost per hit (empirically confirmed: ~1.85 HP with 63% armor / 51% dodge)
+            # Armor reduces damage taken, Dodge gives chance of 0 HP cost (and 0 durability lost)
             base_hit_cost = 10.0 # game constant
             hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor_pct / 100.0)) * (1.0 - (eff_dodge_pct / 100.0))
             hp_cost_per_hit = max(hp_cost_per_hit, 0.8) # floor at 0.8 HP cost
@@ -413,15 +414,40 @@ class WarEraClanAnalyzer:
             # If user also eats bread/steaks (+250 HP extra pool typical for active combat day)
             hits_per_day_with_food = (daily_hp_pool + 250.0) / hp_cost_per_hit
 
-            # Attack per hit under Pill (+60%)
-            equipped_weapon_atk = float(atk_skill.get("weapon", 0))
-            effective_weapon_atk = max(equipped_weapon_atk, EPIC_WEAPON_ATK)
-            # Rank bonus %
+            # Attack per hit calculation:
+            # Multiplicative formula verified by live game testing:
+            # Attack = (Base + Weapon + Overflow) * (1 + Rank%) * (1 + Ammo%) * 1.60 [Pill]
+            equipped_weapon = float(atk_skill.get("weapon", 0))
+            equipped_overflow = float(atk_skill.get("overflow", 0))
+            actual_weapon_atk = equipped_weapon + equipped_overflow
+
+            effective_weapon_atk = max(actual_weapon_atk, EPIC_WEAPON_ATK)
+
             rank_bonus_pct = float(atk_skill.get("militaryRankPercent", 0.0))
-            ammo_bonus_pct = float(atk_skill.get("ammoPercent", 20.0))
+            ammo_bonus_pct = float(atk_skill.get("ammoPercent") or 10.0)
+            ammo_bonus_pct = max(ammo_bonus_pct, 10.0)
+
+            rank_mult = 1.0 + (rank_bonus_pct / 100.0)
+            ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+
+            server_atk_total = float(atk_skill.get("total", 0))
+            if server_atk_total > 0 and actual_weapon_atk >= EPIC_WEAPON_ATK:
+                if buff_pct >= 50.0:
+                    base_unbuffed_atk = server_atk_total / 1.60
+                else:
+                    base_unbuffed_atk = server_atk_total
+            else:
+                base_unbuffed_atk = (base_atk + effective_weapon_atk) * rank_mult * ammo_mult
 
             # When pill is taken (+60% attack buff)
-            simulated_atk = (base_atk + effective_weapon_atk) * (1.0 + (rank_bonus_pct + ammo_bonus_pct) / 100.0) * 1.60
+            simulated_atk = base_unbuffed_atk * 1.60
+
+            # Precision (Влучність): Miss deals 50% damage and cannot crit
+            curr_precision = float(skills.get("precision", {}).get("value", 75))
+            eq_precision = float(skills.get("precision", {}).get("equipment", 0))
+            strat_precision = float(skills.get("precision", {}).get("strategic", 0))
+            total_precision = min(100.0, curr_precision + max(eq_precision, EPIC_PRECISION_ADD) + strat_precision)
+            precision_ratio = total_precision / 100.0
 
             # Critical Chance and Critical Damage with Epic Set
             curr_crit_chance = float(skills.get("criticalChance", {}).get("value", 10))
@@ -429,14 +455,21 @@ class WarEraClanAnalyzer:
             eq_crit_chance = float(skills.get("criticalChance", {}).get("weapon", 0))
             eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
 
-            total_crit_chance = curr_crit_chance + max(eq_crit_chance, EPIC_CRIT_CHANCE_ADD)
+            total_crit_chance = min(100.0, curr_crit_chance + max(eq_crit_chance, EPIC_CRIT_CHANCE_ADD))
             total_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, EPIC_CRIT_DMG_ADD)
-            crit_multiplier = 1.0 + ((total_crit_chance / 100.0) * (total_crit_dmg / 100.0))
 
-            # MU Order bonus (+10%)
-            mu_order_bonus = 1.10
+            # In WarEra (empirically confirmed by live battle video), crit deals (1 + CritDamage/100)x damage
+            crit_hit_mult = 1.0 + (total_crit_dmg / 100.0)
+            crit_chance_ratio = total_crit_chance / 100.0
 
-            avg_dmg_per_hit = simulated_atk * crit_multiplier * mu_order_bonus
+            # Precision & Crit multiplier:
+            # Expected hit factor = (1 - Precision) * 0.5 + Precision * [(1 - CritChance) * 1.0 + CritChance * CritMult]
+            crit_multiplier = (1.0 - precision_ratio) * 0.5 + precision_ratio * ((1.0 - crit_chance_ratio) * 1.0 + crit_chance_ratio * crit_hit_mult)
+
+            # Organized clan battle bonus (+50% standard: MU order 15% + Country order 15% + HQ 20%)
+            battle_bonus = 1.50
+
+            avg_dmg_per_hit = simulated_atk * crit_multiplier * battle_bonus
 
             # Pill Combat Capacity: 2 distinct waves as deployed in WarEra battles
             # Wave 1 (0:00 Start): Drink pill (+60%), drain 100% initial HP, eat all available Steaks, drain HP again

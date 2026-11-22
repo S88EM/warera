@@ -61,12 +61,12 @@ class CombatDamageCalculator:
         # 1. Gear stats (Current vs Upgraded)
         equipped_armor = float(skills.get("armor", {}).get("equipment", 0))
         equipped_dodge = float(skills.get("dodge", {}).get("equipment", 0))
-        equipped_weapon_atk = float(atk_skill.get("weapon", 0))
+        equipped_weapon_atk = float(atk_skill.get("weapon", 0)) + float(atk_skill.get("overflow", 0))
 
         # Target baseline adjustments
-        gear_bonus_atk = 150.0 if gear_tier in ("epic", "legendary") else equipped_weapon_atk
-        gear_bonus_armor = 24.0 if gear_tier in ("epic", "legendary") else equipped_armor
-        gear_bonus_dodge = 18.0 if gear_tier in ("epic", "legendary") else equipped_dodge
+        gear_bonus_atk = 137.0 if gear_tier in ("epic", "legendary") else equipped_weapon_atk
+        gear_bonus_armor = 45.0 if gear_tier in ("epic", "legendary") else equipped_armor
+        gear_bonus_dodge = 22.0 if gear_tier in ("epic", "legendary") else equipped_dodge
 
         curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
         curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
@@ -74,28 +74,58 @@ class CombatDamageCalculator:
         total_armor = curr_armor_stat + max(equipped_armor, gear_bonus_armor)
         total_dodge = curr_dodge_stat + max(equipped_dodge, gear_bonus_dodge)
 
-        # Softcap calculations (softcap at 40%, 50% above)
-        eff_armor = min(total_armor, 40.0) + max(0.0, total_armor - 40.0) * 0.5
-        eff_dodge = min(total_dodge, 40.0) + max(0.0, total_dodge - 40.0) * 0.5
+        # In-game softcap from API if already computed by game server
+        game_armor_softcap = float(skills.get("armor", {}).get("totalAfterSoftCap", 0))
+        game_dodge_softcap = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
 
-        # 2. HP cost per hit
+        # Softcap calculations (includes +13% server passive defense, softcap at 40%, 50% above)
+        calc_armor_softcap = min(total_armor + 13.0, 40.0) + max(0.0, total_armor + 13.0 - 40.0) * 0.5
+        calc_dodge_softcap = min(total_dodge + 13.0, 40.0) + max(0.0, total_dodge + 13.0 - 40.0) * 0.5
+
+        eff_armor = max(game_armor_softcap, calc_armor_softcap)
+        eff_dodge = max(game_dodge_softcap, calc_dodge_softcap)
+
+        # 2. HP cost per hit (empirically confirmed in live combat: ~1.85 HP with 63% armor / 51% dodge)
         base_hit_cost = 10.0
         hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor / 100.0)) * (1.0 - (eff_dodge / 100.0))
         hp_cost_per_hit = max(hp_cost_per_hit, 0.8)
 
         # 3. Damage per hit
         rank_bonus_pct = float(atk_skill.get("militaryRankPercent", 0.0))
-        ammo_bonus_pct = float(atk_skill.get("ammoPercent", 20.0))
+        ammo_bonus_pct = float(atk_skill.get("ammoPercent") or 10.0)
+        ammo_bonus_pct = max(ammo_bonus_pct, 10.0)
         pill_multiplier = 1.60 if use_pill else 1.0
 
-        simulated_atk = (base_atk + max(equipped_weapon_atk, gear_bonus_atk)) * (1.0 + (rank_bonus_pct + ammo_bonus_pct) / 100.0) * pill_multiplier
+        rank_mult = 1.0 + (rank_bonus_pct / 100.0)
+        ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+
+        effective_weapon = max(equipped_weapon_atk, gear_bonus_atk)
+        simulated_atk = (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier
+
+        # Precision (miss deals 50% dmg, no crit)
+        curr_precision = float(skills.get("precision", {}).get("value", 75))
+        eq_precision = float(skills.get("precision", {}).get("equipment", 0))
+        strat_precision = float(skills.get("precision", {}).get("strategic", 0))
+        total_precision = min(100.0, curr_precision + max(eq_precision, 22.0) + strat_precision)
+        precision_ratio = total_precision / 100.0
 
         curr_crit_chance = float(skills.get("criticalChance", {}).get("value", 10))
         curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
-        crit_multiplier = 1.0 + ((curr_crit_chance / 100.0) * (curr_crit_dmg / 100.0))
+        eq_crit_chance = float(skills.get("criticalChance", {}).get("weapon", 0))
+        eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
 
-        mu_order_bonus = 1.10
-        avg_dmg_per_hit = simulated_atk * crit_multiplier * mu_order_bonus
+        total_crit_chance = min(100.0, curr_crit_chance + max(eq_crit_chance, 17.0))
+        total_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, 75.0)
+
+        # Crit hit multiplier is (1.0 + CritDamage/100)x
+        crit_hit_mult = 1.0 + (total_crit_dmg / 100.0)
+        crit_chance_ratio = total_crit_chance / 100.0
+
+        crit_multiplier = (1.0 - precision_ratio) * 0.5 + precision_ratio * ((1.0 - crit_chance_ratio) * 1.0 + crit_chance_ratio * crit_hit_mult)
+
+        # Standard organized clan battle bonus (+50% standard: MU order 15% + Country order 15% + HQ 20%)
+        battle_bonus = 1.50
+        avg_dmg_per_hit = simulated_atk * crit_multiplier * battle_bonus
 
         # 4. Hits required to achieve target damage
         if avg_dmg_per_hit <= 0:
