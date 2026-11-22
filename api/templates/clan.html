@@ -244,7 +244,7 @@
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год, 2 хвилі: старт 0:00 + реген 7.5г) та добовий потенціал бійця (24г)">Залп (8г) / Доба <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год, 2 хвилі: старт 0:00 + реген 7.5г) та добовий потенціал бійця">Залп за таблетку <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('weekly')">Дамаг тижня <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('online')">Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                         </tr>
@@ -565,7 +565,7 @@
                             ${m.pill_status === 'ACTIVE' ? `
                                 <div class="text-[10px] font-bold text-purple-300 mt-0.5" title="Потенціал урону до кінця діючої таблетки (злив HP+їжі)">
                                     ${(m.pill_remaining_hours <= 0.2) ? `
-                                        <span class="text-emerald-400 font-extrabold flex items-center gap-1">🏁 фінал табла</span>
+                                        <span class="text-amber-400 font-extrabold flex items-center gap-1">⏳ Баф закінчується</span>
                                     ` : `
                                         <span>⏳ залиш. ~${formatMillions(m.pill_current_dmg)}</span>
                                     `}
@@ -596,14 +596,42 @@
                             <div class="text-gray-500 font-mono text-xs">—</div>
                             <div class="text-[10px] text-gray-500">еко-тил</div>
                         ` : `
-                            <div class="font-black text-rose-400 text-sm flex items-center justify-end gap-1.5" title="Залп за таблетку (8 год):
-• Стейки 15% (наказ +50%): ~${formatMillions(m.pill_full_dmg || 0)} (${m.pill_full_hits || 0} уд.)
-• Смажена риба 20% (наказ +50%): ~${formatMillions(m.pill_fish_dmg || 0)} (${m.pill_fish_hits || 0} уд.)
-• Повний штурм (риба +84% бонуси): ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg || 0)}">
-                                <span>~${formatMillions(m.pill_full_dmg)}</span>
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-300 border border-sky-700/60" title="Залп на смаженій рибі під штурмом (~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)})">🐟 ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>
-                            </div>
-                            <div class="text-[10px] text-gray-400" title="Повний добовий потенціал бійця (24 год регену та стейків): ~${formatMillions(m.daily_theoretical_dmg || 0)} (~${m.daily_theoretical_hits || 0} уд.) • вартість удару: ${m.hp_cost_per_hit} HP">доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}</div>
+                            <details class="group/salvo relative inline-block text-right">
+                                <summary class="list-none cursor-pointer select-none">
+                                    <div class="font-black text-rose-400 text-sm flex items-center justify-end gap-1.5 hover:text-rose-300 transition-colors">
+                                        <span>~${formatMillions(m.pill_full_dmg)}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-300 border border-sky-700/60 flex items-center gap-1">
+                                            <span>🐟 ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>
+                                            <i class="fa-solid fa-chevron-down text-[8px] text-gray-400 group-open/salvo:rotate-180 transition-transform"></i>
+                                        </span>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400">доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}</div>
+                                </summary>
+                                <div class="absolute right-0 top-full mt-1.5 w-60 p-2.5 rounded-xl bg-[#111622] border border-bordercolor shadow-2xl z-30 text-left text-xs divide-y divide-bordercolor/60 backdrop-blur">
+                                    <div class="pb-2">
+                                        <div class="text-[10px] uppercase font-bold text-gray-300 mb-1.5 flex items-center justify-between">
+                                            <span>📋 Розкладка залпу (8г):</span>
+                                            <span class="text-emerald-400 font-mono">${m.hp_cost_per_hit} HP/уд.</span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-0.5">
+                                            <span class="text-gray-300">🥩 Стейки (15%):</span>
+                                            <span class="font-bold text-rose-400">~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_full_hits} уд.)</span></span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-0.5">
+                                            <span class="text-sky-300">🐟 Смажена риба:</span>
+                                            <span class="font-bold text-sky-300">~${formatMillions(m.pill_fish_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_fish_hits} уд.)</span></span>
+                                        </div>
+                                        <div class="flex items-center justify-between py-0.5 bg-amber-950/20 px-1 rounded">
+                                            <span class="text-amber-300">⚔️ Штурм (+84%):</span>
+                                            <span class="font-black text-amber-300">~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>
+                                        </div>
+                                    </div>
+                                    <div class="pt-1.5 flex items-center justify-between text-[11px]">
+                                        <span class="text-gray-400">📅 Повна доба (24г):</span>
+                                        <span class="font-semibold text-gray-200">~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}</span>
+                                    </div>
+                                </div>
+                            </details>
                         `}
                     </td>
 
@@ -731,9 +759,9 @@
                         </div>
 
                         <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум за 1 повну таблетку 8г (2 хвилі) та доба">Залп (8г)</div>
-                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Стейки: ~${formatMillions(m.pill_full_dmg || 0)} • Риба/Штурм: ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg || 0)}">
-                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] text-sky-400">🐟~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>`}
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум за 1 повну таблетку 8г (2 хвилі)">Залп за таблетку</div>
+                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Стейки: ~${formatMillions(m.pill_full_dmg || 0)} • Риба: ~${formatMillions(m.pill_fish_dmg || 0)} • Штурм: ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg || 0)}">
+                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] text-sky-400 font-bold">🐟~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>`}
                             </div>
                             <div class="text-[9px] text-gray-500 mt-0.5 truncate" title="Добовий потенціал: ~${formatMillions(m.daily_theoretical_dmg || 0)}">
                                 ${m.build_type === 'ECO' ? 'еко-тил' : `доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}`}
