@@ -430,14 +430,8 @@ class WarEraClanAnalyzer:
             rank_mult = 1.0 + (rank_bonus_pct / 100.0)
             ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
 
-            server_atk_total = float(atk_skill.get("total", 0))
-            if server_atk_total > 0 and actual_weapon_atk >= EPIC_WEAPON_ATK:
-                if buff_pct >= 50.0:
-                    base_unbuffed_atk = server_atk_total / 1.60
-                else:
-                    base_unbuffed_atk = server_atk_total
-            else:
-                base_unbuffed_atk = (base_atk + effective_weapon_atk) * rank_mult * ammo_mult
+            # Base character attack with simulated/actual weapon (clean from temporary buff and debuff)
+            base_unbuffed_atk = (base_atk + effective_weapon_atk) * rank_mult * ammo_mult
 
             # When pill is taken (+60% attack buff)
             simulated_atk = base_unbuffed_atk * 1.60
@@ -487,6 +481,7 @@ class WarEraClanAnalyzer:
                 full_pill_dmg = 0
                 full_pill_fish_hits = 0
                 full_pill_fish_dmg = 0
+                full_pill_siege_fish_dmg = 0
                 current_pill_hits = 0
                 current_pill_dmg = 0
                 daily_theoretical_hits = 0
@@ -525,6 +520,10 @@ class WarEraClanAnalyzer:
                 fish_regen_hp = (regen_wait_hours * health_regen) + ((regen_wait_hours * hunger_regen) * HP_PER_HUNGER_FISH)
                 full_pill_fish_hits = round((fish_start_hp + fish_regen_hp) / hp_cost_per_hit)
                 full_pill_fish_dmg = round(full_pill_fish_hits * avg_dmg_per_hit)
+
+                # Full Siege Battle (+84.38% bonus: Alliance + MU + Country + HQ + Bunker) with Cooked Fish:
+                avg_dmg_per_hit_siege = simulated_atk * crit_multiplier * 1.8438
+                full_pill_siege_fish_dmg = round(full_pill_fish_hits * avg_dmg_per_hit_siege)
 
                 # 2. Current remaining damage for active pill (or ready to drink):
                 if pill_status == "ACTIVE":
@@ -606,6 +605,7 @@ class WarEraClanAnalyzer:
                 "pill_full_hits": full_pill_hits,
                 "pill_fish_dmg": full_pill_fish_dmg,
                 "pill_fish_hits": full_pill_fish_hits,
+                "pill_siege_fish_dmg": full_pill_siege_fish_dmg,
                 "pill_current_dmg": current_pill_dmg,
                 "pill_current_hits": current_pill_hits,
                 "start_salvo_dmg": start_salvo_dmg,
