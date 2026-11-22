@@ -621,6 +621,7 @@ class WarEraClanAnalyzer:
                 "hits_per_day_natural": full_pill_hits,
                 "hits_per_day_max": daily_theoretical_hits,
                 "avg_dmg_per_hit": round(avg_dmg_per_hit),
+                "unbuffed_hit_dmg": round(simulated_atk * crit_multiplier),
                 "theoretical_daily_dmg_min": full_pill_dmg,
                 "theoretical_daily_dmg_max": daily_theoretical_dmg,
                 # In-game stats

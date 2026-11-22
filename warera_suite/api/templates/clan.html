@@ -200,7 +200,16 @@
                 </div>
 
                 <!-- Sort & View Controls -->
-                <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 flex-wrap">
+                    <!-- Custom Battle Bonus Input -->
+                    <div class="flex items-center gap-1.5 bg-cardbg px-2.5 py-1 rounded-lg border border-bordercolor text-xs shrink-0 shadow-sm" title="Введіть % бонусної шкоди з битви (Альянс + Наказ + Штаб + Бункер) для миттєвого перерахунку штурмового залпу на рибі">
+                        <span class="text-amber-400 font-bold flex items-center gap-1"><i class="fa-solid fa-fire text-amber-500"></i> <span class="hidden sm:inline">Баф битви:</span></span>
+                        <div class="flex items-center">
+                            <input type="number" id="battleBonusInput" value="84" min="0" max="300" step="1" oninput="updateCustomBattleBonus(this.value)" class="w-12 bg-darkbg border border-bordercolor rounded px-1.5 py-0.5 text-center text-amber-300 font-bold focus:outline-none focus:border-amber-500 text-xs">
+                            <span class="text-gray-400 ml-1 font-bold">%</span>
+                        </div>
+                    </div>
+
                     <!-- Mobile Sort Dropdown -->
                     <div class="flex items-center gap-1.5 text-xs">
                         <select id="sortSelect" onchange="changeSort(this.value)" class="bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 font-medium cursor-pointer">
@@ -285,6 +294,20 @@
         let sortField = 'damage';
         let sortAsc = false;
         let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
+        let customBattleBonus = parseFloat(localStorage.getItem('warera_battle_bonus') || '84');
+
+        function updateCustomBattleBonus(val) {
+            const num = parseFloat(val);
+            customBattleBonus = isNaN(num) ? 0 : Math.max(0, num);
+            localStorage.setItem('warera_battle_bonus', customBattleBonus.toString());
+            renderMembersTable();
+        }
+
+        function getCustomFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_fish_hits || 0) * unbuffedHit * customMult);
+        }
 
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
@@ -490,6 +513,7 @@
         }
 
         function renderTableRow(m) {
+            const customSalvo = getCustomFishSalvo(m);
             let onlineDot = 'bg-emerald-400';
             if (m.hours_offline >= 24) {
                 onlineDot = 'bg-rose-500';
@@ -600,30 +624,30 @@
                                 <summary class="list-none cursor-pointer select-none">
                                     <div class="font-black text-rose-400 text-sm flex items-center justify-end gap-1.5 hover:text-rose-300 transition-colors">
                                         <span>~${formatMillions(m.pill_full_dmg)}</span>
-                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-300 border border-sky-700/60 flex items-center gap-1">
-                                            <span>🐟 ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-300 border border-sky-700/60 flex items-center gap-1" title="Риба + ${customBattleBonus}% баф">
+                                            <span>🐟 ~${formatMillions(customSalvo)}</span>
                                             <i class="fa-solid fa-chevron-down text-[8px] text-gray-400 group-open/salvo:rotate-180 transition-transform"></i>
                                         </span>
                                     </div>
                                     <div class="text-[10px] text-gray-400">доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}</div>
                                 </summary>
-                                <div class="absolute right-0 top-full mt-1.5 w-60 p-2.5 rounded-xl bg-[#111622] border border-bordercolor shadow-2xl z-30 text-left text-xs divide-y divide-bordercolor/60 backdrop-blur">
+                                <div class="absolute right-0 top-full mt-1.5 w-64 p-2.5 rounded-xl bg-[#111622] border border-bordercolor shadow-2xl z-30 text-left text-xs divide-y divide-bordercolor/60 backdrop-blur">
                                     <div class="pb-2">
                                         <div class="text-[10px] uppercase font-bold text-gray-300 mb-1.5 flex items-center justify-between">
                                             <span>📋 Розкладка залпу (8г):</span>
                                             <span class="text-emerald-400 font-mono">${m.hp_cost_per_hit} HP/уд.</span>
                                         </div>
                                         <div class="flex items-center justify-between py-0.5">
-                                            <span class="text-gray-300">🥩 Стейки (15%):</span>
+                                            <span class="text-gray-300">🥩 Стейк + 50% баф:</span>
                                             <span class="font-bold text-rose-400">~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_full_hits} уд.)</span></span>
                                         </div>
                                         <div class="flex items-center justify-between py-0.5">
-                                            <span class="text-sky-300">🐟 Смажена риба:</span>
+                                            <span class="text-sky-300">🐟 Риба + 50% баф:</span>
                                             <span class="font-bold text-sky-300">~${formatMillions(m.pill_fish_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_fish_hits} уд.)</span></span>
                                         </div>
-                                        <div class="flex items-center justify-between py-0.5 bg-amber-950/20 px-1 rounded">
-                                            <span class="text-amber-300">⚔️ Штурм (+84%):</span>
-                                            <span class="font-black text-amber-300">~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>
+                                        <div class="flex items-center justify-between py-0.5 bg-amber-950/30 px-1.5 rounded border border-amber-600/30">
+                                            <span class="text-amber-300 font-semibold">⚔️ Риба + ${customBattleBonus}% баф:</span>
+                                            <span class="font-black text-amber-300">~${formatMillions(customSalvo)}</span>
                                         </div>
                                     </div>
                                     <div class="pt-1.5 flex items-center justify-between text-[11px]">
@@ -653,6 +677,7 @@
         }
 
         function renderMemberCard(m) {
+            const customSalvo = getCustomFishSalvo(m);
             let onlineDot = 'bg-emerald-400';
             if (m.hours_offline >= 24) {
                 onlineDot = 'bg-rose-500';
@@ -760,8 +785,8 @@
 
                         <div class="px-1 border-r border-bordercolor/40">
                             <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90" title="Теоретичний максимум за 1 повну таблетку 8г (2 хвилі)">Залп за таблетку</div>
-                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Стейки: ~${formatMillions(m.pill_full_dmg || 0)} • Риба: ~${formatMillions(m.pill_fish_dmg || 0)} • Штурм: ~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg || 0)}">
-                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] text-sky-400 font-bold">🐟~${formatMillions(m.pill_siege_fish_dmg || m.pill_fish_dmg)}</span>`}
+                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Стейк + 50%: ~${formatMillions(m.pill_full_dmg || 0)} (${m.pill_full_hits} уд.) • Риба + 50%: ~${formatMillions(m.pill_fish_dmg || 0)} (${m.pill_fish_hits} уд.) • Риба + ${customBattleBonus}%: ~${formatMillions(customSalvo)}">
+                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] text-sky-400 font-bold" title="Риба + ${customBattleBonus}% баф">🐟~${formatMillions(customSalvo)}</span>`}
                             </div>
                             <div class="text-[9px] text-gray-500 mt-0.5 truncate" title="Добовий потенціал: ~${formatMillions(m.daily_theoretical_dmg || 0)}">
                                 ${m.build_type === 'ECO' ? 'еко-тил' : `доба ~${formatMillions(m.daily_theoretical_dmg || m.pill_full_dmg)}`}
@@ -829,7 +854,7 @@
                 else if (sortField === 'yesterday') { vA = a.yesterday_damage || 0; vB = b.yesterday_damage || 0; }
                 else if (sortField === 'weekly') { vA = a.weekly_damage; vB = b.weekly_damage; }
                 else if (sortField === 'online') { vA = a.hours_offline; vB = b.hours_offline; }
-                else if (sortField === 'damage_fish') { vA = a.pill_siege_fish_dmg || a.pill_fish_dmg || 0; vB = b.pill_siege_fish_dmg || b.pill_fish_dmg || 0; }
+                else if (sortField === 'damage_fish') { vA = getCustomFishSalvo(a); vB = getCustomFishSalvo(b); }
                 else { vA = a.pill_full_dmg || a.theoretical_daily_dmg_max || 0; vB = b.pill_full_dmg || b.theoretical_daily_dmg_max || 0; }
 
                 if (vA < vB) return sortAsc ? -1 : 1;
@@ -892,6 +917,8 @@
 
         // Auto load on start
         window.addEventListener('DOMContentLoaded', () => {
+            const bInput = document.getElementById('battleBonusInput');
+            if (bInput) bInput.value = customBattleBonus;
             loadClanData(false);
         });
 
