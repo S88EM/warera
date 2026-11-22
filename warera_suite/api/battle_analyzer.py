@@ -337,13 +337,16 @@ class WarEraBattleAnalyzer:
             items = data.get("items", [])
             if not items:
                 break
+            active_in_page = []
             for b in items:
                 bid = b.get("_id")
-                if bid and bid not in seen_ids:
-                    seen_ids.add(bid)
-                    all_battles.append(b)
+                is_act = b.get("isActive", True) is True and not b.get("endedAt")
+                if is_act:
+                    active_in_page.append(b)
+                    if bid and bid not in seen_ids:
+                        seen_ids.add(bid)
+                        all_battles.append(b)
 
-            active_in_page = [b for b in items if b.get("isActive", True) is True and not b.get("endedAt")]
             if len(active_in_page) == 0:
                 break
             cursor = data.get("nextCursor")
