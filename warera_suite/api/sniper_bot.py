@@ -6,7 +6,7 @@ Zero market logic: 100% focused on Battle Sniping and purple drop monitoring.
 
 import asyncio
 import logging
-from typing import Optional, Any
+from typing import Optional, Any, List, Dict, Tuple
 import httpx
 
 import config
@@ -58,10 +58,14 @@ class SniperBotController:
         min_budget = self.subscribers_db.get_user_min_contract_budget(chat_id) if chat_id else 0.0
         budget_display = f"≥ {min_budget:g} 🪙" if min_budget > 0 else "Всі (від 0)"
 
+        focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
+        focus_line = f"🎯 <b>Фокус-битва:</b> <b>⚔️ {focused['battle_name']}</b> (тільки ця битва)\n" if focused else ""
+
         return (
             f"🎯 <b>WarEra · Центр бойової розвідки ⚔️</b>\n\n"
             f"🔔 <b>Снайпер фіолу:</b> <b>{'🟢 УВІМКНЕНО' if sniper_on else '🔴 ВИМКНЕНО'}</b> (поріг ≤ {formatted_max} dmg)\n"
             f"💰 <b>Баунті (урон):</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b> ({rate_display})\n"
+            f"{focus_line}"
             f"📜 <b>Контракти (аукціони):</b> <b>{'🟢 УВІМКНЕНО' if auction_on else '🔴 ВИМКНЕНО'}</b> ({budget_display})\n"
             f"📡 <b>Моніторинг:</b> 🟢 <b>АКТИВНИЙ (~50с цикл)</b>\n"
             f"👥 <b>Підписників бота:</b> <code>{subs_count} бійців</code>\n\n"
@@ -137,33 +141,62 @@ class SniperBotController:
         contract_on = user_prefs.get("contract_alerts", False)
         min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
         rate_display = f"≥ {min_rate} 🪙 / 1k" if min_rate > 0 else "Всі (без обмежень)"
+        focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
+
+        if focused:
+            return (
+                f"💰 <b>Меню: Баунті за урон (Bounties)</b>\n\n"
+                f"🎯 <b>Фокус на битві:</b> <b>⚔️ {focused['battle_name']}</b>\n"
+                f"🔔 <b>Режим відстеження:</b> Тільки ця битва (будь-яка ставка)\n"
+                f"🔕 <b>Фільтр спаму:</b> Інші битви приховані\n"
+                f"💵 <b>Ваш поріг ставки (загальний):</b> <code>{rate_display}</code>\n\n"
+                f"🎯 <i>Ви стежите виключно за битвою <b>{focused['battle_name']}</b>. "
+                f"Бот сповістить про <b>БУДЬ-ЯКЕ баунті</b> в ній та не спамитиме іншими битвами.\n\n"
+                f"Фокус скинеться автоматично, коли битва закінчиться, або ви можете зняти його вручну нижче.</i>"
+            )
 
         return (
             f"💰 <b>Меню: Баунті за урон (Bounties)</b>\n\n"
             f"💵 <b>Ваш поріг ставки:</b> <code>{rate_display}</code>\n"
             f"💰 <b>Автосповіщення:</b> <b>{'🟢 УВІМКНЕНО' if contract_on else '🔴 ВИМКНЕНО'}</b>\n\n"
             f"💵 <i>У цьому розділі ви можете переглянути актуальні битви з грошовими нагородами "
-            f"за кожну 1 000 набитого дамагу на стороні наймача або налаштувати свій поріг ставки.</i>\n\n"
+            f"за кожну 1 000 набитого дамагу на стороні наймача, налаштувати поріг ставки або "
+            f"<b>увімкнути фокус на одну битву</b>, щоб відстежувати тільки її без спаму іншими.</i>\n\n"
             f"<i>Скористайтеся кнопками нижче:</i>"
         )
 
     def _build_bounties_menu_keyboard(self, chat_id: Optional[str] = None) -> dict:
         min_rate = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
         rate_btn = f"≥ {min_rate} 🪙" if min_rate > 0 else "Всі"
+        focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
 
-        return {
-            "inline_keyboard": [
-                [
-                    {"text": "💰 Список активних баунті", "callback_data": "sniper_cmd_contracts"},
-                ],
-                [
-                    {"text": f"💵 Змінити поріг ставки: {rate_btn}", "callback_data": "sniper_menu_bounty_rate"},
-                ],
-                [
-                    {"text": "🔙 Головне меню", "callback_data": "menu_main"}
-                ]
+        rows = [
+            [
+                {"text": "💰 Список активних баунті", "callback_data": "sniper_cmd_contracts"},
             ]
-        }
+        ]
+
+        if focused:
+            b_name = focused.get('battle_name', 'битви')
+            rows.append([
+                {"text": f"❌ Скинути фокус ({b_name[:16]})", "callback_data": "bounty_unfocus"},
+            ])
+            rows.append([
+                {"text": "🎯 Змінити битву фокусу", "callback_data": "menu_bounty_focus_select"},
+            ])
+        else:
+            rows.append([
+                {"text": "🎯 Слідкувати за однією битвою", "callback_data": "menu_bounty_focus_select"},
+            ])
+
+        rows.append([
+            {"text": f"💵 Змінити поріг ставки: {rate_btn}", "callback_data": "sniper_menu_bounty_rate"},
+        ])
+        rows.append([
+            {"text": "🔙 Головне меню", "callback_data": "menu_main"}
+        ])
+
+        return {"inline_keyboard": rows}
 
     def _build_auctions_menu_text(self, chat_id: Optional[str] = None) -> str:
         user_prefs = self.subscribers_db.get_user_prefs(chat_id) if chat_id else {}
@@ -212,6 +245,8 @@ class SniperBotController:
             {"command": "auctions_on", "description": "🔔 Увімкнути пуші про аукціони"},
             {"command": "auctions_off", "description": "🔕 Вимкнути пуші про аукціони"},
             {"command": "bounties", "description": "💰 Активні баунті за урон"},
+            {"command": "focus", "description": "🎯 Слідкувати за однією битвою"},
+            {"command": "unfocus", "description": "❌ Скинути фокус відстеження"},
             {"command": "bounty_rate", "description": "💵 Мінімальна ставка баунті"},
             {"command": "bounties_on", "description": "💰 Увімкнути пуші про баунті"},
             {"command": "bounties_off", "description": "🔕 Вимкнути пуші про баунті"},
@@ -406,20 +441,66 @@ class SniperBotController:
             logger.error(f"Error in Sniper Bot get_battles_text: {e}")
             return f"⚠️ <b>Помилка аналізу битв:</b> <code>{e}</code>"
 
-    async def _get_contracts_text(self, chat_id: Optional[str] = None) -> str:
+    def _build_contracts_keyboard(self, contracts: List[Dict[str, Any]], chat_id: Optional[str] = None) -> dict:
+        focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
+        rows = []
+        seen_bids = set()
+        focus_btns = []
+        for c in contracts[:6]:
+            bid = c.get('battleId')
+            if not bid or bid in seen_bids:
+                continue
+            seen_bids.add(bid)
+            reg = c.get('region', 'Битва')
+            is_cur = focused and focused.get('battle_id') == bid
+            icon = "✅" if is_cur else "🎯"
+            focus_btns.append({"text": f"{icon} Фокус: {reg[:13]}", "callback_data": f"focus_battle_{bid}"})
+            if len(focus_btns) == 2:
+                rows.append(focus_btns)
+                focus_btns = []
+        if focus_btns:
+            rows.append(focus_btns)
+
+        if focused:
+            rows.append([
+                {"text": f"❌ Скинути фокус ({focused['battle_name'][:16]})", "callback_data": "bounty_unfocus"}
+            ])
+        else:
+            rows.append([
+                {"text": "🎯 Слідкувати за іншою битвою", "callback_data": "menu_bounty_focus_select"}
+            ])
+
+        rows.append([
+            {"text": "🔙 Меню Баунті", "callback_data": "menu_bounties"}
+        ])
+        return {"inline_keyboard": rows}
+
+    async def _get_contracts_data(self, chat_id: Optional[str] = None) -> Tuple[str, dict]:
         try:
             analyzer = get_shared_battle_analyzer()
             contracts = await analyzer.get_active_contracts()
             if not contracts:
-                return (
+                text = (
                     "💰 <b>WarEra · Активні Баунті (виплати за урон):</b>\n\n"
-                    "<i>Наразі немає битв з активними виплатами за урон або пул монет вичерпано.</i>"
+                    "<i>Наразі немає битв з активними виплатами за урон або пул монет вичерпано.</i>\n\n"
+                    "💡 <i>Ви можете обрати активну битву через кнопку нижче, щоб отримувати сповіщення, "
+                    "щойно в ній з'явиться будь-яке нове баунті!</i>"
                 )
+                kb = {
+                    "inline_keyboard": [
+                        [{"text": "🎯 Слідкувати за битвою (фокус)", "callback_data": "menu_bounty_focus_select"}],
+                        [{"text": "🔙 Меню Баунті", "callback_data": "menu_bounties"}]
+                    ]
+                }
+                return text, kb
 
             user_min = self.subscribers_db.get_user_min_bounty_rate(chat_id) if chat_id else 0.0
+            focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
 
             msg = "💰 <b>WarEra · Активні Баунті за урон (Bounties):</b>\n\n"
-            if user_min > 0:
+            if focused:
+                msg += f"🎯 <i>Ваш поточний фокус: <b>{focused['battle_name']}</b> (сповіщення про всі баунті в ній)</i>\n\n"
+            elif user_min > 0:
                 msg += f"<i>(Ваш фільтр сповіщень: від ≥ {user_min} 🪙 / 1k dmg)</i>\n\n"
 
             for idx, c in enumerate(contracts[:8], 1):
@@ -430,19 +511,85 @@ class SniperBotController:
                 rate = c['ratePer1k']
                 pool = c['pool']
                 sniper_tag = " 🎯 [15-20 хв]" if c['isSniperWindow'] else ""
+                is_foc = focused and focused.get('battle_id') == c['battleId']
+                focus_tag = " 🎯 [У ФОКУСІ]" if is_foc else ""
 
                 msg += (
-                    f"<b>{idx}. {reg}</b> (<i>{btype}</i>){sniper_tag}\n"
+                    f"<b>{idx}. {reg}</b> (<i>{btype}</i>){sniper_tag}{focus_tag}\n"
                     f"   Сторона: <b>{side_tag}</b> ({country})\n"
                     f"   💵 <b>Ставка:</b> <code>{rate} монет / 1k dmg</code>\n"
                     f"   🏦 <b>Залишок пулу:</b> <code>{pool:,} монет</code>\n"
                     f"   👉 <a href=\"{c['wareraUrl']}\">Перейти до битви ↗</a>\n\n"
                 ).replace(",", " ")
 
-            return msg
+            kb = self._build_contracts_keyboard(contracts, chat_id=chat_id)
+            return msg, kb
         except Exception as e:
-            logger.error(f"Error in Sniper Bot get_contracts_text: {e}")
-            return f"⚠️ <b>Помилка аналізу баунті:</b> <code>{e}</code>"
+            logger.error(f"Error in Sniper Bot get_contracts_data: {e}")
+            return f"⚠️ <b>Помилка аналізу баунті:</b> <code>{e}</code>", {"inline_keyboard": [[{"text": "🔙 Меню Баунті", "callback_data": "menu_bounties"}]]}
+
+    async def _get_contracts_text(self, chat_id: Optional[str] = None) -> str:
+        txt, _ = await self._get_contracts_data(chat_id=chat_id)
+        return txt
+
+    async def _build_focus_select_screen(self, chat_id: Optional[str] = None) -> Tuple[str, dict]:
+        try:
+            analyzer = get_shared_battle_analyzer()
+            active_list = await analyzer.get_active_battles_for_focus()
+        except Exception as e:
+            logger.error(f"Error getting active battles for focus: {e}")
+            active_list = []
+
+        focused = self.subscribers_db.get_user_focused_battle(chat_id) if chat_id else None
+
+        cur_focus_text = ""
+        if focused:
+            cur_focus_text = f"🎯 <b>Поточний фокус:</b> <b>⚔️ {focused['battle_name']}</b>\n\n"
+
+        text = (
+            f"🎯 <b>Вибір битви для відстеження Баунті:</b>\n\n"
+            f"{cur_focus_text}"
+            f"<i>Оберіть битву зі списку нижче або надішліть посилання / назву:</i>\n"
+            f"<code>/focus &lt;посилання на битву або регіон&gt;</code>\n\n"
+            f"🔔 <b>Особливості режиму фокусу:</b>\n"
+            f"• Ви отримуватимете пуші про <b>БУДЬ-ЯКЕ баунті</b> у вибраній битві.\n"
+            f"• Інші битви <b>не спамитимуть</b>.\n"
+            f"• Щойно битва завершиться, фокус <b>автоматично зніметься</b>.\n"
+            f"• Ви можете зняти фокус у будь-який момент кнопкою."
+        )
+
+        rows = []
+        btn_row = []
+        for b in active_list[:12]:
+            bid = b['battleId']
+            rname = b['regionName']
+            if b['hasBounty']:
+                rate_str = f"{b['maxBountyRate']}🪙"
+                label = f"💰 {rname[:13]} ({rate_str})"
+            else:
+                label = f"⚔️ {rname[:17]}"
+
+            if focused and focused.get('battle_id') == bid:
+                label = f"✅ {label}"
+
+            btn_row.append({"text": label, "callback_data": f"focus_battle_{bid}"})
+            if len(btn_row) == 2:
+                rows.append(btn_row)
+                btn_row = []
+        if btn_row:
+            rows.append(btn_row)
+
+        if focused:
+            rows.append([
+                {"text": f"❌ Скинути поточний фокус ({focused['battle_name'][:16]})", "callback_data": "bounty_unfocus"}
+            ])
+
+        rows.append([
+            {"text": "🔄 Оновити список", "callback_data": "menu_bounty_focus_select"},
+            {"text": "🔙 Назад до меню баунті", "callback_data": "menu_bounties"}
+        ])
+
+        return text, {"inline_keyboard": rows}
 
     async def _get_auctions_text(self, chat_id: Optional[str] = None) -> str:
         try:
@@ -688,8 +835,72 @@ class SniperBotController:
 
             elif data == "sniper_cmd_contracts":
                 await self.answer_callback(cb_id, "💰 Шукаю активні баунті...")
-                txt = await self._get_contracts_text(chat_id=chat_id)
-                await self.send_message(chat_id, txt)
+                txt, kb = await self._get_contracts_data(chat_id=chat_id)
+                await self.send_message(chat_id, txt, reply_markup=kb)
+                return
+
+            elif data == "menu_bounty_focus_select":
+                await self.answer_callback(cb_id, "🎯 Завантажую активні битви...")
+                text, kb = await self._build_focus_select_screen(chat_id=chat_id)
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, text, kb)
+                else:
+                    await self.send_message(chat_id, text, kb)
+                return
+
+            elif data.startswith("focus_battle_"):
+                b_id = data.replace("focus_battle_", "").strip()
+                analyzer = get_shared_battle_analyzer()
+                active_list = await analyzer.get_active_battles_for_focus()
+                b_match = next((b for b in active_list if b.get('battleId') == b_id), None)
+                reg_name = b_match.get('regionName', 'Битва') if b_match else "Битва"
+
+                self.subscribers_db.set_user_focused_battle(chat_id, b_id, reg_name)
+                await self.answer_callback(cb_id, f"🎯 Фокус: {reg_name}")
+
+                bounty_info = ""
+                if b_match and b_match.get('hasBounty'):
+                    bounty_info = f"💵 <b>Поточна ставка:</b> <code>{b_match.get('maxBountyRate')} монет / 1k dmg</code>\n"
+
+                confirm_text = (
+                    f"✅ <b>Фокус на битву активовано!</b>\n\n"
+                    f"⚔️ <b>Битва:</b> <b>{reg_name}</b>\n"
+                    f"{bounty_info}"
+                    f"🎯 <b>Режим відстеження:</b> Сповіщення про <b>БУДЬ-ЯКЕ баунті</b> у цій битві\n"
+                    f"🔕 <b>Фільтр спаму:</b> Інші битви не надсилатимуться\n\n"
+                    f"<i>Фокус автоматично скинеться, коли битва закінчиться, або ви можете скинути його вручну нижче.</i>"
+                )
+                confirm_kb = {
+                    "inline_keyboard": [
+                        [{"text": "💰 Меню Баунті", "callback_data": "menu_bounties"}],
+                        [{"text": f"❌ Скинути фокус ({reg_name[:16]})", "callback_data": "bounty_unfocus"}],
+                        [{"text": "⚔️ Відкрити битву на WarEra ↗", "url": f"https://app.warera.io/battle/{b_id}"}]
+                    ]
+                }
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, confirm_text, confirm_kb)
+                else:
+                    await self.send_message(chat_id, confirm_text, confirm_kb)
+                return
+
+            elif data == "bounty_unfocus":
+                focused = self.subscribers_db.get_user_focused_battle(chat_id)
+                prev_name = focused.get("battle_name") if focused else "битви"
+                self.subscribers_db.clear_user_focused_battle(chat_id)
+                await self.answer_callback(cb_id, "🎯 Фокус битви знято")
+                if msg_id:
+                    await self.edit_message(
+                        chat_id,
+                        msg_id,
+                        self._build_bounties_menu_text(chat_id),
+                        self._build_bounties_menu_keyboard(chat_id)
+                    )
+                else:
+                    await self.send_message(
+                        chat_id,
+                        f"🎯 <b>Фокус знято!</b> Відстеження битви {prev_name} припинено. Відновлено стандартні налаштування сповіщень.",
+                        self._build_bounties_menu_keyboard(chat_id)
+                    )
                 return
 
             elif data == "sniper_menu_threshold":
@@ -784,8 +995,8 @@ class SniperBotController:
 
             elif first_word in ("/bounties", "/баунті") or clean_cmd in ("bounties", "баунті"):
                 await self.send_message(chat_id, "💰 <i>Шукаю відкриті баунті з оплатою за урон...</i>")
-                txt = await self._get_contracts_text(chat_id=chat_id)
-                await self.send_message(chat_id, txt)
+                txt, kb = await self._get_contracts_data(chat_id=chat_id)
+                await self.send_message(chat_id, txt, reply_markup=kb)
 
             elif first_word in ("/contracts", "/контракти", "/auctions", "/аукціони") or clean_cmd in ("contracts", "контракти", "auctions", "аукціони"):
                 await self.send_message(chat_id, "📜 <i>Шукаю активні найманські аукціони контрактів...</i>")
@@ -868,6 +1079,78 @@ class SniperBotController:
                     chat_id,
                     "💰 <b>Баунті на урон:</b> Сповіщення <b>ВИМКНЕНО 🔴</b>\n\n"
                     "Автоматичні пуші вимкнено. Ви можете перевірити активні виплати в будь-який час через /bounties."
+                )
+
+            elif first_word in ("/focus", "/bounty_focus", "/фокус") or clean_cmd in ("focus", "bounty_focus", "фокус"):
+                if len(words) > 1:
+                    raw_arg = " ".join(words[1:]).strip()
+                    import re
+                    url_match = re.search(r"battle/([a-f0-9]{24})", raw_arg)
+                    target_bid = url_match.group(1) if url_match else None
+                    if not target_bid and re.match(r"^[a-f0-9]{24}$", raw_arg):
+                        target_bid = raw_arg
+
+                    analyzer = get_shared_battle_analyzer()
+                    active_list = await analyzer.get_active_battles_for_focus()
+
+                    matched_battle = None
+                    if target_bid:
+                        matched_battle = next((b for b in active_list if b.get('battleId') == target_bid), None)
+                    else:
+                        q = raw_arg.lower()
+                        for b in active_list:
+                            if (q in b.get('regionName', '').lower() or 
+                                q in b.get('attackerCountry', '').lower() or 
+                                q in b.get('defenderCountry', '').lower()):
+                                matched_battle = b
+                                break
+
+                    if matched_battle:
+                        bid = matched_battle['battleId']
+                        bname = matched_battle['regionName']
+                        self.subscribers_db.set_user_focused_battle(chat_id, bid, bname)
+                        bounty_info = ""
+                        if matched_battle.get('hasBounty'):
+                            bounty_info = f"💵 <b>Поточна ставка:</b> <code>{matched_battle.get('maxBountyRate')} монет / 1k dmg</code>\n"
+
+                        confirm_text = (
+                            f"✅ <b>Фокус на битву активовано!</b>\n\n"
+                            f"⚔️ <b>Битва:</b> <b>{bname}</b>\n"
+                            f"{bounty_info}"
+                            f"🎯 <b>Режим відстеження:</b> Сповіщення про <b>БУДЬ-ЯКЕ баунті</b> у цій битві\n"
+                            f"🔕 <b>Фільтр спаму:</b> Інші битви не надсилатимуться\n\n"
+                            f"<i>Фокус автоматично скинеться, коли битва закінчиться, або за командою /unfocus.</i>"
+                        )
+                        confirm_kb = {
+                            "inline_keyboard": [
+                                [{"text": "💰 Меню Баунті", "callback_data": "menu_bounties"}],
+                                [{"text": f"❌ Скинути фокус ({bname[:16]})", "callback_data": "bounty_unfocus"}],
+                                [{"text": "⚔️ Відкрити битву на WarEra ↗", "url": matched_battle['wareraUrl']}]
+                            ]
+                        }
+                        await self.send_message(chat_id, confirm_text, confirm_kb)
+                    else:
+                        await self.send_message(
+                            chat_id,
+                            f"⚠️ Не вдалося знайти активну битву за запитом: <code>{raw_arg}</code>\n"
+                            f"Оберіть битву зі списку нижче:",
+                        )
+                        text, kb = await self._build_focus_select_screen(chat_id=chat_id)
+                        await self.send_message(chat_id, text, kb)
+                else:
+                    text, kb = await self._build_focus_select_screen(chat_id=chat_id)
+                    await self.send_message(chat_id, text, kb)
+
+            elif first_word in ("/unfocus", "/bounty_unfocus", "/розфокус") or clean_cmd in ("unfocus", "bounty_unfocus", "розфокус"):
+                focused = self.subscribers_db.get_user_focused_battle(chat_id)
+                prev_name = focused.get("battle_name") if focused else "битви"
+                self.subscribers_db.clear_user_focused_battle(chat_id)
+                await self.send_message(
+                    chat_id,
+                    f"🎯 <b>Фокус відстеження битви знято.</b>\n\n"
+                    f"Більше не відстежуємо <b>{prev_name}</b>.\n"
+                    f"Відновлено стандартні налаштування сповіщень про баунті.",
+                    self._build_bounties_menu_keyboard(chat_id)
                 )
 
             elif first_word in ("/contract_budget", "/cb", "/бюджет") or clean_cmd in ("contract_budget", "cb", "бюджет"):

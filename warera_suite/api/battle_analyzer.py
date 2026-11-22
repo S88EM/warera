@@ -324,7 +324,7 @@ class WarEraBattleAnalyzer:
         return fallback
 
     async def fetch_active_battles(self) -> List[Dict[str, Any]]:
-        data = await self._call_trpc("battle.getBattles", {"limit": 50})
+        data = await self._call_trpc("battle.getBattles", {"limit": 100})
         if isinstance(data, dict):
             return data.get("items", [])
         return []
@@ -735,6 +735,7 @@ class WarEraBattleAnalyzer:
                         'round': user_round_pos,
                         'battle': user_battle_pos
                     },
+                    'isActive': bool(b.get('isActive', True) and not b.get('endedAt')),
                     'wareraUrl': f'https://app.warera.io/battle/{b_id}'
                 }
 
@@ -866,6 +867,59 @@ class WarEraBattleAnalyzer:
         except Exception as e:
             logger.error(f"Error fetching contract auctions: {e}")
             return []
+
+    async def get_active_battles_for_focus(self) -> List[Dict[str, Any]]:
+        """
+        Returns active battles prioritized for user focus selection:
+        Battles with active bounties first (highest rate desc), then other active battles.
+        """
+        await self.load_metadata()
+        raw_battles = await self.fetch_active_battles()
+        active_raw = [b for b in raw_battles if b.get('isActive', True) is True and not b.get('endedAt')]
+        active_list = []
+        for b in active_raw:
+            b_id = b.get('_id')
+            if not b_id:
+                continue
+            curr = b.get('currentRound', {})
+            r_num = curr.get('number', 1) if isinstance(curr, dict) else 1
+            b_type = b.get('type', 'war')
+
+            raw_att = b.get('attacker', {})
+            raw_def = b.get('defender', {})
+            att_c_id = raw_att.get('country')
+            def_c_id = raw_def.get('country')
+            reg_id = raw_def.get('region')
+
+            region_name = self._regions_cache.get(reg_id, {}).get('name', 'Unknown')
+            att_country = self._countries_cache.get(att_c_id, {}).get('name', 'Attacker')
+            att_flag = self._countries_cache.get(att_c_id, {}).get('flag', '🏳️')
+            def_country = self._countries_cache.get(def_c_id, {}).get('name', 'Defender')
+            def_flag = self._countries_cache.get(def_c_id, {}).get('flag', '🏳️')
+
+            att_pool = float(raw_att.get('moneyPool') or 0.0)
+            def_pool = float(raw_def.get('moneyPool') or 0.0)
+            att_rate = float(raw_att.get('moneyPer1kDamages') or 0.0) if att_pool > 0 else 0.0
+            def_rate = float(raw_def.get('moneyPer1kDamages') or 0.0) if def_pool > 0 else 0.0
+            max_rate = max(att_rate, def_rate)
+            has_bounty = max_rate > 0
+
+            active_list.append({
+                'battleId': b_id,
+                'regionName': region_name,
+                'type': b_type,
+                'roundNumber': r_num,
+                'attackerCountry': att_country,
+                'attackerFlag': att_flag,
+                'defenderCountry': def_country,
+                'defenderFlag': def_flag,
+                'hasBounty': has_bounty,
+                'maxBountyRate': max_rate,
+                'wareraUrl': f'https://app.warera.io/battle/{b_id}'
+            })
+
+        active_list.sort(key=lambda x: (not x['hasBounty'], -x['maxBountyRate'], x['regionName']))
+        return active_list
 
 
 _SHARED_ANALYZER: Optional['WarEraBattleAnalyzer'] = None

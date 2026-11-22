@@ -109,6 +109,10 @@ class SubscribersDB:
                 user["auction_alerts"] = False
             if "min_contract_budget" not in user:
                 user["min_contract_budget"] = 0.0
+            if "focused_battle_id" not in user:
+                user["focused_battle_id"] = None
+            if "focused_battle_name" not in user:
+                user["focused_battle_name"] = None
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -123,6 +127,8 @@ class SubscribersDB:
                 "min_bounty_rate": 0.0,
                 "auction_alerts": False,
                 "min_contract_budget": 0.0,
+                "focused_battle_id": None,
+                "focused_battle_name": None,
                 "market_alerts": True if admin else False,
                 "damage_threshold": default_th,
                 "joined_at": now_str,
@@ -193,6 +199,56 @@ class SubscribersDB:
         self._subscribers[cid]["min_contract_budget"] = b
         self.save()
         return b
+
+    def get_user_focused_battle(self, chat_id: str) -> Optional[Dict[str, str]]:
+        """Returns the focused battle dict {'battle_id': ..., 'battle_name': ...} for this user, or None."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        user = self.get_user_prefs(cid)
+        bid = user.get("focused_battle_id")
+        if bid:
+            return {
+                "battle_id": str(bid).strip(),
+                "battle_name": str(user.get("focused_battle_name") or "Битва").strip()
+            }
+        return None
+
+    def set_user_focused_battle(self, chat_id: str, battle_id: str, battle_name: Optional[str] = None) -> Dict[str, str]:
+        """Sets the focused battle ID and name for this specific user."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        if cid not in self._subscribers:
+            self.register_user(cid)
+        bid = str(battle_id).strip()
+        bname = str(battle_name).strip() if battle_name else "Битва"
+        self._subscribers[cid]["focused_battle_id"] = bid
+        self._subscribers[cid]["focused_battle_name"] = bname
+        self.save()
+        return {"battle_id": bid, "battle_name": bname}
+
+    def clear_user_focused_battle(self, chat_id: str) -> bool:
+        """Clears the focused battle for this specific user."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        if cid in self._subscribers:
+            self._subscribers[cid]["focused_battle_id"] = None
+            self._subscribers[cid]["focused_battle_name"] = None
+            self.save()
+            return True
+        return False
+
+    def get_users_with_focused_battles(self) -> Dict[str, Dict[str, str]]:
+        """Returns {chat_id: {'battle_id': ..., 'battle_name': ...}} for all authorized users who have a focused battle."""
+        self._ensure_fresh()
+        res = {}
+        for cid, u in self._subscribers.items():
+            bid = u.get("focused_battle_id")
+            if bid and self.is_authorized(cid):
+                res[cid] = {
+                    "battle_id": str(bid).strip(),
+                    "battle_name": str(u.get("focused_battle_name") or "Битва").strip()
+                }
+        return res
 
     def is_authorized(self, chat_id: str) -> bool:
         """Checks if user is authorized. If no password set, all users are authorized."""
@@ -287,11 +343,11 @@ class SubscribersDB:
         return res
 
     def get_contract_chat_ids(self) -> List[str]:
-        """Returns all chat IDs who have battle contract alerts enabled AND are authorized."""
+        """Returns all chat IDs who have battle contract alerts enabled OR a focused battle AND are authorized."""
         self._ensure_fresh()
         res = []
         for cid, u in self._subscribers.items():
-            if u.get("contract_alerts", False) and self.is_authorized(cid):
+            if (u.get("contract_alerts", False) or u.get("focused_battle_id")) and self.is_authorized(cid):
                 res.append(cid)
         return res
 

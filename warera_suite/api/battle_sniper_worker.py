@@ -52,22 +52,26 @@ class BattleSniperWorker:
             return "—"
         return f"{val:,}".replace(",", " ")
 
-    async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str, btn_text: str = "⚔️ Відкрити битву на WarEra ↗"):
+    async def send_telegram_alert(self, chat_id: str, text: str, battle_url: str, btn_text: str = "⚔️ Відкрити битву на WarEra ↗", reply_markup: Optional[Dict[str, Any]] = None):
         token = config.TELEGRAM_SNIPER_BOT_TOKEN or config.TELEGRAM_BOT_TOKEN
         if not token:
             return
         client = await self.get_client()
         url = f"https://api.telegram.org/bot{token}/sendMessage"
+        
+        if reply_markup is None:
+            reply_markup = {
+                "inline_keyboard": [
+                    [{"text": btn_text, "url": battle_url}]
+                ]
+            }
+
         payload = {
             "chat_id": chat_id,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": False,
-            "reply_markup": {
-                "inline_keyboard": [
-                    [{"text": btn_text, "url": battle_url}]
-                ]
-            }
+            "reply_markup": reply_markup
         }
         try:
             r = await client.post(url, json=payload)
@@ -78,7 +82,7 @@ class BattleSniperWorker:
         except Exception as e:
             logger.error(f"Error sending sniper alert to {chat_id}: {e}")
 
-    def build_contract_alert_message(self, contract: Dict[str, Any]) -> str:
+    def build_contract_alert_message(self, contract: Dict[str, Any], is_focused: bool = False) -> str:
         reg = contract.get("region", "Невідомий регіон")
         btype = "Війна" if contract.get("type") == "war" else "Повстання"
         side_badge = "🔴 АТАКА" if contract.get("side") == "attacker" else "🛡 ОБОРОНА"
@@ -91,8 +95,9 @@ class BattleSniperWorker:
         sniper_tag = " 🎯 [15–20 хв]" if contract.get("isSniperWindow") else ""
 
         pool_formatted = f"{pool:,.2f} монет".replace(",", " ")
+        header = f"🎯 <b>ФОКУС-БИТВА · Нове Баунті!</b>{sniper_tag}" if is_focused else f"💰 <b>Нове Баунті у битві!</b>{sniper_tag}"
         lines = [
-            f"💰 <b>Нове Баунті у битві!</b>{sniper_tag}",
+            header,
             "",
             f"⚔️ <b>Битва:</b> {reg} (<i>{btype}</i>)",
             f"🏳️ <b>Сторона:</b> <b>{side_badge}</b> ({country})",
@@ -100,6 +105,9 @@ class BattleSniperWorker:
             f"🏦 <b>Пул баунті:</b> <code>{pool_formatted}</code>",
             f"⏱ <b>Статус:</b> Раунд #{r_num} • {time_str}"
         ]
+        if is_focused:
+            lines.append("")
+            lines.append("🎯 <i>Ви відстежуєте цю битву (будь-яке баунті). Інші битви приховані.</i>")
         return "\n".join(lines)
 
     def build_auction_alert_message(self, auction: Dict[str, Any]) -> str:
@@ -185,6 +193,48 @@ class BattleSniperWorker:
             logger.error(f"Error fetching battles intel: {e}")
             return
 
+        # 0. Check focused battles for completion / ending
+        users_with_focus = self.subscribers_db.get_users_with_focused_battles()
+        if users_with_focus:
+            try:
+                raw_battles = await self.analyzer.fetch_active_battles()
+                if raw_battles:
+                    active_ids = {
+                        b.get('_id') for b in raw_battles
+                        if b.get('isActive', True) is True and not b.get('endedAt') and b.get('_id')
+                    }
+                    for cid, f_info in list(users_with_focus.items()):
+                        b_id = f_info.get("battle_id")
+                        b_name = f_info.get("battle_name") or "Битва"
+                        if b_id and b_id not in active_ids:
+                            logger.info(f"🏁 Battle {b_id} ({b_name}) has finished! Auto-clearing focus for user {cid}")
+                            self.subscribers_db.clear_user_focused_battle(cid)
+                            reset_text = (
+                                f"🏁 <b>Битва завершилась!</b>\n\n"
+                                f"Битва <b>{b_name}</b> підійшла до кінця.\n"
+                                f"🎯 <b>Фокус відстеження баунті автоматично знято.</b>\n\n"
+                                f"<i>Тепер активні ваші звичайні налаштування сповіщень. "
+                                f"Ви можете обрати нову битву для фокусу в меню /bounties.</i>"
+                            )
+                            try:
+                                await self.send_telegram_alert(
+                                    cid,
+                                    reset_text,
+                                    "https://app.warera.io/battles",
+                                    btn_text="⚔️ Список активних битв ↗",
+                                    reply_markup={
+                                        "inline_keyboard": [
+                                            [{"text": "💰 Меню Баунті", "callback_data": "menu_bounties"}],
+                                            [{"text": "⚔️ Список активних битв ↗", "url": "https://app.warera.io/battles"}]
+                                        ]
+                                    }
+                                )
+                                await asyncio.sleep(0.05)
+                            except Exception as e:
+                                logger.error(f"Failed to notify {cid} about finished focused battle: {e}")
+            except Exception as e:
+                logger.error(f"Error checking focused battles completion: {e}")
+
         # Find all battles in the sniper window with purple drops (round or battle level)
         sniper_candidates = []
         active_round_keys = set()
@@ -244,7 +294,7 @@ class BattleSniperWorker:
                         else:
                             logger.debug(f"Skipping alert for {cid}: min_dmg {min_dmg} > personal threshold {user_th}")
 
-        # 2. Process active battle contracts (bounties) for users who opted in
+        # 2. Process active battle contracts (bounties) for users who opted in or focused
         target_contract_chat_ids = self.subscribers_db.get_contract_chat_ids()
         if target_contract_chat_ids:
             try:
@@ -256,30 +306,55 @@ class BattleSniperWorker:
                     r_id = c.get("roundId") or "r"
                     side = c.get("side", "")
                     eff = c.get("effectiveAt") or "init"
-                    c_key = f"{b_id}_{r_id}_{side}_{eff}"
+                    rate = float(c.get("ratePer1k", 0.0) or 0.0)
+                    c_key = f"{b_id}_{r_id}_{side}_{eff}_{rate}"
                     active_contract_keys.add(c_key)
 
                     url = c.get("wareraUrl", f"https://app.warera.io/battle/{b_id}")
-                    rate = float(c.get("ratePer1k", 0.0) or 0.0)
-                    cached_contract_msg: Optional[str] = None
 
                     for cid in target_contract_chat_ids:
                         user_contract_key = f"{c_key}_{cid}"
                         if user_contract_key in self.alerted_user_contracts:
                             continue
 
-                        # Check user's personal minimum bounty rate threshold
-                        user_min_rate = self.subscribers_db.get_user_min_bounty_rate(cid)
-                        if rate < user_min_rate:
-                            logger.debug(f"Skipping bounty alert for {cid}: rate {rate} < min {user_min_rate}")
-                            continue
+                        user_focused = self.subscribers_db.get_user_focused_battle(cid)
+                        is_focused_user = bool(user_focused and user_focused.get("battle_id"))
 
-                        if cached_contract_msg is None:
-                            cached_contract_msg = self.build_contract_alert_message(c)
+                        if is_focused_user:
+                            focused_bid = user_focused.get("battle_id")
+                            if b_id != focused_bid:
+                                # User is focusing on another battle -> skip to prevent spam!
+                                continue
+                            # In focused battle: ALWAYS notify about ANY bounty!
+                            logger.info(f"🎯 Firing FOCUSED bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate})")
+                        else:
+                            # User is NOT focusing on a specific battle
+                            if not self.subscribers_db.get_user_prefs(cid).get("contract_alerts", False):
+                                continue
+                            user_min_rate = self.subscribers_db.get_user_min_bounty_rate(cid)
+                            if rate < user_min_rate:
+                                logger.debug(f"Skipping bounty alert for {cid}: rate {rate} < min {user_min_rate}")
+                                continue
+                            logger.info(f"💰 Firing bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate} >= min: {user_min_rate})")
 
-                        logger.info(f"💰 Firing bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate} >= min: {user_min_rate})")
+                        msg = self.build_contract_alert_message(c, is_focused=is_focused_user)
+
+                        kb = [
+                            [{"text": "💰 Відкрити баунті на WarEra ↗", "url": url}]
+                        ]
+                        if is_focused_user:
+                            kb.append([{"text": "❌ Зняти фокус відстеження", "callback_data": "bounty_unfocus"}])
+                        else:
+                            kb.append([{"text": f"🎯 Слідкувати тільки за цією битвою", "callback_data": f"focus_battle_{b_id}"}])
+
                         try:
-                            await self.send_telegram_alert(cid, cached_contract_msg, url, btn_text="💰 Відкрити баунті на WarEra ↗")
+                            await self.send_telegram_alert(
+                                cid,
+                                msg,
+                                url,
+                                btn_text="💰 Відкрити баунті на WarEra ↗",
+                                reply_markup={"inline_keyboard": kb}
+                            )
                             self.alerted_user_contracts.add(user_contract_key)
                             await asyncio.sleep(0.05)
                         except Exception as e:
