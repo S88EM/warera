@@ -337,17 +337,19 @@ class WarEraBattleAnalyzer:
             items = data.get("items", [])
             if not items:
                 break
-            active_in_page = []
+            any_active_in_page = False
             for b in items:
                 bid = b.get("_id")
                 is_act = b.get("isActive", True) is True and not b.get("endedAt")
                 if is_act:
-                    active_in_page.append(b)
-                    if bid and bid not in seen_ids:
-                        seen_ids.add(bid)
-                        all_battles.append(b)
+                    any_active_in_page = True
+                    # Completely exclude closed tournament matches from all searches and alerts
+                    if b.get("type") != "tournament":
+                        if bid and bid not in seen_ids:
+                            seen_ids.add(bid)
+                            all_battles.append(b)
 
-            if len(active_in_page) == 0:
+            if not any_active_in_page:
                 break
             cursor = data.get("nextCursor")
             if not cursor:
