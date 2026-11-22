@@ -82,7 +82,7 @@ class BattleSniperWorker:
         except Exception as e:
             logger.error(f"Error sending sniper alert to {chat_id}: {e}")
 
-    def build_contract_alert_message(self, contract: Dict[str, Any], is_focused: bool = False) -> str:
+    def build_contract_alert_message(self, contract: Dict[str, Any], is_focused: bool = False, focused_side: str = "all") -> str:
         reg = contract.get("region", "Невідомий регіон")
         btype = "Війна" if contract.get("type") == "war" else "Повстання"
         side_badge = "🔴 АТАКА" if contract.get("side") == "attacker" else "🛡 ОБОРОНА"
@@ -107,7 +107,12 @@ class BattleSniperWorker:
         ]
         if is_focused:
             lines.append("")
-            lines.append("🎯 <i>Ви відстежуєте цю битву (будь-яке баунті). Інші битви приховані.</i>")
+            if focused_side == "attacker":
+                lines.append("🎯 <i>Ви відстежуєте цю битву (тільки АТАКА). Баунті противника та інші битви приховані.</i>")
+            elif focused_side == "defender":
+                lines.append("🎯 <i>Ви відстежуєте цю битву (тільки ОБОРОНА). Баунті противника та інші битви приховані.</i>")
+            else:
+                lines.append("🎯 <i>Ви відстежуєте цю битву (будь-яке баунті). Інші битви приховані.</i>")
         return "\n".join(lines)
 
     def build_auction_alert_message(self, auction: Dict[str, Any]) -> str:
@@ -319,14 +324,18 @@ class BattleSniperWorker:
 
                         user_focused = self.subscribers_db.get_user_focused_battle(cid)
                         is_focused_user = bool(user_focused and user_focused.get("battle_id"))
+                        focused_side = user_focused.get("side", "all") if is_focused_user else "all"
 
                         if is_focused_user:
                             focused_bid = user_focused.get("battle_id")
                             if b_id != focused_bid:
                                 # User is focusing on another battle -> skip to prevent spam!
                                 continue
-                            # In focused battle: ALWAYS notify about ANY bounty!
-                            logger.info(f"🎯 Firing FOCUSED bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate})")
+                            if focused_side in ("attacker", "defender") and side != focused_side:
+                                logger.debug(f"Skipping bounty alert for {cid}: bounty side '{side}' != focused side '{focused_side}'")
+                                continue
+                            # In focused battle: ALWAYS notify about ANY bounty on the chosen side!
+                            logger.info(f"🎯 Firing FOCUSED bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate}, side: {focused_side})")
                         else:
                             # User is NOT focusing on a specific battle
                             if not self.subscribers_db.get_user_prefs(cid).get("contract_alerts", False):
@@ -337,15 +346,18 @@ class BattleSniperWorker:
                                 continue
                             logger.info(f"💰 Firing bounty alert for {c.get('region')} ({side}) to {cid} (rate: {rate} >= min: {user_min_rate})")
 
-                        msg = self.build_contract_alert_message(c, is_focused=is_focused_user)
+                        msg = self.build_contract_alert_message(c, is_focused=is_focused_user, focused_side=focused_side)
 
                         kb = [
                             [{"text": "💰 Відкрити баунті на WarEra ↗", "url": url}]
                         ]
                         if is_focused_user:
-                            kb.append([{"text": "❌ Зняти фокус відстеження", "callback_data": "bounty_unfocus"}])
+                            kb.append([
+                                {"text": "🔄 Змінити сторону", "callback_data": f"focus_select_side_{b_id}"},
+                                {"text": "❌ Зняти фокус", "callback_data": "bounty_unfocus"}
+                            ])
                         else:
-                            kb.append([{"text": f"🎯 Слідкувати тільки за цією битвою", "callback_data": f"focus_battle_{b_id}"}])
+                            kb.append([{"text": f"🎯 Слідкувати за цією битвою", "callback_data": f"focus_select_side_{b_id}"}])
 
                         try:
                             await self.send_telegram_alert(

@@ -938,6 +938,8 @@ class WarEraBattleAnalyzer:
                 'attackerFlag': att_flag,
                 'defenderCountry': def_country,
                 'defenderFlag': def_flag,
+                'attackerRate': att_rate,
+                'defenderRate': def_rate,
                 'hasBounty': has_bounty,
                 'maxBountyRate': max_rate,
                 'wareraUrl': f'https://app.warera.io/battle/{b_id}'

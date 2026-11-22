@@ -113,6 +113,8 @@ class SubscribersDB:
                 user["focused_battle_id"] = None
             if "focused_battle_name" not in user:
                 user["focused_battle_name"] = None
+            if "focused_battle_side" not in user:
+                user["focused_battle_side"] = "all"
             user["last_active"] = now_str
             # PRIVACY SHIELD: Non-admins can NEVER have market_alerts = True!
             if not admin:
@@ -129,6 +131,7 @@ class SubscribersDB:
                 "min_contract_budget": 0.0,
                 "focused_battle_id": None,
                 "focused_battle_name": None,
+                "focused_battle_side": "all",
                 "market_alerts": True if admin else False,
                 "damage_threshold": default_th,
                 "joined_at": now_str,
@@ -201,30 +204,47 @@ class SubscribersDB:
         return b
 
     def get_user_focused_battle(self, chat_id: str) -> Optional[Dict[str, str]]:
-        """Returns the focused battle dict {'battle_id': ..., 'battle_name': ...} for this user, or None."""
+        """Returns the focused battle dict {'battle_id': ..., 'battle_name': ..., 'side': ...} for this user, or None."""
         self._ensure_fresh()
         cid = str(chat_id).strip()
         user = self.get_user_prefs(cid)
         bid = user.get("focused_battle_id")
         if bid:
+            side = user.get("focused_battle_side") or "all"
+            if side not in ("attacker", "defender", "all"):
+                side = "all"
             return {
                 "battle_id": str(bid).strip(),
-                "battle_name": str(user.get("focused_battle_name") or "Битва").strip()
+                "battle_name": str(user.get("focused_battle_name") or "Битва").strip(),
+                "side": side
             }
         return None
 
-    def set_user_focused_battle(self, chat_id: str, battle_id: str, battle_name: Optional[str] = None) -> Dict[str, str]:
-        """Sets the focused battle ID and name for this specific user."""
+    def set_user_focused_battle(self, chat_id: str, battle_id: str, battle_name: Optional[str] = None, side: str = "all") -> Dict[str, str]:
+        """Sets the focused battle ID, name and side ('all', 'attacker', 'defender') for this specific user."""
         self._ensure_fresh()
         cid = str(chat_id).strip()
         if cid not in self._subscribers:
             self.register_user(cid)
         bid = str(battle_id).strip()
         bname = str(battle_name).strip() if battle_name else "Битва"
+        valid_side = side if side in ("attacker", "defender") else "all"
         self._subscribers[cid]["focused_battle_id"] = bid
         self._subscribers[cid]["focused_battle_name"] = bname
+        self._subscribers[cid]["focused_battle_side"] = valid_side
         self.save()
-        return {"battle_id": bid, "battle_name": bname}
+        return {"battle_id": bid, "battle_name": bname, "side": valid_side}
+
+    def set_user_focused_side(self, chat_id: str, side: str) -> Optional[str]:
+        """Updates just the focused side ('all', 'attacker', 'defender') for the currently focused battle."""
+        self._ensure_fresh()
+        cid = str(chat_id).strip()
+        if cid in self._subscribers and self._subscribers[cid].get("focused_battle_id"):
+            valid_side = side if side in ("attacker", "defender") else "all"
+            self._subscribers[cid]["focused_battle_side"] = valid_side
+            self.save()
+            return valid_side
+        return None
 
     def clear_user_focused_battle(self, chat_id: str) -> bool:
         """Clears the focused battle for this specific user."""
@@ -233,20 +253,23 @@ class SubscribersDB:
         if cid in self._subscribers:
             self._subscribers[cid]["focused_battle_id"] = None
             self._subscribers[cid]["focused_battle_name"] = None
+            self._subscribers[cid]["focused_battle_side"] = "all"
             self.save()
             return True
         return False
 
     def get_users_with_focused_battles(self) -> Dict[str, Dict[str, str]]:
-        """Returns {chat_id: {'battle_id': ..., 'battle_name': ...}} for all authorized users who have a focused battle."""
+        """Returns {chat_id: {'battle_id': ..., 'battle_name': ..., 'side': ...}} for all authorized users who have a focused battle."""
         self._ensure_fresh()
         res = {}
         for cid, u in self._subscribers.items():
             bid = u.get("focused_battle_id")
             if bid and self.is_authorized(cid):
+                side = u.get("focused_battle_side") or "all"
                 res[cid] = {
                     "battle_id": str(bid).strip(),
-                    "battle_name": str(u.get("focused_battle_name") or "Битва").strip()
+                    "battle_name": str(u.get("focused_battle_name") or "Битва").strip(),
+                    "side": side if side in ("attacker", "defender") else "all"
                 }
         return res
 
