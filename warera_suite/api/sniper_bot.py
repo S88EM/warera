@@ -532,7 +532,7 @@ class SniperBotController:
         txt, _ = await self._get_contracts_data(chat_id=chat_id)
         return txt
 
-    async def _build_focus_select_screen(self, chat_id: Optional[str] = None) -> Tuple[str, dict]:
+    async def _build_focus_select_screen(self, chat_id: Optional[str] = None, page: int = 0) -> Tuple[str, dict]:
         try:
             analyzer = get_shared_battle_analyzer()
             active_list = await analyzer.get_active_battles_for_focus()
@@ -546,11 +546,19 @@ class SniperBotController:
         if focused:
             cur_focus_text = f"🎯 <b>Поточний фокус:</b> <b>⚔️ {focused['battle_name']}</b>\n\n"
 
+        page_size = 10
+        total_items = len(active_list)
+        total_pages = max(1, (total_items + page_size - 1) // page_size)
+        page = max(0, min(page, total_pages - 1))
+        slice_start = page * page_size
+        slice_end = slice_start + page_size
+        page_battles = active_list[slice_start:slice_end]
+
         text = (
-            f"🎯 <b>Вибір битви для відстеження Баунті:</b>\n\n"
+            f"🎯 <b>Вибір битви для відстеження Баунті (Всього: {total_items}):</b>\n\n"
             f"{cur_focus_text}"
-            f"<i>Оберіть битву зі списку нижче або надішліть посилання / назву:</i>\n"
-            f"<code>/focus &lt;посилання на битву або регіон&gt;</code>\n\n"
+            f"<i>Оберіть битву зі списку нижче (стор. {page + 1} з {total_pages}) або напишіть назву:</i>\n"
+            f"<code>/focus &lt;назва або посилання&gt;</code> (наприклад: <code>/focus Agadez</code>)\n\n"
             f"🔔 <b>Особливості режиму фокусу:</b>\n"
             f"• Ви отримуватимете пуші про <b>БУДЬ-ЯКЕ баунті</b> у вибраній битві.\n"
             f"• Інші битви <b>не спамитимуть</b>.\n"
@@ -560,7 +568,7 @@ class SniperBotController:
 
         rows = []
         btn_row = []
-        for b in active_list[:12]:
+        for b in page_battles:
             bid = b['battleId']
             rname = b['regionName']
             if b['hasBounty']:
@@ -579,13 +587,23 @@ class SniperBotController:
         if btn_row:
             rows.append(btn_row)
 
+        # Pagination controls
+        if total_pages > 1:
+            nav_row = []
+            if page > 0:
+                nav_row.append({"text": "⬅️ Назад", "callback_data": f"menu_bounty_focus_p_{page - 1}"})
+            nav_row.append({"text": f"📄 {page + 1}/{total_pages}", "callback_data": "noop"})
+            if page < total_pages - 1:
+                nav_row.append({"text": "Вперед ➡️", "callback_data": f"menu_bounty_focus_p_{page + 1}"})
+            rows.append(nav_row)
+
         if focused:
             rows.append([
                 {"text": f"❌ Скинути поточний фокус ({focused['battle_name'][:16]})", "callback_data": "bounty_unfocus"}
             ])
 
         rows.append([
-            {"text": "🔄 Оновити список", "callback_data": "menu_bounty_focus_select"},
+            {"text": "🔄 Оновити", "callback_data": f"menu_bounty_focus_p_{page}"},
             {"text": "🔙 Назад до меню баунті", "callback_data": "menu_bounties"}
         ])
 
@@ -841,11 +859,25 @@ class SniperBotController:
 
             elif data == "menu_bounty_focus_select":
                 await self.answer_callback(cb_id, "🎯 Завантажую активні битви...")
-                text, kb = await self._build_focus_select_screen(chat_id=chat_id)
+                text, kb = await self._build_focus_select_screen(chat_id=chat_id, page=0)
                 if msg_id:
                     await self.edit_message(chat_id, msg_id, text, kb)
                 else:
                     await self.send_message(chat_id, text, kb)
+                return
+
+            elif data.startswith("menu_bounty_focus_p_"):
+                p_idx = int(data.replace("menu_bounty_focus_p_", "").strip())
+                await self.answer_callback(cb_id)
+                text, kb = await self._build_focus_select_screen(chat_id=chat_id, page=p_idx)
+                if msg_id:
+                    await self.edit_message(chat_id, msg_id, text, kb)
+                else:
+                    await self.send_message(chat_id, text, kb)
+                return
+
+            elif data == "noop":
+                await self.answer_callback(cb_id)
                 return
 
             elif data.startswith("focus_battle_"):
@@ -1096,12 +1128,35 @@ class SniperBotController:
                     matched_battle = None
                     if target_bid:
                         matched_battle = next((b for b in active_list if b.get('battleId') == target_bid), None)
+                        if not matched_battle:
+                            raw_b = await analyzer.fetch_active_battles()
+                            b_raw = next((b for b in raw_b if b.get('_id') == target_bid), None)
+                            if b_raw:
+                                reg_id = b_raw.get('defender', {}).get('region')
+                                reg_name = analyzer._regions_cache.get(reg_id, {}).get('name', 'Битва')
+                                matched_battle = {
+                                    'battleId': target_bid,
+                                    'regionName': reg_name,
+                                    'hasBounty': False,
+                                    'wareraUrl': f"https://app.warera.io/battle/{target_bid}"
+                                }
                     else:
                         q = raw_arg.lower()
+                        CYR_TO_LAT = {
+                            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'ye',
+                            'ж': 'zh', 'з': 'z', 'и': 'y', 'і': 'i', 'ї': 'yi', 'й': 'y', 'к': 'k', 'л': 'l',
+                            'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+                            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ь': '', 'ю': 'yu', 'я': 'ya'
+                        }
+                        q_lat = ''.join(CYR_TO_LAT.get(c, c) for c in q)
+
                         for b in active_list:
-                            if (q in b.get('regionName', '').lower() or 
-                                q in b.get('attackerCountry', '').lower() or 
-                                q in b.get('defenderCountry', '').lower()):
+                            reg_l = b.get('regionName', '').lower()
+                            att_l = b.get('attackerCountry', '').lower()
+                            def_l = b.get('defenderCountry', '').lower()
+                            if (q in reg_l or q_lat in reg_l or 
+                                q in att_l or q_lat in att_l or 
+                                q in def_l or q_lat in def_l):
                                 matched_battle = b
                                 break
 

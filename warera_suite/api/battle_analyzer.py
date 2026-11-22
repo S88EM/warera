@@ -324,10 +324,33 @@ class WarEraBattleAnalyzer:
         return fallback
 
     async def fetch_active_battles(self) -> List[Dict[str, Any]]:
-        data = await self._call_trpc("battle.getBattles", {"limit": 100})
-        if isinstance(data, dict):
-            return data.get("items", [])
-        return []
+        all_battles = []
+        cursor = None
+        seen_ids = set()
+        for _ in range(4):
+            payload = {"limit": 100}
+            if cursor:
+                payload["cursor"] = cursor
+            data = await self._call_trpc("battle.getBattles", payload)
+            if not isinstance(data, dict):
+                break
+            items = data.get("items", [])
+            if not items:
+                break
+            for b in items:
+                bid = b.get("_id")
+                if bid and bid not in seen_ids:
+                    seen_ids.add(bid)
+                    all_battles.append(b)
+
+            active_in_page = [b for b in items if b.get("isActive", True) is True and not b.get("endedAt")]
+            if len(active_in_page) == 0:
+                break
+            cursor = data.get("nextCursor")
+            if not cursor:
+                break
+
+        return all_battles
 
     def _make_cursor(self, offset: int) -> str:
         raw = json.dumps([{"t": "num", "v": offset}, {"t": "str", "v": "6afde6eeccf0b1e6a33f647e"}])
@@ -877,10 +900,12 @@ class WarEraBattleAnalyzer:
         raw_battles = await self.fetch_active_battles()
         active_raw = [b for b in raw_battles if b.get('isActive', True) is True and not b.get('endedAt')]
         active_list = []
+        seen_bids = set()
         for b in active_raw:
             b_id = b.get('_id')
-            if not b_id:
+            if not b_id or b_id in seen_bids:
                 continue
+            seen_bids.add(b_id)
             curr = b.get('currentRound', {})
             r_num = curr.get('number', 1) if isinstance(curr, dict) else 1
             b_type = b.get('type', 'war')
