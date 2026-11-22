@@ -708,18 +708,35 @@ class WarEraBattleAnalyzer:
                     for (target_dict, _), uname in zip(user_tasks, unames):
                         target_dict['username'] = uname if isinstance(uname, str) else 'Unknown'
 
+                if b_type == 'tournament':
+                    reg_name = '🏆 Турнірна Арена'
+                    att_name = 'Атакуюча команда'
+                    att_code = 'TOURNAMENT'
+                    att_flag = '🏆'
+                    def_name = 'Захисна команда'
+                    def_code = 'TOURNAMENT'
+                    def_flag = '🏆'
+                else:
+                    reg_name = region.get('name', 'Невідомий регіон')
+                    att_name = att_country.get('name', 'Атакуючі')
+                    att_code = att_country.get('code', '??')
+                    att_flag = att_country.get('flag', '🏳️')
+                    def_name = def_country.get('name', 'Захисники')
+                    def_code = def_country.get('code', '??')
+                    def_flag = def_country.get('flag', '🏳️')
+
                 return {
                     'battleId': b_id,
                     'type': b_type,
                     'region': {
                         'id': reg_id,
-                        'name': region.get('name', 'Unknown Region')
+                        'name': reg_name
                     },
                     'attacker': {
                         'countryId': att_c_id,
-                        'name': att_country.get('name', 'Attacker'),
-                        'code': att_country.get('code', '??'),
-                        'flag': att_country.get('flag', '🏳️'),
+                        'name': att_name,
+                        'code': att_code,
+                        'flag': att_flag,
                         'roundPoints': att_round_pts,
                         'roundDamage': att_round_dmg,
                         'wonRounds': att_won_rounds,
@@ -727,9 +744,9 @@ class WarEraBattleAnalyzer:
                     },
                     'defender': {
                         'countryId': def_c_id,
-                        'name': def_country.get('name', 'Defender'),
-                        'code': def_country.get('code', '??'),
-                        'flag': def_country.get('flag', '🏳️'),
+                        'name': def_name,
+                        'code': def_code,
+                        'flag': def_flag,
                         'roundPoints': def_round_pts,
                         'roundDamage': def_round_dmg,
                         'wonRounds': def_won_rounds,

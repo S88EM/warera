@@ -348,19 +348,26 @@ class SniperBotController:
             if sniper_only:
                 target_battles = [
                     b for b in battles
-                    if b.get("timing", {}).get("isSniperWindow")
+                    if b.get("type") != "tournament"
+                    and b.get("timing", {}).get("isSniperWindow")
                     and b.get("roundCutoff", {}).get("has_purple")
                     and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg
                 ]
                 if not target_battles:
                     exceeded = [
                         b for b in battles
-                        if b.get("timing", {}).get("isSniperWindow")
+                        if b.get("type") != "tournament"
+                        and b.get("timing", {}).get("isSniperWindow")
                         and b.get("roundCutoff", {}).get("has_purple")
                         and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) > max_dmg
                     ]
-                    active_only = [b for b in battles if b.get("timing", {}).get("minutesLeft", 0) > 0 and b.get("roundCutoff", {}).get("has_purple")]
-                    sorted_by_time = sorted(active_only or battles, key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
+                    active_only = [
+                        b for b in battles
+                        if b.get("type") != "tournament"
+                        and b.get("timing", {}).get("minutesLeft", 0) > 0
+                        and b.get("roundCutoff", {}).get("has_purple")
+                    ]
+                    sorted_by_time = sorted(active_only or [b for b in battles if b.get("type") != "tournament"], key=lambda x: x.get("timing", {}).get("minutesLeft", 999))
                     next_battle = sorted_by_time[0] if sorted_by_time else None
                     next_eta = next_battle['timing']['formattedEta'].lstrip("~") if next_battle else "—"
                     next_name = next_battle['region']['name'] if next_battle else "—"
@@ -372,7 +379,7 @@ class SniperBotController:
 
                     return (
                         f"🎯 <b>Снайперське вікно (поріг ≤ {formatted_max} dmg):</b>\n\n"
-                        f"⚠️ <i>Наразі немає битв у 15–20 хв вікні з уроном до {formatted_max} dmg.</i>\n"
+                        f"⚠️ <i>Наразі немає відкритих битв у 15–20 хв вікні з уроном до {formatted_max} dmg.</i>\n"
                         f"{exceeded_text}\n"
                         f"⏳ Найбільш зрілий раунд: <b>{next_name}</b> (~{next_eta} до кінця).\n"
                         f"💡 <i>Всі битви, що вимагають більше {formatted_max} урону, автоматично відсіюються.</i>\n\n"
@@ -381,13 +388,16 @@ class SniperBotController:
             else:
                 target_battles = [
                     b for b in battles
-                    if (b.get("roundCutoff", {}).get("has_purple") and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
-                    or (b.get("battleCutoff", {}).get("has_purple") and (b.get("battleCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
+                    if b.get("type") != "tournament"
+                    and (
+                        (b.get("roundCutoff", {}).get("has_purple") and (b.get("roundCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
+                        or (b.get("battleCutoff", {}).get("has_purple") and (b.get("battleCutoff", {}).get("min_damage_for_purple") or 0) <= max_dmg)
+                    )
                 ]
 
             msg = f"🎯 <b>WarEra · Снайпер фіолетового дропу (≤ {formatted_max} dmg):</b>\n\n" if sniper_only else f"⚔️ <b>WarEra · Активні битви (поріг ≤ {formatted_max} dmg):</b>\n\n"
             if not target_battles:
-                all_purple = [b for b in battles if b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple")]
+                all_purple = [b for b in battles if b.get("type") != "tournament" and (b.get("roundCutoff", {}).get("has_purple") or b.get("battleCutoff", {}).get("has_purple"))]
                 if not all_purple:
                     return f"<i>Наразі в жодній битві ще немає сформованого фіолетового луту (мало загального дамагу).</i>"
 
@@ -510,7 +520,7 @@ class SniperBotController:
 
             for idx, c in enumerate(contracts[:8], 1):
                 reg = c['region']
-                btype = "Війна" if c['type'] == 'war' else "Повстання"
+                btype = "Війна" if c['type'] == 'war' else ("Повстання" if c['type'] == 'resistance' else ("Турнір" if c['type'] == 'tournament' else str(c['type']).capitalize()))
                 side_tag = "🔴 АТАКА" if c['side'] == 'attacker' else "🛡 ОБОРОНА"
                 country = f"{c['flag']} {c['country']}"
                 rate = c['ratePer1k']
@@ -777,7 +787,7 @@ class SniperBotController:
 
             for idx, a in enumerate(auctions[:8], 1):
                 reg = a['region']
-                btype = "Війна" if a['type'] == 'war' else "Повстання"
+                btype = "Війна" if a['type'] == 'war' else ("Повстання" if a['type'] == 'resistance' else ("Турнір" if a['type'] == 'tournament' else str(a['type']).capitalize()))
                 side_tag = "🔴 АТАКА" if a['side'] == 'attacker' else "🛡 ОБОРОНА"
                 country = f"{a['flag']} {a['country']}"
                 budget = a['budget']

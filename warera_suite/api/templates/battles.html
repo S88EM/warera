@@ -381,10 +381,14 @@
                 const bc = b.battleCutoff;
                 const tm = b.timing || {};
 
-                const isWar = b.type === 'war';
-                const typeBadge = isWar 
-                    ? `<span class="px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-semibold"><i class="fa-solid fa-swords mr-1"></i>Війна</span>`
-                    : `<span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><i class="fa-solid fa-shield mr-1"></i>Повстання</span>`;
+                let typeBadge = '';
+                if (b.type === 'war') {
+                    typeBadge = `<span class="px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-semibold"><i class="fa-solid fa-swords mr-1"></i>Війна</span>`;
+                } else if (b.type === 'tournament') {
+                    typeBadge = `<span class="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[11px] font-semibold"><i class="fa-solid fa-trophy mr-1"></i>Турнір</span>`;
+                } else {
+                    typeBadge = `<span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold"><i class="fa-solid fa-shield mr-1"></i>Повстання</span>`;
+                }
 
                 // Bounty Contract Badge
                 const bountyBadge = b.hasBounty

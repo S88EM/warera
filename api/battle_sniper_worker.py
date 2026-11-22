@@ -141,8 +141,17 @@ class BattleSniperWorker:
         return "\n".join(lines)
 
     def build_alert_message(self, battle: Dict[str, Any]) -> str:
-        reg = battle.get("region", {}).get("name", "Невідомий регіон")
-        btype = "Війна" if battle.get("type") == "war" else "Повстання"
+        reg = battle.get("region", {}).get("name") or "Невідомий регіон"
+        raw_type = battle.get("type", "war")
+        if raw_type == "war":
+            btype = "Війна"
+        elif raw_type == "resistance":
+            btype = "Повстання"
+        elif raw_type == "tournament":
+            btype = "Турнір"
+        else:
+            btype = str(raw_type).capitalize()
+
         r_num = battle.get("round", {}).get("number", 1)
         att = battle.get("attacker", {}).get("name", "Атакуючі")
         dff = battle.get("defender", {}).get("name", "Захисники")
@@ -248,6 +257,10 @@ class BattleSniperWorker:
             b_id = b.get("battleId")
             r_id = b.get("round", {}).get("id")
             if not b_id or not r_id:
+                continue
+
+            # Tournaments are closed matches between pre-registered squads; general players cannot hit or snipe loot there
+            if b.get("type") == "tournament":
                 continue
 
             alert_key = f"{b_id}_{r_id}"
