@@ -125,9 +125,15 @@
                                 <b id="statClanSalvo" class="text-white font-bold font-mono text-sm sm:text-base">--</b>
                             </div>
                             <span class="text-gray-600 hidden sm:inline">|</span>
-                            <div class="flex items-baseline gap-1.5" title="Миттєвий урон у руках прямо зараз від бійців під діючою таблеткою (поточне HP + їжа). Готовий до негайного удару!">
-                                <span class="text-[11px] text-gray-400" id="labelInstantSalvo">🔥 В руках:</span>
-                                <b id="statInstantSalvo" class="text-rose-400 font-bold font-mono text-sm sm:text-base">--</b>
+                            <div class="flex flex-col justify-center">
+                                <div class="flex items-baseline gap-1.5" title="Миттєвий урон у руках прямо зараз від бійців під діючою таблеткою (поточне HP + їжа). Готовий до негайного удару!">
+                                    <span class="text-[11px] text-gray-400" id="labelInstantSalvo">🔥 В руках:</span>
+                                    <b id="statInstantSalvo" class="text-rose-400 font-bold font-mono text-sm sm:text-base">--</b>
+                                </div>
+                                <div class="flex items-baseline gap-1.5 mt-0.5" id="readySalvoContainer" title="Потенційний залп бійців, які готові випити таблетку прямо зараз (8 год з рибою)">
+                                    <span class="text-[10px] text-blue-300/90 font-medium whitespace-nowrap" id="labelReadySalvo">⚪ Можуть випити (<span id="statReadyCount">0</span>):</span>
+                                    <b id="statReadySalvo" class="text-blue-400 font-bold font-mono text-xs sm:text-sm">--</b>
+                                </div>
                             </div>
                             <span class="text-gray-600 hidden sm:inline">|</span>
                             <div class="flex items-baseline gap-1.5" title="Майбутній урон від регену HP та їжі, який дозріє за години, що залишилися до спадіння таблетки">
@@ -383,6 +389,14 @@
             const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
             const elRegen = document.getElementById('statRegenSalvo');
             if (elRegen) elRegen.innerText = `~${formatMillions(dynamicRegenSalvo || s.clan_pill_regen_fish_salvo || s.clan_pill_regen_salvo || 0)}`;
+
+            const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
+            const readyCount = readyMembers.length;
+            const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+            const elReady = document.getElementById('statReadySalvo');
+            if (elReady) elReady.innerText = `~${formatMillions(dynamicReadySalvo || s.clan_pill_ready_salvo || 0)}`;
+            const elReadyCount = document.getElementById('statReadyCount');
+            if (elReadyCount) elReadyCount.innerText = readyCount;
         }
 
         function updateCustomBattleBonus(val) {
@@ -958,6 +972,9 @@
             const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
             const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
             text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
+            const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
+            const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+            text += `⚪ **Готові випити таблетку (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
             if (s.clan_yesterday_damage) {
                 text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;

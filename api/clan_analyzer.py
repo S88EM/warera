@@ -684,6 +684,8 @@ class WarEraClanAnalyzer:
         clan_pill_regen_fish_salvo = sum(m["pill_regen_fish_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
         clan_pill_active_salvo = sum(m["pill_current_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
         clan_pill_full_salvo = sum(m["pill_full_dmg"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
+        clan_pill_ready_salvo = sum(m["pill_fish_dmg"] for m in analyzed_members if m["pill_status"] == "READY")
+        clan_pill_ready_start_salvo = sum(m["start_salvo_dmg"] for m in analyzed_members if m["pill_status"] == "READY")
 
         total_clan_today_damage = sum(m["today_damage"] for m in analyzed_members)
         has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
@@ -724,6 +726,8 @@ class WarEraClanAnalyzer:
                 "clan_pill_instant_fish_salvo": clan_pill_instant_fish_salvo,
                 "clan_pill_regen_fish_salvo": clan_pill_regen_fish_salvo,
                 "clan_pill_full_salvo": clan_pill_full_salvo,
+                "clan_pill_ready_salvo": clan_pill_ready_salvo,
+                "clan_pill_ready_start_salvo": clan_pill_ready_start_salvo,
                 "clan_today_damage": total_clan_today_damage,
                 "clan_yesterday_damage": total_clan_yesterday_damage,
                 "game_date": game_date,
