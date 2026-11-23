@@ -665,7 +665,10 @@
                                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                                     <span>${m.username}</span>
                                     <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
-                                    <button onclick="openTargetCalculator('${m.username}')" class="px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 hover:text-white text-[10px] transition-all ml-0.5" title="Калькулятор бойового спорядження під урон">🎯</button>
+                                    <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                        <span>🎯</span>
+                                        <span class="text-[10px] hidden xl:inline">Ціль</span>
+                                    </button>
                                 </div>
                                 <div class="text-[10px] text-gray-400">Ранг ${m.military_rank}</div>
                             </div>
@@ -718,15 +721,20 @@
                             ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                         </div>
                         ${m.target_damage ? `
-                            <div class="mt-1 flex flex-col items-end cursor-pointer group" onclick="openTargetCalculator('${m.username}')" title="Ціль: ${formatMillions(m.target_damage)} (Виконано: ${m.target_progress_pct}%)">
-                                <div class="w-20 bg-gray-700/60 rounded-full h-1.5 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                            <div class="mt-2 flex flex-col items-end cursor-pointer group p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" title="Клікніть, щоб змінити ціль або переглянути розрахунок спорядження">
+                                <div class="flex items-center gap-1.5 mb-1 text-xs">
+                                    <span class="text-gray-400 group-hover:text-blue-300 font-medium transition-colors">🎯 Ціль:</span>
+                                    <span class="font-extrabold font-mono text-emerald-400 group-hover:text-emerald-300 transition-colors">${formatMillions(m.target_damage)}</span>
+                                    <span class="text-[11px] font-mono text-gray-400 group-hover:text-white transition-colors">(${m.target_progress_pct}%)</span>
                                 </div>
-                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5 group-hover:text-emerald-300 font-bold">${m.target_progress_pct}% з ${formatMillions(m.target_damage)}</div>
+                                <div class="w-24 bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
+                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                </div>
                             </div>
                         ` : `
-                            <button onclick="openTargetCalculator('${m.username}')" class="text-[9px] text-gray-500 hover:text-blue-400 transition-colors mt-0.5 underline block ml-auto">
-                                + ціль 🎯
+                            <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
+                                <span class="group-hover:scale-110 transition-transform">🎯</span>
+                                <span>Ціль</span>
                             </button>
                         `}
                     </td>
@@ -823,7 +831,10 @@
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
                                     <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
-                                    <button onclick="openTargetCalculator('${m.username}')" class="px-1.5 py-0.2 rounded bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 hover:text-white text-[10px] transition-all ml-0.5" title="Калькулятор бойового спорядження під урон">🎯</button>
+                                    <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                        <span>🎯</span>
+                                        <span class="text-[10px]">Ціль</span>
+                                    </button>
                                 </div>
                                 <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
                                     <span class="${roleColor} font-medium">${m.role_label}</span>
@@ -877,14 +888,20 @@
                                 ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                             </div>
                             ${m.target_damage ? `
-                                <div class="mt-1 flex flex-col items-center cursor-pointer" onclick="openTargetCalculator('${m.username}')" title="Ціль: ${formatMillions(m.target_damage)} (${m.target_progress_pct}%)">
-                                    <div class="w-full bg-gray-700/60 rounded-full h-1 overflow-hidden">
-                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                <div class="mt-1.5 flex flex-col items-center cursor-pointer p-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" title="Клікніть, щоб змінити ціль">
+                                    <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-400 mb-1">
+                                        <span>🎯 ${m.target_progress_pct}%</span>
+                                        <span class="text-gray-400 font-normal">з</span>
+                                        <span>${formatMillions(m.target_damage)}</span>
                                     </div>
-                                    <div class="text-[8px] text-emerald-400 font-mono mt-0.5 font-bold">${m.target_progress_pct}% з ${formatMillions(m.target_damage)}</div>
+                                    <div class="w-full bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
+                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                    </div>
                                 </div>
                             ` : `
-                                <div class="text-[9px] text-gray-500 mt-0.5 cursor-pointer hover:text-blue-400" onclick="openTargetCalculator('${m.username}')">+ ціль 🎯</div>
+                                <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
+                                    <span>🎯 Ціль</span>
+                                </button>
                             `}
                         </div>
 
@@ -1063,6 +1080,13 @@
         let activeCalcAmmo = 'auto';
         let activeSelectedStrat = null;
 
+        function getPillBadgeClass(status) {
+            if (status === 'ACTIVE') return 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            if (status === 'READY') return 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            if (status === 'COOLDOWN') return 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            return 'bg-gray-800 text-gray-400 border-gray-700';
+        }
+
         function openTargetCalculator(username) {
             if (!clanData || !clanData.members) return;
             const m = clanData.members.find(x => x.username.toLowerCase() === (username || '').toLowerCase());
@@ -1072,21 +1096,29 @@
             }
 
             activeCalcMember = m;
-            activeCalcTarget = m.target_damage || 4000000;
+            activeCalcTarget = Number(m.target_damage) || 4000000;
             activeCalcAmmo = 'auto';
 
-            // Populate header details
-            document.getElementById('calcUserName').innerText = m.username;
-            document.getElementById('calcUserLevel').innerText = `Lv.${m.level}`;
-            document.getElementById('calcUserRank').innerText = `Ранг ${m.military_rank}`;
+            // Populate header details safely
+            const nameEl = document.getElementById('calcUserName');
+            if (nameEl) nameEl.innerText = m.username;
+            const lvlEl = document.getElementById('calcUserLevel');
+            if (lvlEl) lvlEl.innerText = `Lv.${m.level}`;
+            const rankEl = document.getElementById('calcUserRank');
+            if (rankEl) rankEl.innerText = `Ранг ${m.military_rank}`;
             const avatarImg = document.getElementById('calcUserAvatar');
             if (avatarImg) avatarImg.src = m.avatar_url || 'https://media.warera.io/images/itemsv2/sniper.png';
 
             // Badges
-            document.getElementById('calcPillBadge').innerText = m.pill_label || '💊 Таблетка';
-            document.getElementById('calcPillBadge').className = `px-2 py-0.5 rounded text-[10px] border ${getPillBadgeClass(m.pill_status)}`;
-            document.getElementById('calcHungerBadge').innerText = `🥪 Голод: ${m.hunger_curr || 0}/${m.hunger_max || 0}`;
-            document.getElementById('calcHealthBadge').innerText = `❤️ HP: ${Math.round(m.health_curr || 0)}/${Math.round(m.health_max || 0)}`;
+            const pillBadge = document.getElementById('calcPillBadge');
+            if (pillBadge) {
+                pillBadge.innerText = m.pill_label || '💊 Таблетка';
+                pillBadge.className = `px-2 py-0.5 rounded text-[10px] border ${getPillBadgeClass(m.pill_status)}`;
+            }
+            const hungerBadge = document.getElementById('calcHungerBadge');
+            if (hungerBadge) hungerBadge.innerText = `🥪 Голод: ${m.hunger_curr || 0}/${m.hunger_max || 0}`;
+            const healthBadge = document.getElementById('calcHealthBadge');
+            if (healthBadge) healthBadge.innerText = `❤️ HP: ${Math.round(m.health_curr || 0)}/${Math.round(m.health_max || 0)}`;
 
             // Target input
             const input = document.getElementById('calcTargetInput');
@@ -1432,7 +1464,7 @@
     </script>
 
     <!-- ================= TARGET DAMAGE & GEAR CALCULATOR MODAL ================= -->
-    <div id="targetCalcModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200">
+    <div id="targetCalcModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200" onclick="if (event.target === this) closeTargetCalculator()">
         <div class="glass-panel w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-blue-500/40 shadow-[0_0_50px_rgba(59,130,246,0.2)] overflow-hidden bg-[#0e131f]/95 animate-fadeIn">
             <!-- Modal Header -->
             <div class="px-5 py-4 border-b border-bordercolor flex items-center justify-between bg-cardbg/80">
