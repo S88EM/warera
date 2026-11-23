@@ -16,7 +16,12 @@ Calculates:
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+try:
+    import zoneinfo
+    tz_kyiv = zoneinfo.ZoneInfo("Europe/Kyiv")
+except Exception:
+    tz_kyiv = timezone(timedelta(hours=2))
 import httpx
 import config
 from clan_history_db import ClanHistoryDB
@@ -178,6 +183,12 @@ class WarEraClanAnalyzer:
 
         analyzed_members = []
         now_utc = datetime.now(timezone.utc)
+        now_kyiv = datetime.now(tz_kyiv)
+        if now_kyiv.hour >= 2:
+            next_reset_kyiv = (now_kyiv + timedelta(days=1)).replace(hour=2, minute=0, second=0, microsecond=0)
+        else:
+            next_reset_kyiv = now_kyiv.replace(hour=2, minute=0, second=0, microsecond=0)
+        next_reset_utc = next_reset_kyiv.astimezone(timezone.utc)
 
         # Baseline Full Epic Set (Purple Tier IV) flat bonuses:
         # Chest4 (22% armor) + Pants4 (23% armor) = ~45% armor
@@ -256,6 +267,7 @@ class WarEraClanAnalyzer:
             pill_remaining_hours = 0.0
             pill_time_label = "—"
             pill_remaining_tip = ""
+            can_drink_before_reset = False
 
             if build_type == "ECO":
                 pill_status = "ECO_SUPPORT"
@@ -263,11 +275,13 @@ class WarEraClanAnalyzer:
                 pill_color = "gray"
                 pill_tip = "Економічний білд. Таблетка для боїв зазвичай не потрібна."
                 pill_time_label = "еко-тил"
+                can_drink_before_reset = False
             elif buff_pct >= 50.0 or (buffs and "cocain" in buffs.get("buffCodes", [])):
                 pill_status = "ACTIVE"
                 pill_label = "💊 Баф (+60%)"
                 pill_color = "emerald"
                 pill_tip = "Таблетка активна прямо зараз! Боєць під бафом (+60% атаки) на піку сили."
+                can_drink_before_reset = False
 
                 if buff_end_at:
                     try:
@@ -277,7 +291,8 @@ class WarEraClanAnalyzer:
                         hrs = pill_remaining_sec // 3600
                         mins = (pill_remaining_sec % 3600) // 60
                         pill_time_label = f"ще {hrs}г {mins:02d}хв"
-                        pill_remaining_tip = f"Таблетка діє до {end_dt.strftime('%H:%M')} (залишилось {hrs}г {mins:02d}хв)"
+                        end_kyiv = end_dt.astimezone(tz_kyiv)
+                        pill_remaining_tip = f"Таблетка діє до {end_kyiv.strftime('%H:%M')} (залишилось {hrs}г {mins:02d}хв)"
                     except Exception:
                         pill_time_label = "активна"
                 else:
@@ -286,7 +301,6 @@ class WarEraClanAnalyzer:
                 pill_status = "COOLDOWN"
                 pill_label = "⏳ Дебаф (-60%)"
                 pill_color = "rose"
-                pill_tip = "Дія таблетки завершилась, діє дебаф штрафу (-60% атаки). Урон під дебафом заблоковано."
 
                 if debuff_end_at:
                     try:
@@ -295,11 +309,22 @@ class WarEraClanAnalyzer:
                         hrs = diff_sec // 3600
                         mins = (diff_sec % 3600) // 60
                         pill_time_label = f"ще {hrs}г {mins:02d}хв"
-                        pill_remaining_tip = f"Дебаф завершиться о {end_dt.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв)"
+                        end_kyiv = end_dt.astimezone(tz_kyiv)
+                        can_drink_before_reset = (end_dt < next_reset_utc)
+                        if can_drink_before_reset:
+                            pill_tip = f"Дія таблетки завершилась, діє дебаф (-60%). Дебаф спаде до 02:00 (о {end_kyiv.strftime('%H:%M')}). Боєць зможе прийняти вечірню таблетку!"
+                            pill_remaining_tip = f"Дебаф завершиться о {end_kyiv.strftime('%H:%M')} (ще {hrs}г {mins:02d}хв). Встигає випити таблетку до 02:00!"
+                        else:
+                            pill_tip = f"Дія таблетки завершилась, діє дебаф (-60%). Дебаф спаде після 02:00 (о {end_kyiv.strftime('%H:%M')} {end_kyiv.strftime('%d.%m')}). Сьогодні відстрілявся, таблетку більше не прийме!"
+                            pill_remaining_tip = f"Дебаф завершиться о {end_kyiv.strftime('%H:%M')} {end_kyiv.strftime('%d.%m')} (ще {hrs}г {mins:02d}хв). До 02:00 не встигає!"
                     except Exception:
                         pill_time_label = "дебаф"
+                        pill_tip = "Дія таблетки завершилась, діє дебаф штрафу (-60% атаки). Урон під дебафом заблоковано."
+                        can_drink_before_reset = False
                 else:
                     pill_time_label = "дебаф"
+                    pill_tip = "Дія таблетки завершилась, діє дебаф штрафу (-60% атаки). Урон під дебафом заблоковано."
+                    can_drink_before_reset = False
             else:
                 pill_status = "READY"
                 pill_label = "⚪ Готовий пити"
@@ -307,6 +332,7 @@ class WarEraClanAnalyzer:
                 pill_tip = "Чистий боєць! Таблетку ще не пив, готовий прийняти під наказ командира на повні 8 год."
                 pill_time_label = "готовий (8 год)"
                 pill_remaining_hours = 8.0
+                can_drink_before_reset = True
 
             # 3. Combat Parameters with Full Epic Set Baseline & Full Drain of HP+Hunger
             base_atk = float(atk_skill.get("value", 100))
@@ -604,6 +630,8 @@ class WarEraClanAnalyzer:
                 "pill_time_label": pill_time_label,
                 "pill_remaining_hours": round(pill_remaining_hours, 2),
                 "pill_remaining_tip": pill_remaining_tip,
+                "can_drink_before_reset": can_drink_before_reset,
+                "debuff_end_at": debuff_end_at,
                 "pill_full_dmg": full_pill_dmg,
                 "pill_full_hits": full_pill_hits,
                 "pill_fish_dmg": full_pill_fish_dmg,
@@ -731,6 +759,27 @@ class WarEraClanAnalyzer:
         clan_pill_ready_salvo = sum(m["pill_fish_dmg"] for m in analyzed_members if m["pill_status"] == "READY")
         clan_pill_ready_start_salvo = sum(m["start_salvo_dmg"] for m in analyzed_members if m["pill_status"] == "READY")
 
+        # Realistic Available Salvo until 02:00 Kyiv reset:
+        # - ACTIVE: remaining in-hands + remaining regen until current pill ends
+        # - READY: clean fighters ready to drink a full pill
+        # - COOLDOWN: only if debuff expires before 02:00 (evening session); if after 02:00, 0
+        clan_pill_available_salvo = sum(
+            (m["pill_instant_fish_dmg"] + m["pill_regen_fish_dmg"]) if m["pill_status"] == "ACTIVE"
+            else (m["pill_fish_dmg"] if m["pill_status"] == "READY"
+            else (m["pill_fish_dmg"] if m["pill_status"] == "COOLDOWN" and m.get("can_drink_before_reset")
+            else 0))
+            for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID")
+        )
+        clan_pill_available_hits = sum(
+            (m["pill_instant_fish_hits"] + m["pill_regen_fish_hits"]) if m["pill_status"] == "ACTIVE"
+            else (m["pill_fish_hits"] if m["pill_status"] == "READY"
+            else (m["pill_fish_hits"] if m["pill_status"] == "COOLDOWN" and m.get("can_drink_before_reset")
+            else 0))
+            for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID")
+        )
+        pill_cooldown_can_drink_count = sum(1 for m in analyzed_members if m["pill_status"] == "COOLDOWN" and m.get("can_drink_before_reset"))
+        pill_cooldown_blocked_count = sum(1 for m in analyzed_members if m["pill_status"] == "COOLDOWN" and not m.get("can_drink_before_reset"))
+
         total_clan_today_damage = sum(m["today_damage"] for m in analyzed_members)
         total_clan_target_damage = sum(m["target_damage"] for m in analyzed_members if m.get("target_damage"))
         has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
@@ -771,6 +820,11 @@ class WarEraClanAnalyzer:
                 "clan_pill_instant_fish_salvo": clan_pill_instant_fish_salvo,
                 "clan_pill_regen_fish_salvo": clan_pill_regen_fish_salvo,
                 "clan_pill_full_salvo": clan_pill_full_salvo,
+                "clan_pill_available_salvo": clan_pill_available_salvo,
+                "clan_pill_available_hits": clan_pill_available_hits,
+                "pill_cooldown_can_drink_count": pill_cooldown_can_drink_count,
+                "pill_cooldown_blocked_count": pill_cooldown_blocked_count,
+                "next_reset_kyiv": next_reset_kyiv.strftime("%H:%M %d.%m.%Y"),
                 "clan_pill_ready_salvo": clan_pill_ready_salvo,
                 "clan_pill_ready_start_salvo": clan_pill_ready_start_salvo,
                 "clan_today_damage": total_clan_today_damage,

@@ -117,16 +117,16 @@
                             <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xs sm:text-sm shrink-0">
                                 <i class="fa-solid fa-crosshairs"></i>
                             </div>
-                            <span class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-rose-300">Залп клану за таблетку</span>
-                            <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer text-xs" title="Сумарний дамаг бойових бійців клану за 1 повну таблетку (8 год) з повним зливом 100% HP та їжі. Еко-воїни виключені з розрахунку."></i>
+                            <span class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-rose-300">Залп клану до 02:00</span>
+                            <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer text-xs" title="Реальний доступний залп клану до 02:00 за Києвом: фактичний залишок активних таблеток (в руках + реген) + чисті бійці, готові пити, + бійці, чий дебаф завершиться до 02:00. Бійці з дебафом після 02:00 (відстрілялися зранку) виключені!"></i>
                         </div>
                     </div>
 
                     <!-- 6 Metric Tiles (Separate sleek boxes: 3x2 on mobile, 6x1 on desktop) -->
                     <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
                         <!-- 1. Залп -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-bordercolor/80 hover:border-gray-500 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Повний потенційний залп клану за 1 таблетку (8 год) з обраним бафом битви">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Залп</span>
+                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-bordercolor/80 hover:border-gray-500 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Реальний доступний залп клану до 02:00 за Києвом (залишок активних таблеток + готові пити + розблокуються ввечері). Бійці з дебафом після 02:00 виключені!">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Залп до 02:00</span>
                             <b id="statClanSalvo" class="text-white font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
                         </div>
 
@@ -392,9 +392,25 @@
             if (!clanData || !clanData.members) return;
             const s = clanData.summary;
 
-            const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
+            // Realistic Available Salvo until 02:00:
+            // - ACTIVE: actual in-hands + remaining regen until current pill ends
+            // - READY: full 8h pill salvo
+            // - COOLDOWN: full pill salvo ONLY if debuff expires before 02:00 (evening session); if after 02:00, 0
+            const dynamicClanSalvo = clanData.members.reduce((acc, m) => {
+                if (m.build_type === 'ECO') return acc;
+                if (m.pill_status === 'ACTIVE') {
+                    return acc + getCustomInstantFishSalvo(m) + getCustomRegenFishSalvo(m);
+                }
+                if (m.pill_status === 'READY') {
+                    return acc + getCustomFishSalvo(m);
+                }
+                if (m.pill_status === 'COOLDOWN') {
+                    return acc + (m.can_drink_before_reset ? getCustomFishSalvo(m) : 0);
+                }
+                return acc;
+            }, 0);
             const elSalvo = document.getElementById('statClanSalvo');
-            if (elSalvo) elSalvo.innerText = `~${formatMillions(dynamicClanSalvo || s.clan_pill_full_salvo || 0)}`;
+            if (elSalvo) elSalvo.innerText = `~${formatMillions(dynamicClanSalvo || s.clan_pill_available_salvo || 0)}`;
 
             const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
             const elInstant = document.getElementById('statInstantSalvo');
@@ -700,6 +716,11 @@
                             <div class="text-[10px] text-gray-300 font-medium flex items-center gap-1 mt-1">
                                 <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
                                 <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
+                                ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                                    <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не б'є, виключений з залпу">🚫 після 02:00</span>
+                                ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                                    <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
+                                ` : '')}
                             </div>
                             ${m.pill_status === 'ACTIVE' ? `
                                 <div class="text-[10px] font-bold mt-0.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} (${m.pill_instant_fish_hits || m.pill_instant_hits} уд.) | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))} (${m.pill_regen_fish_hits || m.pill_regen_hits} уд.)">
@@ -855,6 +876,11 @@
                                 <div class="text-[10px] text-gray-300 font-medium flex items-center justify-end gap-1 mt-1">
                                     <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
                                     <span>${m.pill_time_label}</span>
+                                    ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                                        <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не п'є, виключений з залпу">🚫 після 02:00</span>
+                                    ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                                        <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
+                                    ` : '')}
                                 </div>
                             ` : ''}
                         </div>
@@ -875,9 +901,13 @@
                             </div>
                         ` : (m.pill_status === 'READY' ? `
                             <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
+                        ` : (m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                            <span class="text-[11px] text-rose-400/90 font-medium">🚫 Відстрілявся (дебаф)</span>
+                        ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                            <span class="text-[11px] text-emerald-400/90 font-bold" title="Зможе випити таблетку ввечері">⏳ Вечір: ~${formatMillions(getCustomFishSalvo(m))}</span>
                         ` : `
                             <span class="text-[11px] text-rose-300/80 font-medium">⏳ Дебаф</span>
-                        `))}
+                        `))))}
                     </div>
 
                     <!-- Row 3: 4 Key Metrics Grid -->
@@ -1019,15 +1049,26 @@
 
             let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
             text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
-            text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
-            const clanFishSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
-            text += `💥 **Залп клану за таблетку (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
+            text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} готові пити | ${s.pill_cooldown_count} під дебафом\n`;
+            const clanFishSalvo = clanData.members.reduce((acc, m) => {
+                if (m.build_type === 'ECO') return acc;
+                if (m.pill_status === 'ACTIVE') return acc + getCustomInstantFishSalvo(m) + getCustomRegenFishSalvo(m);
+                if (m.pill_status === 'READY') return acc + getCustomFishSalvo(m);
+                if (m.pill_status === 'COOLDOWN') return acc + (m.can_drink_before_reset ? getCustomFishSalvo(m) : 0);
+                return acc;
+            }, 0);
+            text += `💥 **Залп клану до 02:00 (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
             const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
             const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
             text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
             const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
             const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
-            text += `💊 **Можуть пити таблетку (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
+            text += `💊 **Можуть пити зараз (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
+            const eveningMembers = clanData.members.filter(m => m.pill_status === 'COOLDOWN' && m.can_drink_before_reset);
+            if (eveningMembers.length > 0) {
+                const eveningSalvo = eveningMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+                text += `⏳ **Зможуть пити ввечері до 02:00 (${eveningMembers.length} бійців): ~${formatMillions(eveningSalvo)} дамагу**\n`;
+            }
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
             if (s.clan_yesterday_damage) {
                 text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;
