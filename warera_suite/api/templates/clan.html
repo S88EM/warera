@@ -1169,10 +1169,22 @@
             if (!activeCalcMember) return;
             const stratBody = document.getElementById('calcStrategiesBody');
             const banner = document.getElementById('calcStatusBanner');
+            const optimalCard = document.getElementById('calcOptimalCard');
             const slotsGrid = document.getElementById('calcGearSlotsGrid');
 
+            if (optimalCard) {
+                optimalCard.innerHTML = `
+                    <div class="glass-panel p-6 rounded-2xl border border-blue-500/30 text-center space-y-2 bg-darkbg/60">
+                        <div class="text-blue-400 text-sm font-bold flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <span>Підбираємо найвигідніший бойовий комплект під ціль...</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400">Аналізуємо ціни ринку, знос зброї, ухилення та ліміт голоду...</div>
+                    </div>
+                `;
+            }
             if (stratBody) {
-                stratBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-blue-500 mr-2"></i> Прораховуємо економіку бою та ціни ринку...</td></tr>`;
+                stratBody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-blue-500 mr-2"></i> Завантаження варіантів...</td></tr>`;
             }
             if (banner) {
                 banner.innerHTML = `<span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Оцінка зносу та дефіциту...</span>`;
@@ -1191,11 +1203,16 @@
                 }
 
                 activeCalcData = data.result;
+                activeSelectedStrat = activeCalcData.best_strategy;
                 renderCalculatorUI(activeCalcData);
             } catch (err) {
                 console.error('Calculator fetch error:', err);
-                if (stratBody) {
-                    stratBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Помилка: ${err.message}</td></tr>`;
+                if (optimalCard) {
+                    optimalCard.innerHTML = `
+                        <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-center text-rose-300 text-xs">
+                            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Помилка: ${err.message}
+                        </div>
+                    `;
                 }
             }
         }
@@ -1204,7 +1221,7 @@
             const p = result.player;
             const t = result.target;
             const best = result.best_strategy;
-            activeSelectedStrat = best;
+            if (!activeSelectedStrat) activeSelectedStrat = best;
 
             // Updated time
             const timeSpan = document.getElementById('calcUpdatedTime');
@@ -1232,7 +1249,86 @@
                 `;
             }
 
-            // Strategies Table
+            // Render Hero Card (Only the best profitable strategy!)
+            const optimalCard = document.getElementById('calcOptimalCard');
+            if (optimalCard && best) {
+                const isSelectedBest = !activeSelectedStrat || activeSelectedStrat.strategy_key === best.strategy_key;
+                const stratToShow = isSelectedBest ? best : activeSelectedStrat;
+
+                optimalCard.innerHTML = `
+                    <div class="glass-panel p-4 sm:p-5 rounded-2xl border-2 ${stratToShow.is_best_value ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#0e131f] to-blue-950/30' : 'border-blue-500/60 bg-[#0e131f]'} shadow-xl space-y-3.5">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-bordercolor/60 pb-3">
+                            <div class="flex items-start sm:items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl ${stratToShow.is_best_value ? 'bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-400' : 'bg-blue-500/15 border-2 border-blue-500/40 text-blue-400'} flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                                    ${stratToShow.is_best_value ? '🏆' : '⚙️'}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2 py-0.5 rounded-full ${stratToShow.is_best_value ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : 'bg-blue-500/20 text-blue-300 border border-blue-500/50'} text-[10px] font-black uppercase tracking-wide">
+                                            ${stratToShow.is_best_value ? 'НАЙВИГІДНІШИЙ ВАРІАНТ' : 'ОБРАНИЙ ВАРІАНТ'}
+                                        </span>
+                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b></span>
+                                    </div>
+                                    <h3 class="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2 flex-wrap">
+                                        <span>${stratToShow.label}</span>
+                                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-700/40">
+                                            ${stratToShow.food_icon} ${stratToShow.food_name}
+                                        </span>
+                                    </h3>
+                                </div>
+                            </div>
+                            <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
+                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Сумарний бюджет:</div>
+                                <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
+                                ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} ₴ дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
+                            </div>
+                        </div>
+
+                        <!-- 6 Stat Badges -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
+                                <div class="font-bold text-white mt-1">${stratToShow.ammo_badge}</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${formatNumber(stratToShow.ammo_units_needed)} пострілів</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🎯 Удари</div>
+                                <div class="font-bold text-white mt-1 font-mono">${formatNumber(stratToShow.hits_needed)} уд.</div>
+                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5">~${formatNumber(stratToShow.avg_dmg_per_hit)}/удар</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="1 зброя = 100 ударів без ухилення">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🔫 Зброя</div>
+                                <div class="font-bold text-amber-400 mt-1 font-mono">${stratToShow.weapons_burned} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">100 уд/ган</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="Броня захищена ухиленням ${stratToShow.eff_dodge}%">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🦺 Броня</div>
+                                <div class="font-bold text-indigo-300 mt-1 font-mono">${stratToShow.armor_sets_burned} компл.</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">ухил. ${stratToShow.eff_dodge}%</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-emerald-400' : 'text-rose-400'} mt-1 flex items-center gap-1">
+                                    <span>${stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт'}</span>
+                                </div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Populate alternative strategies table in collapsed details
             const tbody = document.getElementById('calcStrategiesBody');
             if (tbody) {
                 tbody.innerHTML = result.strategies.map((s, idx) => {
@@ -1294,6 +1390,9 @@
                     `;
                 }).join('');
             }
+
+            renderShoppingList(activeSelectedStrat || best);
+        }
 
             renderShoppingList(activeSelectedStrat);
         }
@@ -1538,17 +1637,25 @@
                     </div>
                 </div>
 
-                <!-- 2. Strategies Comparative Table -->
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <div class="font-bold text-gray-200 text-xs sm:text-sm flex items-center gap-1.5">
-                            <span>📊 Порівняння стратегій бою</span>
-                            <span class="text-gray-400 text-[11px] font-normal">(натисніть на варіант для детального шопінг-листа)</span>
-                        </div>
-                        <span id="calcUpdatedTime" class="text-[10px] text-gray-500">оновлено: --:--:--</span>
-                    </div>
+                <!-- 2. Optimal Best Strategy Highlight Card (Only the best profitable one!) -->
+                <div id="calcOptimalCard">
+                    <!-- Populated by JS -->
+                </div>
 
-                    <div class="overflow-x-auto rounded-xl border border-bordercolor bg-cardbg/40">
+                <!-- Collapsible Alternative Strategies Table (Optional) -->
+                <details class="group bg-cardbg/40 rounded-xl border border-bordercolor/60 overflow-hidden">
+                    <summary class="p-3 text-xs text-gray-400 hover:text-white font-medium cursor-pointer flex items-center justify-between transition-colors select-none">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-list-ul text-blue-400"></i>
+                            <span>Порівняти з іншими альтернативними сетами</span>
+                            <span class="text-[10px] text-gray-500 font-normal">(натисніть, щоб розгорнути)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="calcUpdatedTime" class="text-[10px] text-gray-500">оновлено: --:--:--</span>
+                            <i class="fa-solid fa-chevron-down text-gray-500 group-open:rotate-180 transition-transform text-xs"></i>
+                        </div>
+                    </summary>
+                    <div class="p-3 pt-0 overflow-x-auto">
                         <table class="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="bg-cardbg text-gray-400 font-semibold border-b border-bordercolor text-[11px]">
@@ -1567,7 +1674,7 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </details>
 
                 <!-- 3. Smart 6-Slot Shopping List & Durability Eco Advice -->
                 <div class="space-y-3" id="calcShoppingSection">
