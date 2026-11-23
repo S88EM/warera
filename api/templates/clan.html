@@ -278,8 +278,8 @@
                     <!-- Mobile Sort Dropdown -->
                     <div class="flex items-center gap-1.5 text-xs">
                         <select id="sortSelect" onchange="changeSort(this.value)" class="bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 font-medium cursor-pointer">
-                            <option value="damage">🎯 Залп (Стейки)</option>
                             <option value="damage_fish">🐟 Залп (Смажена риба)</option>
+                            <option value="damage">🥩 Залп (Стейки)</option>
                             <option value="today">💥 Дамаг сьогодні</option>
                             <option value="yesterday">📜 Дамаг вчора</option>
                             <option value="pill">💊 Статус таблетки</option>
@@ -318,7 +318,7 @@
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage')" title="Теоретичний дамаг за 1 повну таблетку (8 год, 2 хвилі: старт 0:00 + реген 7.5г) та добовий потенціал бійця">Залп за таблетку <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage_fish')" title="Теоретичний дамаг за 1 повну таблетку (8 год): більший — на рибі (🐟), менший — на стейках (🥩)">Залп за таблетку <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('weekly')">Дамаг тижня <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                             <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('online')">Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                         </tr>
@@ -358,7 +358,7 @@
     <script>
         let clanData = null;
         let currentFilter = 'ALL';
-        let sortField = 'damage';
+        let sortField = 'damage_fish';
         let sortAsc = false;
         let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
         let customBattleBonus = parseFloat(localStorage.getItem('warera_battle_bonus') || '84');
@@ -367,6 +367,11 @@
             const num = parseFloat(val);
             customBattleBonus = isNaN(num) ? 0 : Math.max(0, num);
             localStorage.setItem('warera_battle_bonus', customBattleBonus.toString());
+            if (clanData && clanData.members) {
+                const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
+                const el = document.getElementById('statClanSalvo');
+                if (el) el.innerText = `~${formatMillions(dynamicClanSalvo)}`;
+            }
             renderMembersTable();
         }
 
@@ -380,6 +385,12 @@
             const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
             const customMult = 1.0 + (customBattleBonus / 100.0);
             return Math.round((m.pill_fish_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomSteakSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_full_hits || 0) * unbuffedHit * customMult);
         }
 
         async function loadClanData(isManual = false) {
@@ -435,8 +446,9 @@
             document.getElementById('clanUpgrades').innerHTML = `<i class="fa-solid fa-landmark text-indigo-400 mr-1"></i>Штаб: ${mu.headquarters_level} ур. · Казарми: ${mu.dormitories_level} ур.`;
             document.getElementById('clanWealth').innerHTML = `<i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: ${formatNumber(Math.round(mu.wealth))} Coins`;
 
-            // Salvo Highlight
-            const fullSalvoM = formatMillions(s.clan_pill_full_salvo || s.clan_daily_salvo_max || 0);
+            // Salvo Highlight (Calculated with active custom battle bonus)
+            const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
+            const fullSalvoM = formatMillions(dynamicClanSalvo || s.clan_pill_full_salvo || 0);
             document.getElementById('statClanSalvo').innerText = `~${fullSalvoM}`;
 
             const activeSalvoM = formatMillions(s.clan_pill_active_salvo || 0);
@@ -558,7 +570,8 @@
         }
 
         function renderTableRow(m) {
-            const customSalvo = getCustomFishSalvo(m);
+            const fishSalvo = getCustomFishSalvo(m);
+            const steakSalvo = getCustomSteakSalvo(m);
             let onlineDot = 'bg-emerald-400';
             if (m.hours_offline >= 24) {
                 onlineDot = 'bg-rose-500';
@@ -659,41 +672,24 @@
                         <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
                     </td>
 
-                    <!-- Залп за таблетку та доба -->
+                    <!-- Залп за таблетку (Риба / Стейк) -->
                     <td class="p-3 whitespace-nowrap text-right">
                         ${m.build_type === 'ECO' ? `
                             <div class="text-gray-500 font-mono text-xs">—</div>
                             <div class="text-[10px] text-gray-500">еко-тил</div>
                         ` : `
-                            <details class="group/salvo relative inline-block text-right">
-                                <summary class="list-none cursor-pointer select-none">
-                                    <div class="font-black text-rose-400 text-sm flex items-center justify-end gap-1.5 hover:text-rose-300 transition-colors">
-                                        <span>~${formatMillions(m.pill_full_dmg)}</span>
-                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-300 border border-sky-700/60 flex items-center gap-1" title="Риба + ${customBattleBonus}% баф">
-                                            <span>🐟 ~${formatMillions(customSalvo)}</span>
-                                            <i class="fa-solid fa-chevron-down text-[8px] text-gray-400 group-open/salvo:rotate-180 transition-transform"></i>
-                                        </span>
-                                    </div>
-                                </summary>
-                                <div class="absolute right-0 top-full mt-1.5 w-64 p-2.5 rounded-xl bg-[#111622] border border-bordercolor shadow-2xl z-30 text-left text-xs backdrop-blur">
-                                    <div class="text-[10px] uppercase font-bold text-gray-300 mb-1.5 flex items-center justify-between">
-                                        <span>📋 Розкладка залпу (8г):</span>
-                                        <span class="text-emerald-400 font-mono">${m.hp_cost_per_hit} HP/уд.</span>
-                                    </div>
-                                    <div class="flex items-center justify-between py-0.5">
-                                        <span class="text-gray-300">🥩 Стейк + 50% баф:</span>
-                                        <span class="font-bold text-rose-400">~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_full_hits} уд.)</span></span>
-                                    </div>
-                                    <div class="flex items-center justify-between py-0.5">
-                                        <span class="text-sky-300">🐟 Риба + 50% баф:</span>
-                                        <span class="font-bold text-sky-300">~${formatMillions(m.pill_fish_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_fish_hits} уд.)</span></span>
-                                    </div>
-                                    <div class="flex items-center justify-between py-0.5 bg-amber-950/30 px-1.5 rounded border border-amber-600/30">
-                                        <span class="text-amber-300 font-semibold">⚔️ Риба + ${customBattleBonus}% баф:</span>
-                                        <span class="font-black text-amber-300">~${formatMillions(customSalvo)}</span>
-                                    </div>
+                            <div class="flex flex-col items-end font-mono">
+                                <!-- 1. Риба (перша, більша) -->
+                                <div class="text-xs sm:text-sm font-bold text-sky-400 flex items-center justify-end gap-1.5" title="Залп на смаженій рибі з бафом битви +${customBattleBonus}% (${m.pill_fish_hits} уд.)">
+                                    <span>🐟</span>
+                                    <span>~${formatMillions(fishSalvo)}</span>
                                 </div>
-                            </details>
+                                <!-- 2. Стейк (другий, менший) -->
+                                <div class="text-[11px] sm:text-xs font-semibold text-rose-300/80 flex items-center justify-end gap-1.5" title="Залп на стейках з бафом битви +${customBattleBonus}% (${m.pill_full_hits} уд.)">
+                                    <span>🥩</span>
+                                    <span>~${formatMillions(steakSalvo)}</span>
+                                </div>
+                            </div>
                         `}
                     </td>
 
@@ -715,7 +711,8 @@
         }
 
         function renderMemberCard(m) {
-            const customSalvo = getCustomFishSalvo(m);
+            const fishSalvo = getCustomFishSalvo(m);
+            const steakSalvo = getCustomSteakSalvo(m);
             let onlineDot = 'bg-emerald-400';
             if (m.hours_offline >= 24) {
                 onlineDot = 'bg-rose-500';
@@ -821,16 +818,17 @@
                             <div class="text-[9px] text-gray-500 mt-0.5">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
                         </div>
 
-                        <div class="px-1 border-r border-bordercolor/40 cursor-pointer hover:bg-gray-800/40 rounded transition-colors" onclick="this.closest('.glass-panel').querySelector('details.group\\/cardSalvo')?.toggleAttribute('open')">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90 flex items-center justify-center gap-0.5" title="Теоретичний максимум за 1 повну таблетку 8г">
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90 text-center" title="Залп за таблетку (8г) з бафом битви +${customBattleBonus}%">
                                 <span>Залп 8г</span>
-                                <i class="fa-solid fa-chevron-down text-[7px] text-gray-400"></i>
                             </div>
-                            <div class="text-xs font-black ${m.build_type === 'ECO' ? 'text-gray-500' : 'text-rose-400'} mt-1 truncate" title="Стейк + 50%: ~${formatMillions(m.pill_full_dmg || 0)} (${m.pill_full_hits} уд.) • Риба + 50%: ~${formatMillions(m.pill_fish_dmg || 0)} (${m.pill_fish_hits} уд.) • Риба + ${customBattleBonus}%: ~${formatMillions(customSalvo)}">
-                                ${m.build_type === 'ECO' ? '—' : `~${formatMillions(m.pill_full_dmg)}`}
-                            </div>
-                            <div class="text-[9px] text-sky-400 font-bold mt-0.5 truncate" title="Риба + ${customBattleBonus}% баф">
-                                ${m.build_type === 'ECO' ? 'еко-тил' : `🐟~${formatMillions(customSalvo)}`}
+                            <div class="font-mono mt-0.5 text-center">
+                                <div class="text-xs font-bold text-sky-400 truncate" title="Залп на смаженій рибі (+${customBattleBonus}%)">
+                                    ${m.build_type === 'ECO' ? '—' : `🐟 ~${formatMillions(fishSalvo)}`}
+                                </div>
+                                <div class="text-[10px] text-rose-300/80 font-semibold truncate" title="Залп на стейках (+${customBattleBonus}%)">
+                                    ${m.build_type === 'ECO' ? 'еко-тил' : `🥩 ~${formatMillions(steakSalvo)}`}
+                                </div>
                             </div>
                         </div>
 
@@ -841,42 +839,6 @@
                             </div>
                             <div class="text-[9px] text-gray-500 mt-0.5">всього</div>
                         </div>
-                    </div>
-
-                    <!-- Row 4: Dropdown / Collapsible Salvo breakdown for Mobile Cards -->
-                    ${m.build_type === 'ECO' ? '' : `
-                        <details class="group/cardSalvo border-t border-bordercolor/50 pt-1.5">
-                            <summary class="list-none cursor-pointer flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-darkbg/60 hover:bg-darkbg text-xs select-none border border-bordercolor/40 transition-colors">
-                                <div class="flex items-center gap-1.5 text-[11px]">
-                                    <span class="text-rose-400 font-bold">🥩 ~${formatMillions(m.pill_full_dmg)}</span>
-                                    <span class="text-gray-500">•</span>
-                                    <span class="text-sky-300 font-extrabold">🐟 ~${formatMillions(customSalvo)}</span>
-                                </div>
-                                <div class="text-[10px] text-gray-400 flex items-center gap-1">
-                                    <span>Розкладка залпу</span>
-                                    <i class="fa-solid fa-chevron-down text-[8px] text-gray-400 group-open/cardSalvo:rotate-180 transition-transform"></i>
-                                </div>
-                            </summary>
-                            <div class="mt-2 p-2.5 rounded-xl bg-darkbg/95 border border-bordercolor shadow-xl text-xs">
-                                <div class="text-[10px] uppercase font-bold text-gray-300 mb-1.5 flex items-center justify-between">
-                                    <span>📋 Розкладка залпу (8г):</span>
-                                    <span class="text-emerald-400 font-mono">${m.hp_cost_per_hit} HP/уд.</span>
-                                </div>
-                                <div class="flex items-center justify-between py-1">
-                                    <span class="text-gray-300">🥩 Стейк + 50% баф:</span>
-                                    <span class="font-bold text-rose-400">~${formatMillions(m.pill_full_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_full_hits} уд.)</span></span>
-                                </div>
-                                <div class="flex items-center justify-between py-1">
-                                    <span class="text-sky-300">🐟 Риба + 50% баф:</span>
-                                    <span class="font-bold text-sky-300">~${formatMillions(m.pill_fish_dmg)} <span class="text-[10px] font-normal text-gray-400">(${m.pill_fish_hits} уд.)</span></span>
-                                </div>
-                                <div class="flex items-center justify-between py-1 bg-amber-950/30 px-2 rounded border border-amber-600/30">
-                                    <span class="text-amber-300 font-semibold">⚔️ Риба + ${customBattleBonus}% баф:</span>
-                                    <span class="font-black text-amber-300">~${formatMillions(customSalvo)}</span>
-                                </div>
-                            </div>
-                        </details>
-                    `}
                     </div>
                 </div>
             `;
@@ -932,7 +894,8 @@
                 else if (sortField === 'weekly') { vA = a.weekly_damage; vB = b.weekly_damage; }
                 else if (sortField === 'online') { vA = a.hours_offline; vB = b.hours_offline; }
                 else if (sortField === 'damage_fish') { vA = getCustomFishSalvo(a); vB = getCustomFishSalvo(b); }
-                else { vA = a.pill_full_dmg || a.theoretical_daily_dmg_max || 0; vB = b.pill_full_dmg || b.theoretical_daily_dmg_max || 0; }
+                else if (sortField === 'damage') { vA = getCustomSteakSalvo(a); vB = getCustomSteakSalvo(b); }
+                else { vA = getCustomFishSalvo(a); vB = getCustomFishSalvo(b); }
 
                 if (vA < vB) return sortAsc ? -1 : 1;
                 if (vA > vB) return sortAsc ? 1 : -1;
@@ -962,7 +925,8 @@
             let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
             text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
             text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
-            text += `💥 **Залп клану за таблетку (злив HP+Голоду): ~${formatMillions(s.clan_pill_full_salvo || 0)} дамагу**\n`;
+            const clanFishSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
+            text += `💥 **Залп клану за таблетку (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
             text += `🔥 **Залишок у активних бійців зараз: ~${formatMillions(s.clan_pill_active_salvo || 0)} дамагу**\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
             if (s.clan_yesterday_damage) {
@@ -970,12 +934,13 @@
             }
             text += `\n`;
             
-            text += `📋 **Топ бійців (Залп за таблетку / Факт сьогодні):**\n`;
+            text += `📋 **Топ бійців (Залп 🐟 Риба / 🥩 Стейк | Факт сьогодні):**\n`;
             const warMembers = clanData.members.filter(m => m.build_type !== 'ECO').slice(0, 10);
             warMembers.forEach((m, idx) => {
-                const maxDmg = formatMillions(m.pill_full_dmg || m.theoretical_daily_dmg_max);
+                const fishDmg = formatMillions(getCustomFishSalvo(m));
+                const steakDmg = formatMillions(getCustomSteakSalvo(m));
                 const todayDmg = m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0';
-                text += `${idx + 1}. **${m.username}** — Залп: ~${maxDmg} | Факт: ${todayDmg} (${m.pill_time_label})\n`;
+                text += `${idx + 1}. **${m.username}** — 🐟 ~${fishDmg} / 🥩 ~${steakDmg} | Факт: ${todayDmg} (${m.pill_time_label})\n`;
             });
 
             if (s.afk_count > 0) {
