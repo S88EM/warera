@@ -1394,9 +1394,6 @@
             renderShoppingList(activeSelectedStrat || best);
         }
 
-            renderShoppingList(activeSelectedStrat);
-        }
-
         function selectStrategyRow(stratKey) {
             if (!activeCalcData || !activeCalcData.strategies) return;
             const strat = activeCalcData.strategies.find(s => s.strategy_key === stratKey);
@@ -1705,6 +1702,5 @@
             </div>
         </div>
     </div>
-    </script>
 </body>
 </html>
