@@ -119,23 +119,28 @@
                             <span>Залп клану за таблетку</span>
                             <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer" title="Сумарний дамаг бойових бійців клану за 1 повну таблетку (8 год) з повним зливом 100% HP та їжі. Еко-воїни виключені з розрахунку."></i>
                         </div>
-                        <div class="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 sm:gap-3 text-xs sm:text-sm">
-                            <div class="flex items-baseline gap-1.5">
+                        <div class="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-xs sm:text-sm">
+                            <div class="flex items-baseline gap-1.5" title="Повний потенційний залп клану за 1 таблетку (8 год) з обраним бафом битви">
                                 <span class="text-[11px] text-gray-400">Залп:</span>
                                 <b id="statClanSalvo" class="text-white font-bold font-mono text-sm sm:text-base">--</b>
                             </div>
                             <span class="text-gray-600 hidden sm:inline">|</span>
-                            <div class="flex items-baseline gap-1.5">
-                                <span class="text-[11px] text-gray-400">🔥 Залишок:</span>
-                                <b id="statActiveSalvo" class="text-rose-400 font-bold font-mono text-sm sm:text-base">--</b>
+                            <div class="flex items-baseline gap-1.5" title="Миттєвий урон у руках прямо зараз від бійців під діючою таблеткою (поточне HP + їжа). Готовий до негайного удару!">
+                                <span class="text-[11px] text-gray-400" id="labelInstantSalvo">🔥 В руках:</span>
+                                <b id="statInstantSalvo" class="text-rose-400 font-bold font-mono text-sm sm:text-base">--</b>
                             </div>
                             <span class="text-gray-600 hidden sm:inline">|</span>
-                            <div class="flex items-baseline gap-1.5">
+                            <div class="flex items-baseline gap-1.5" title="Майбутній урон від регену HP та їжі, який дозріє за години, що залишилися до спадіння таблетки">
+                                <span class="text-[11px] text-gray-400" id="labelRegenSalvo">⏳ Реген:</span>
+                                <b id="statRegenSalvo" class="text-amber-400 font-bold font-mono text-sm sm:text-base">--</b>
+                            </div>
+                            <span class="text-gray-600 hidden sm:inline">|</span>
+                            <div class="flex items-baseline gap-1.5" title="Фактично нанесений урон кланом сьогодні з 02:00">
                                 <span class="text-[11px] text-gray-400">Сьогодні:</span>
                                 <b id="statClanToday" class="text-emerald-400 font-bold font-mono text-sm sm:text-base">--</b>
                             </div>
                             <span class="text-gray-600 hidden sm:inline">|</span>
-                            <div class="flex items-baseline gap-1.5">
+                            <div class="flex items-baseline gap-1.5" title="Фактично нанесений урон кланом за вчора">
                                 <span class="text-[11px] text-gray-400">Вчора:</span>
                                 <b id="statClanYesterday" class="text-indigo-300 font-bold font-mono text-sm sm:text-base">--</b>
                             </div>
@@ -363,15 +368,28 @@
         let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
         let customBattleBonus = parseFloat(localStorage.getItem('warera_battle_bonus') || '84');
 
+        function updateClanSalvoStats() {
+            if (!clanData || !clanData.members) return;
+            const s = clanData.summary;
+
+            const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
+            const elSalvo = document.getElementById('statClanSalvo');
+            if (elSalvo) elSalvo.innerText = `~${formatMillions(dynamicClanSalvo || s.clan_pill_full_salvo || 0)}`;
+
+            const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+            const elInstant = document.getElementById('statInstantSalvo');
+            if (elInstant) elInstant.innerText = `~${formatMillions(dynamicInstantSalvo || s.clan_pill_instant_fish_salvo || s.clan_pill_instant_salvo || 0)}`;
+
+            const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
+            const elRegen = document.getElementById('statRegenSalvo');
+            if (elRegen) elRegen.innerText = `~${formatMillions(dynamicRegenSalvo || s.clan_pill_regen_fish_salvo || s.clan_pill_regen_salvo || 0)}`;
+        }
+
         function updateCustomBattleBonus(val) {
             const num = parseFloat(val);
             customBattleBonus = isNaN(num) ? 0 : Math.max(0, num);
             localStorage.setItem('warera_battle_bonus', customBattleBonus.toString());
-            if (clanData && clanData.members) {
-                const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
-                const el = document.getElementById('statClanSalvo');
-                if (el) el.innerText = `~${formatMillions(dynamicClanSalvo)}`;
-            }
+            updateClanSalvoStats();
             renderMembersTable();
         }
 
@@ -391,6 +409,18 @@
             const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
             const customMult = 1.0 + (customBattleBonus / 100.0);
             return Math.round((m.pill_full_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomInstantFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_instant_fish_hits || m.pill_instant_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomRegenFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_regen_fish_hits || m.pill_regen_hits || 0) * unbuffedHit * customMult);
         }
 
         async function loadClanData(isManual = false) {
@@ -447,12 +477,7 @@
             document.getElementById('clanWealth').innerHTML = `<i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: ${formatNumber(Math.round(mu.wealth))} Coins`;
 
             // Salvo Highlight (Calculated with active custom battle bonus)
-            const dynamicClanSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
-            const fullSalvoM = formatMillions(dynamicClanSalvo || s.clan_pill_full_salvo || 0);
-            document.getElementById('statClanSalvo').innerText = `~${fullSalvoM}`;
-
-            const activeSalvoM = formatMillions(s.clan_pill_active_salvo || 0);
-            document.getElementById('statActiveSalvo').innerText = `~${activeSalvoM}`;
+            updateClanSalvoStats();
 
             const todayClanM = formatMillions(s.clan_today_damage || 0);
             document.getElementById('statClanToday').innerText = `+${todayClanM}`;
@@ -645,11 +670,13 @@
                                 <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
                             </div>
                             ${m.pill_status === 'ACTIVE' ? `
-                                <div class="text-[10px] font-bold text-purple-300 mt-0.5" title="Потенціал урону до кінця діючої таблетки (злив HP+їжі)">
+                                <div class="text-[10px] font-bold mt-0.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} (${m.pill_instant_fish_hits || m.pill_instant_hits} уд.) | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))} (${m.pill_regen_fish_hits || m.pill_regen_hits} уд.)">
                                     ${(m.pill_remaining_hours <= 0.2) ? `
                                         <span class="text-amber-400 font-extrabold flex items-center gap-1">⏳ Баф закінчується</span>
                                     ` : `
-                                        <span>⏳ залиш. ~${formatMillions(m.pill_current_dmg)}</span>
+                                        <span class="text-rose-400 font-bold" title="В руках прямо зараз">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
+                                        <span class="text-gray-500 font-normal">|</span>
+                                        <span class="text-amber-400 font-medium" title="Дозріє регеном">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
                                     `}
                                 </div>
                             ` : ''}
@@ -789,9 +816,10 @@
                         ${m.build_type === 'ECO' ? `
                             <span class="text-[11px] text-gray-500">економічний тил</span>
                         ` : (m.pill_status === 'ACTIVE' ? `
-                            <div class="text-[11px] font-bold text-purple-300 flex items-center gap-1">
-                                <span>🔥 Залишок у дії:</span>
-                                <span class="text-purple-300 font-extrabold">~${formatMillions(m.pill_current_dmg)}</span>
+                            <div class="text-[11px] font-bold flex items-center gap-1.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))}">
+                                <span class="text-rose-400 font-bold">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
+                                <span class="text-gray-500">·</span>
+                                <span class="text-amber-400 font-medium">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
                             </div>
                         ` : (m.pill_status === 'READY' ? `
                             <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
@@ -927,7 +955,9 @@
             text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} можуть пити таблетку | ${s.pill_cooldown_count} під дебафом\n`;
             const clanFishSalvo = clanData.members.reduce((acc, m) => acc + (m.build_type !== 'ECO' ? getCustomFishSalvo(m) : 0), 0);
             text += `💥 **Залп клану за таблетку (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
-            text += `🔥 **Залишок у активних бійців зараз: ~${formatMillions(s.clan_pill_active_salvo || 0)} дамагу**\n`;
+            const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+            const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
+            text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
             if (s.clan_yesterday_damage) {
                 text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;

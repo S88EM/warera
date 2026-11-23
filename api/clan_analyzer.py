@@ -431,6 +431,14 @@ class WarEraClanAnalyzer:
                 full_pill_siege_fish_dmg = 0
                 current_pill_hits = 0
                 current_pill_dmg = 0
+                pill_instant_hits = 0
+                pill_instant_dmg = 0
+                pill_regen_hits = 0
+                pill_regen_dmg = 0
+                pill_instant_fish_hits = 0
+                pill_instant_fish_dmg = 0
+                pill_regen_fish_hits = 0
+                pill_regen_fish_dmg = 0
                 daily_theoretical_hits = 0
                 daily_theoretical_dmg = 0
                 theoretical_daily_dmg_min = 0
@@ -473,17 +481,57 @@ class WarEraClanAnalyzer:
                 full_pill_siege_fish_dmg = round(full_pill_fish_hits * avg_dmg_per_hit_siege)
 
                 # 2. Current remaining damage for active pill (or ready to drink):
+                # Split cleanly into:
+                # - Instant in-hands pool (current HP + food bar right now, can be dumped immediately)
+                # - Future regen pool (natural HP + hunger regen matured over remaining pill hours)
                 if pill_status == "ACTIVE":
                     rem_h = pill_remaining_hours
-                    current_pill_hp_pool = (health_curr + (hunger_curr * HP_PER_HUNGER)) + \
-                                           ((rem_h * health_regen) + (rem_h * hunger_regen * HP_PER_HUNGER))
-                    current_pill_hits = round(current_pill_hp_pool / hp_cost_per_hit)
-                    current_pill_dmg = round(current_pill_hits * avg_dmg_per_hit)
+
+                    # Steak (15%)
+                    pill_instant_hp = health_curr + (hunger_curr * HP_PER_HUNGER)
+                    pill_instant_hits = round(pill_instant_hp / hp_cost_per_hit)
+                    pill_instant_dmg = round(pill_instant_hits * avg_dmg_per_hit)
+
+                    pill_regen_hp = (rem_h * health_regen) + (rem_h * hunger_regen * HP_PER_HUNGER)
+                    pill_regen_hits = round(pill_regen_hp / hp_cost_per_hit)
+                    pill_regen_dmg = round(pill_regen_hits * avg_dmg_per_hit)
+
+                    # Cooked Fish (20%)
+                    pill_instant_fish_hp = health_curr + (hunger_curr * HP_PER_HUNGER_FISH)
+                    pill_instant_fish_hits = round(pill_instant_fish_hp / hp_cost_per_hit)
+                    pill_instant_fish_dmg = round(pill_instant_fish_hits * avg_dmg_per_hit)
+
+                    pill_regen_fish_hp = (rem_h * health_regen) + (rem_h * hunger_regen * HP_PER_HUNGER_FISH)
+                    pill_regen_fish_hits = round(pill_regen_fish_hp / hp_cost_per_hit)
+                    pill_regen_fish_dmg = round(pill_regen_fish_hits * avg_dmg_per_hit)
+
+                    current_pill_hits = pill_instant_hits + pill_regen_hits
+                    current_pill_dmg = pill_instant_dmg + pill_regen_dmg
                 elif pill_status == "READY":
+                    pill_instant_hits = start_salvo_hits
+                    pill_instant_dmg = start_salvo_dmg
+                    pill_regen_hits = regen_salvo_hits
+                    pill_regen_dmg = regen_salvo_dmg
+
+                    fish_start_hits = round(fish_start_hp / hp_cost_per_hit)
+                    pill_instant_fish_hits = fish_start_hits
+                    pill_instant_fish_dmg = round(fish_start_hits * avg_dmg_per_hit)
+                    fish_regen_hits = round(fish_regen_hp / hp_cost_per_hit)
+                    pill_regen_fish_hits = fish_regen_hits
+                    pill_regen_fish_dmg = round(fish_regen_hits * avg_dmg_per_hit)
+
                     current_pill_hits = full_pill_hits
                     current_pill_dmg = full_pill_dmg
                 else:
                     # Cooldown
+                    pill_instant_hits = 0
+                    pill_instant_dmg = 0
+                    pill_regen_hits = 0
+                    pill_regen_dmg = 0
+                    pill_instant_fish_hits = 0
+                    pill_instant_fish_dmg = 0
+                    pill_regen_fish_hits = 0
+                    pill_regen_fish_dmg = 0
                     current_pill_hits = 0
                     current_pill_dmg = 0
 
@@ -555,6 +603,14 @@ class WarEraClanAnalyzer:
                 "pill_siege_fish_dmg": full_pill_siege_fish_dmg,
                 "pill_current_dmg": current_pill_dmg,
                 "pill_current_hits": current_pill_hits,
+                "pill_instant_dmg": pill_instant_dmg,
+                "pill_instant_hits": pill_instant_hits,
+                "pill_regen_dmg": pill_regen_dmg,
+                "pill_regen_hits": pill_regen_hits,
+                "pill_instant_fish_dmg": pill_instant_fish_dmg,
+                "pill_instant_fish_hits": pill_instant_fish_hits,
+                "pill_regen_fish_dmg": pill_regen_fish_dmg,
+                "pill_regen_fish_hits": pill_regen_fish_hits,
                 "start_salvo_dmg": start_salvo_dmg,
                 "start_salvo_hits": start_salvo_hits,
                 "regen_salvo_dmg": regen_salvo_dmg,
@@ -622,6 +678,10 @@ class WarEraClanAnalyzer:
         total_clan_daily_salvo_min = sum(m["theoretical_daily_dmg_min"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
         total_clan_daily_salvo_max = sum(m["theoretical_daily_dmg_max"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
 
+        clan_pill_instant_salvo = sum(m["pill_instant_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
+        clan_pill_regen_salvo = sum(m["pill_regen_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
+        clan_pill_instant_fish_salvo = sum(m["pill_instant_fish_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
+        clan_pill_regen_fish_salvo = sum(m["pill_regen_fish_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
         clan_pill_active_salvo = sum(m["pill_current_dmg"] for m in analyzed_members if m["pill_status"] == "ACTIVE")
         clan_pill_full_salvo = sum(m["pill_full_dmg"] for m in analyzed_members if m["build_type"] in ("WAR", "HYBRID"))
 
@@ -659,6 +719,10 @@ class WarEraClanAnalyzer:
                 "clan_daily_salvo_min": total_clan_daily_salvo_min,
                 "clan_daily_salvo_max": total_clan_daily_salvo_max,
                 "clan_pill_active_salvo": clan_pill_active_salvo,
+                "clan_pill_instant_salvo": clan_pill_instant_salvo,
+                "clan_pill_regen_salvo": clan_pill_regen_salvo,
+                "clan_pill_instant_fish_salvo": clan_pill_instant_fish_salvo,
+                "clan_pill_regen_fish_salvo": clan_pill_regen_fish_salvo,
                 "clan_pill_full_salvo": clan_pill_full_salvo,
                 "clan_today_damage": total_clan_today_damage,
                 "clan_yesterday_damage": total_clan_yesterday_damage,
