@@ -146,10 +146,10 @@
                             <b id="statRegenSalvo" class="text-amber-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
                         </div>
 
-                        <!-- 4. Можуть випити -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-blue-500/30 hover:border-blue-500/50 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" id="readySalvoContainer" title="Потенційний залп бійців, які готові випити таблетку прямо зараз (8 год з рибою)">
-                            <span class="text-[10px] text-blue-300/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1 truncate">
-                                <span>⚪</span> <span id="labelReadySalvo">Можуть</span> (<span id="statReadyCount">0</span>)
+                        <!-- 4. Можуть пити -->
+                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-blue-500/30 hover:border-blue-500/50 rounded-lg px-1 sm:px-2 py-1.5 text-center flex flex-col justify-center transition-all" id="readySalvoContainer" title="Потенційний залп бійців, які готові випити таблетку прямо зараз (8 год з рибою)">
+                            <span class="text-[9.5px] sm:text-[10px] text-blue-300/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1 truncate">
+                                <span>💊</span> <span id="labelReadySalvo">Можуть пити</span> (<span id="statReadyCount">0</span>)
                             </span>
                             <b id="statReadySalvo" class="text-blue-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
                         </div>
@@ -988,7 +988,7 @@
             text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
             const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
             const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
-            text += `⚪ **Готові випити таблетку (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
+            text += `💊 **Можуть пити таблетку (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
             text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
             if (s.clan_yesterday_damage) {
                 text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;
