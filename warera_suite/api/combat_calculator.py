@@ -27,6 +27,18 @@ FOOD_SPECS = {
     "bread": {"name": "Хліб", "hp_pct": 0.10, "default_price": 1.40, "icon": "🍞"},
 }
 
+# Scrap returned when item breaks (1/3 of craft requirement)
+# Source: Warera Build Tool (intel.warera.wiki/builder) & Game Crafting Tables
+SCRAP_RECOVERY_BY_TIER = {
+    0: 0,
+    1: 2,    # Grey / Knife (craft: 6 scrap / 3)
+    2: 6,    # Green / Gun (craft: 18 scrap / 3)
+    3: 18,   # Blue / Rifle / T3 (craft: 54 scrap / 3)
+    4: 54,   # Purple / Sniper / T4 (craft: 162 scrap / 3)
+    5: 162,  # Gold / Tank / T5 (craft: 486 scrap / 3)
+    6: 486,  # Red / Jet / T6 (craft: 1458 scrap / 3)
+}
+
 # Ammo specs: bonus attack % and live orderbook benchmark prices
 AMMO_SPECS = {
     "lightAmmo": {
@@ -235,6 +247,17 @@ class CombatDamageCalculator:
         today_damage = float(player_member.get("today_damage") or 0.0)
         deficit_damage = max(0.0, target_damage - today_damage)
 
+        # 6. Player Loot Chance & Economy Benchmarks (Athena & Intel Builder engine)
+        loot_skill_lvl = float(skills.get("loot", {}).get("level", 0))
+        loot_skill_total = float(skills.get("loot", {}).get("total", 0))
+        loot_chance_pct = float(player_member.get("loot_chance") or (loot_skill_total if loot_skill_total > 0 else (5.0 + 2.0 * loot_skill_lvl)))
+        loot_chance_ratio = loot_chance_pct / 100.0
+
+        scrap_price = float(consumable_prices.get("scrap", 0.253))
+        case1_price = float(consumable_prices.get("case1", 3.88))
+        case2_price = float(consumable_prices.get("case2", 25.44))
+        bounty_rate = float(player_member.get("bounty_rate") or consumable_prices.get("lootPer1k", 0.20))
+
         # Current player combat parameters from analyzer
         curr_avg_dmg = float(player_member.get("avg_dmg_per_hit") or 1000.0)
         curr_hp_cost = float(player_member.get("hp_cost_per_hit") or 1.5)
@@ -304,15 +327,15 @@ class CombatDamageCalculator:
                 "url": f"https://app.warera.io/market/equipments?item={code}",
             }
 
-        # Helper to simulate combat hits and damage for any tier combination
+        # Helper to simulate combat hits and damage for any tier combination using Athena & Intel Builder physics
         def simulate_tier_combat(
             w_atk: float, w_crit_ch: float,
             h_crit_dmg: float,
             c_armor: float, p_armor: float,
             b_dodge: float, g_prec: float,
             ammo_bonus_pct: float
-        ) -> tuple[float, float, float]:
-            # 1. Effective Armor & Dodge with game softcap curve
+        ) -> tuple[float, float, float, float, float, float]:
+            # 1. Effective Armor & Dodge with exact Diminishing Returns (K = 40)
             curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
             curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
 
@@ -322,39 +345,71 @@ class CombatDamageCalculator:
             total_raw_armor = curr_armor_stat + eff_gear_armor
             total_raw_dodge = curr_dodge_stat + eff_gear_dodge
 
-            calc_armor = min(total_raw_armor + 13.0, 40.0) + max(0.0, total_raw_armor + 13.0 - 40.0) * 0.5
-            calc_dodge = min(total_raw_dodge + 13.0, 40.0) + max(0.0, total_raw_dodge + 13.0 - 40.0) * 0.5
+            armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
+            dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
 
-            eff_armor = max(float(skills.get("armor", {}).get("totalAfterSoftCap", 0)), calc_armor)
-            eff_dodge = max(float(skills.get("dodge", {}).get("totalAfterSoftCap", 0)), calc_dodge)
+            # Exact HP Cost per hit: 10 * (1 - armor_red) * (1 - dodge_fraction)
+            hp_cost = max(0.20, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
 
-            hp_cost = max(0.80, 6.5 * (1.0 - (eff_armor / 100.0)) * (1.0 - (eff_dodge / 100.0)))
+            # Durability lifetime: 100 absorbed hits -> 100 * (1 + dodge / 40)
+            hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
 
-            # 2. Attack per hit with weapon & ammo
-            eff_w_atk = max(equipped_weapon_atk, w_atk)
-            ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
-            sim_atk = (base_atk + eff_w_atk + atk_overflow) * rank_mult * ammo_mult * 1.60
+            eff_dodge_pct = round(dodge_fraction * 100.0, 1)
+            eff_armor_pct = round(armor_reduction * 100.0, 1)
 
-            # 3. Precision & Crits
+            # 2. Precision & Stat Overflow (+4 Attack per 1% Precision > 100%)
             curr_prec = float(skills.get("precision", {}).get("value", 75))
             eq_prec = float(skills.get("precision", {}).get("equipment", 0))
-            tot_prec = min(100.0, max(float(skills.get("precision", {}).get("total", 0)), curr_prec + max(eq_prec, g_prec)))
-            prec_ratio = tot_prec / 100.0
+            raw_prec = curr_prec + max(eq_prec, g_prec)
 
+            if raw_prec > 100.0:
+                prec_overflow = raw_prec - 100.0
+                prec_bonus_atk = prec_overflow * 4.0
+                eff_prec_ratio = 1.0
+            else:
+                prec_bonus_atk = 0.0
+                eff_prec_ratio = max(0.10, raw_prec / 100.0)
+
+            # 3. Critical Chance, Critical Damage & Stat Overflow (+4% Crit Dmg per 1% Crit Chance > 100%)
             curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
             curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
             eq_crit_ch = float(skills.get("criticalChance", {}).get("weapon", 0))
             eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
 
-            tot_crit_ch = min(100.0, max(float(skills.get("criticalChance", {}).get("total", 0)), curr_crit_ch + max(eq_crit_ch, w_crit_ch)))
-            tot_crit_dmg = max(float(skills.get("criticalDamages", {}).get("total", 0)), curr_crit_dmg + max(eq_crit_dmg, h_crit_dmg))
+            raw_crit_ch = curr_crit_ch + max(eq_crit_ch, w_crit_ch)
+            raw_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, h_crit_dmg)
 
-            crit_hit_mult = 1.0 + (tot_crit_dmg / 100.0)
-            crit_ch_ratio = tot_crit_ch / 100.0
-            crit_mult = (1.0 - prec_ratio) * 0.5 + prec_ratio * ((1.0 - crit_ch_ratio) * 1.0 + crit_ch_ratio * crit_hit_mult)
+            if raw_crit_ch > 100.0:
+                crit_overflow = raw_crit_ch - 100.0
+                crit_bonus_dmg = crit_overflow * 4.0
+                eff_crit_ch_ratio = 1.0
+            else:
+                crit_bonus_dmg = 0.0
+                eff_crit_ch_ratio = max(0.0, raw_crit_ch / 100.0)
 
-            avg_dmg = sim_atk * crit_mult * 1.50 # Standard clan battle bonus (+50%)
-            return round(avg_dmg, 1), round(hp_cost, 2), round(eff_dodge, 1), round(eff_armor, 1)
+            tot_crit_dmg_pct = raw_crit_dmg + crit_bonus_dmg
+            crit_mult_val = tot_crit_dmg_pct / 100.0
+
+            # 4. Attack with Weapon, Ammo, Pill (1.60), Military Rank
+            eff_w_atk = max(equipped_weapon_atk, w_atk)
+            ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+            pill_mult = 1.60
+            sim_atk = (base_atk + eff_w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
+
+            # 5. Expected Damage per hit (Hit: 100% + crit, Miss: 50% damage) + Clan Battle Bonus (+50%)
+            hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
+            miss_dmg = sim_atk * 0.5
+            avg_base_dmg = eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg
+            avg_dmg = avg_base_dmg * 1.50
+
+            return (
+                round(avg_dmg, 1),
+                round(hp_cost, 2),
+                eff_dodge_pct,
+                eff_armor_pct,
+                round(hits_per_armor_set, 1),
+                round(eff_prec_ratio, 3)
+            )
 
         # Resolve Ammo Selection: prioritize Green Light ammo (0.20 ₴) for maximum economy
         def get_best_ammo_for_tier(tier_num: float) -> str:
@@ -381,17 +436,17 @@ class CombatDamageCalculator:
             }
             ss_tier = 3.2
         elif deficit_damage <= 4_500_000:
-            # Standard goal (1M-4.5M): T4 Epic gear with high dodge
+            # Standard goal (1M-4.5M): Top-Efficiency Hybrid (Sniper IV + T5 Boots Dodge + T5 Gloves Prec Overflow)
             ss_slots = {
-                "name": "Золота середина (Т4 Фіолетовий)",
+                "name": "Золота середина (Топ-Окупність: Снайперка IV + Т5 Чоботи)",
                 "weapon_code": "sniper", "weapon_name": "Снайперка IV", "weapon_atk": 120.0, "weapon_crit_chance": 18.0,
                 "helmet_code": "helmet4", "helmet_name": "Шолом IV", "helmet_crit_dmg": 80.0,
                 "chest_code": "chest4", "chest_name": "Броня IV", "chest_armor": 26.0,
                 "pants_code": "pants4", "pants_name": "Штани IV", "pants_armor": 26.0,
-                "boots_code": "boots4", "boots_name": "Чоботи IV (Ухил)", "boots_dodge": 24.0,
-                "gloves_code": "gloves4", "gloves_name": "Рукавиці IV", "gloves_precision": 23.0,
+                "boots_code": "boots5", "boots_name": "Чоботи V (Ухил 35%)", "boots_dodge": 35.0,
+                "gloves_code": "gloves5", "gloves_name": "Рукавиці V (Влучність 35%)", "gloves_precision": 35.0,
             }
-            ss_tier = 4.2
+            ss_tier = 4.4
         else:
             # Heavy goal (>4.5M): T5 Tank + T5 defense
             ss_slots = {
@@ -424,6 +479,22 @@ class CombatDamageCalculator:
                 "tier_num": ss_tier,
                 "is_current": False,
                 "slots_def": ss_slots,
+            },
+            {
+                "key": "hybrid_t5_dodge",
+                "label": "⚡ Топ-Гібрид (Т5 Чоботи+Рукавиці, Т4 Снайперка)",
+                "tier_name": "Топ-Гібрид Т4/Т5",
+                "tier_num": 4.4,
+                "is_current": False,
+                "slots_def": {
+                    "name": "Топ-Гібрид (Т5 Чоботи+Рукавиці)",
+                    "weapon_code": "sniper", "weapon_name": "Снайперка IV", "weapon_atk": 120.0, "weapon_crit_chance": 18.0,
+                    "helmet_code": "helmet4", "helmet_name": "Шолом IV", "helmet_crit_dmg": 80.0,
+                    "chest_code": "chest4", "chest_name": "Броня IV", "chest_armor": 26.0,
+                    "pants_code": "pants4", "pants_name": "Штани IV", "pants_armor": 26.0,
+                    "boots_code": "boots5", "boots_name": "Чоботи V (Ухил 35%)", "boots_dodge": 35.0,
+                    "gloves_code": "gloves5", "gloves_name": "Рукавиці V (Влучність 35%)", "gloves_precision": 35.0,
+                },
             },
             {
                 "key": "t3_rare",
@@ -493,20 +564,51 @@ class CombatDamageCalculator:
                 ammo_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
                 if strat.get("is_current"):
                     if has_equipped_weapon:
-                        base_calc_dmg = curr_avg_dmg if curr_avg_dmg > 0 else 1000.0
-                        ammo_ratio = (1.0 + (ammo_spec["bonus_pct"] / 100.0)) / 1.10
-                        sim_dmg = round(base_calc_dmg * ammo_ratio, 1)
-                        sim_hp_cost = curr_hp_cost if curr_hp_cost > 0 else 1.30
-                        eff_dodge = curr_dodge_pct if curr_dodge_pct > 0 else 47.5
-                        eff_armor = float(skills.get("armor", {}).get("totalAfterSoftCap", 0)) or 55.0
+                        curr_armor_stat = float(skills.get("armor", {}).get("value", 0)) + equipped_armor
+                        curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0)) + equipped_dodge
+                        armor_reduction = (curr_armor_stat / (curr_armor_stat + 40.0)) if curr_armor_stat > 0 else 0.0
+                        dodge_fraction = (curr_dodge_stat / (curr_dodge_stat + 40.0)) if curr_dodge_stat > 0 else 0.0
+                        sim_hp_cost = max(0.20, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
+                        hits_per_armor_set = max(100.0, 100.0 * (1.0 + curr_dodge_stat / 40.0))
+                        eff_dodge = round(dodge_fraction * 100.0, 1)
+                        eff_armor = round(armor_reduction * 100.0, 1)
+
+                        curr_prec_stat = float(skills.get("precision", {}).get("value", 75)) + float(skills.get("precision", {}).get("equipment", 0))
+                        if curr_prec_stat > 100.0:
+                            p_over = curr_prec_stat - 100.0
+                            p_atk_bonus = p_over * 4.0
+                            eff_prec_ratio = 1.0
+                        else:
+                            p_atk_bonus = 0.0
+                            eff_prec_ratio = max(0.10, curr_prec_stat / 100.0)
+
+                        curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10)) + float(skills.get("criticalChance", {}).get("weapon", 0))
+                        curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100)) + float(skills.get("criticalDamages", {}).get("equipment", 0))
+                        if curr_crit_ch > 100.0:
+                            c_over = curr_crit_ch - 100.0
+                            tot_c_dmg = curr_crit_dmg + (c_over * 4.0)
+                            eff_crit_ch_ratio = 1.0
+                        else:
+                            tot_c_dmg = curr_crit_dmg
+                            eff_crit_ch_ratio = max(0.0, curr_crit_ch / 100.0)
+
+                        crit_mult_val = tot_c_dmg / 100.0
+                        ammo_mult = 1.0 + (ammo_spec["bonus_pct"] / 100.0)
+                        pill_mult = 1.60
+                        sim_atk = (base_atk + equipped_weapon_atk + atk_overflow + p_atk_bonus) * rank_mult * ammo_mult * pill_mult
+                        hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
+                        miss_dmg = sim_atk * 0.5
+                        sim_dmg = round((eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * 1.50, 1)
                     else:
                         sim_dmg = 0.0
                         sim_hp_cost = 6.5
                         eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
                         eff_armor = float(skills.get("armor", {}).get("totalAfterSoftCap", 0)) or 24.0
+                        eff_prec_ratio = 0.5
+                        hits_per_armor_set = 100.0
                 else:
                     s_def = strat["slots_def"]
-                    sim_dmg, sim_hp_cost, eff_dodge, eff_armor = simulate_tier_combat(
+                    sim_dmg, sim_hp_cost, eff_dodge, eff_armor, hits_per_armor_set, eff_prec_ratio = simulate_tier_combat(
                         s_def["weapon_atk"], s_def["weapon_crit_chance"],
                         s_def["helmet_crit_dmg"],
                         s_def["chest_armor"], s_def["pants_armor"],
@@ -564,17 +666,10 @@ class CombatDamageCalculator:
                     # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
                     weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
     
-                    # 2. Armor & Equipment durability burn (attenuated by dodge and armor absorption!)
-                    # Empirical calibration from M1ph 8-hour live telemetry:
-                    # - Set 1 (T5 47, Armor 96, Dodge 45): 202-203 hits (~0.49% per hit)
-                    # - Set 2 (T5 45, Armor 95, Dodge 45): 218-239 hits (~0.45% per hit)
-                    # - Set 3 (T4 25, Armor 75, Dodge 43): 66 hits -> 34% wear (0.515% per hit -> ~194 hits)
-                    # 1 full set of armor absorbs ~110-115 non-dodged hits before breaking.
-                    # Higher armor tier (T5 vs T4) gives additional resilience (+10% for T5 vs T4).
-                    eff_non_dodge = max(0.12, 1.0 - (eff_dodge / 100.0))
-                    armor_resilience_mult = 1.0 + max(0.0, eff_armor - 70.0) / 250.0
-                    hits_per_armor_set = (110.0 * armor_resilience_mult) / eff_non_dodge
-                    armor_sets_burned = max(1, math.ceil(hits_needed / hits_per_armor_set)) if hits_needed > 0 else 1
+                    # 2. Armor & Equipment durability burn (attenuated by dodge absorption!)
+                    # Exact game physics (Athena & Intel Builder): 1 set absorbs 100 non-dodged hits.
+                    # hits_per_armor_set = 100 * (1 + dodge / 40)
+                    armor_sets_burned = max(1, math.ceil(hits_needed / max(1.0, hits_per_armor_set))) if hits_needed > 0 else 1
     
                     # 3. Ammo consumption (1 ammo per hit)
                     ammo_units_needed = hits_needed
@@ -913,7 +1008,57 @@ class CombatDamageCalculator:
     
                     grand_total = round(gear_cost + ammo_cost + food_cost + pill_cost, 2)
                     cost_per_m_dmg = round((grand_total / max(1.0, deficit_damage)) * 1_000_000, 1) if deficit_damage > 0 else 0.0
-    
+
+                    # Resolve item tiers for scrap recovery
+                    if strat.get("is_current"):
+                        if not has_equipped_weapon:
+                            w_tier = 0
+                    else:
+                        s_def = strat["slots_def"]
+                        w_tier = EQUIPMENT_METADATA.get(s_def.get("weapon_code", "sniper"), {}).get("tier", 4)
+                        h_tier = EQUIPMENT_METADATA.get(s_def.get("helmet_code", "helmet4"), {}).get("tier", 4)
+                        g_tier = EQUIPMENT_METADATA.get(s_def.get("gloves_code", "gloves4"), {}).get("tier", 4)
+                        c_tier = EQUIPMENT_METADATA.get(s_def.get("chest_code", "chest4"), {}).get("tier", 4)
+                        p_tier = EQUIPMENT_METADATA.get(s_def.get("pants_code", "pants4"), {}).get("tier", 4)
+                        b_tier = EQUIPMENT_METADATA.get(s_def.get("boots_code", "boots4"), {}).get("tier", 4)
+
+                    # --- Economic income & Net profit calculations (Athena & Intel Builder engine) ---
+                    # 1. Expected Case Drops (Athena & Intel Builder: Drop = Hits * LootChance * Precision)
+                    expected_case1 = round(hits_needed * loot_chance_ratio * eff_prec_ratio, 2) if hits_needed > 0 else 0.0
+                    expected_case2 = round(hits_needed * (loot_chance_ratio / 100.0) * eff_prec_ratio, 3) if hits_needed > 0 else 0.0
+                    case1_val = round(expected_case1 * case1_price, 2)
+                    case2_val = round(expected_case2 * case2_price, 2)
+                    total_cases_val = round(case1_val + case2_val, 2)
+
+                    # 2. Scrap Recovery (1/3 of craft requirement returned on gear destruction)
+                    if strat.get("is_current"):
+                        # In current gear, player only wears 1 weapon and 1 armor set without new purchases
+                        weapons_destroyed = min(1, weapons_burned) if has_equipped_weapon else 0
+                        armor_sets_destroyed = min(1, armor_sets_burned) if has_equipped_armor else 0
+                    else:
+                        weapons_destroyed = weapons_burned
+                        armor_sets_destroyed = armor_sets_burned
+
+                    w_scrap = (weapons_destroyed * SCRAP_RECOVERY_BY_TIER.get(w_tier, 54)) if hits_needed > 0 else 0
+                    armor_scrap_per_set = (
+                        SCRAP_RECOVERY_BY_TIER.get(h_tier, 54) +
+                        SCRAP_RECOVERY_BY_TIER.get(g_tier, 54) +
+                        SCRAP_RECOVERY_BY_TIER.get(c_tier, 54) +
+                        SCRAP_RECOVERY_BY_TIER.get(p_tier, 54) +
+                        SCRAP_RECOVERY_BY_TIER.get(b_tier, 54)
+                    )
+                    a_scrap = (armor_sets_destroyed * armor_scrap_per_set) if hits_needed > 0 else 0
+                    total_scrap_units = w_scrap + a_scrap
+                    scrap_val = round(total_scrap_units * scrap_price, 2)
+
+                    # 3. Clan / Battle Bounty Income
+                    bounty_income = round((deficit_damage / 1000.0) * bounty_rate, 2) if deficit_damage > 0 else 0.0
+
+                    # 4. Net Profit / Net Cost
+                    total_income = round(bounty_income + total_cases_val + scrap_val, 2)
+                    net_cost = round(grand_total - total_income, 2)
+                    net_profit = round(total_income - grand_total, 2)
+
                     opt_record = {
                         "strategy_key": f"{strat['key']}_{f_key}_{ammo_key}",
                         "base_key": strat["key"],
@@ -952,6 +1097,17 @@ class CombatDamageCalculator:
                         "gear_cost": round(gear_cost, 2),
                         "pill_cost": round(pill_cost, 2),
                         "grand_total_cost": grand_total,
+                        "expected_case1": expected_case1,
+                        "expected_case2": expected_case2,
+                        "case1_value": case1_val,
+                        "case2_value": case2_val,
+                        "total_cases_value": total_cases_val,
+                        "total_scrap": total_scrap_units,
+                        "scrap_value": scrap_val,
+                        "bounty_income": bounty_income,
+                        "total_income": total_income,
+                        "net_cost": net_cost,
+                        "net_profit": net_profit,
                         "build_slots": build_slots,
                         "shopping_items": shopping_items,
                         "shopping_count": len(shopping_items),
@@ -959,30 +1115,33 @@ class CombatDamageCalculator:
                     }
                     evaluated_options.append(opt_record)
     
-        # Identify Best Value option (cheapest among reachable ones)
+        # Identify Best Value option (lowest net_cost among reachable green ammo builds)
         feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
         if feasible_opts:
             # User rule: "Завжди збираємо білд зеленими патронами, синіми тільки якщо не дотягуємо"
             # Prioritize reachable options using green ammo (lightAmmo) first!
-            # Only fall back to blue/heavy ammo if green ammo cannot reach the goal in this session.
+            # Sort by lowest net_cost (best financial bottom line), then lowest hunger usage
             green_feasible = [o for o in feasible_opts if o["ammo_key"] == "lightAmmo"]
             if green_feasible:
-                green_feasible.sort(key=lambda x: (x["grand_total_cost"], x["hunger_usage_pct"]))
+                green_feasible.sort(key=lambda x: (x["net_cost"], x["hunger_usage_pct"]))
                 best_opt = green_feasible[0]
             else:
-                feasible_opts.sort(key=lambda x: (x["grand_total_cost"], x["hunger_usage_pct"]))
+                feasible_opts.sort(key=lambda x: (x["net_cost"], x["hunger_usage_pct"]))
                 best_opt = feasible_opts[0]
 
             best_opt["is_best_value"] = True
-            cheapest_total = best_opt["grand_total_cost"]
+            cheapest_net = best_opt["net_cost"]
 
             for o in evaluated_options:
-                o["savings_vs_best"] = round(o["grand_total_cost"] - cheapest_total, 2)
+                o["savings_vs_best"] = round(o["net_cost"] - cheapest_net, 2)
         else:
             # If none can fully reach in 1 session, pick the one that gets closest to reaching (lowest hunger usage overflow)
             valid_non_naked = [o for o in evaluated_options if not o.get("is_naked")]
             if valid_non_naked:
-                valid_non_naked.sort(key=lambda x: (x["hunger_usage_pct"], x["grand_total_cost"]))
+                valid_non_naked.sort(key=lambda x: (x["hunger_usage_pct"], x["net_cost"]))
+                valid_non_naked[0]["is_best_value"] = True
+            elif evaluated_options:
+                evaluated_options[0]["is_best_value"] = True
                 valid_non_naked[0]["is_best_value"] = True
             elif evaluated_options:
                 evaluated_options[0]["is_best_value"] = True

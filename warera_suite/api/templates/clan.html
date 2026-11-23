@@ -1321,6 +1321,9 @@
                             <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
                                 <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Сумарний бюджет:</div>
                                 <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
+                                <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                    ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} ₴
+                                </div>
                                 <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} ₴ / 1M урону</div>
                                 ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} ₴ дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
@@ -1364,6 +1367,46 @@
                                     <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
                                 </div>
                                 <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                            </div>
+                        </div>
+
+                        <!-- 3 Economics & Loot Badges (Athena & Intel Builder engine) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-2 border-t border-bordercolor/40">
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">🎁</span>
+                                    <div>
+                                        <div class="text-[10px] uppercase font-bold text-gray-400">Очікуваний дроп кейсів</div>
+                                        <div class="text-white font-mono font-bold text-xs">
+                                            <span>${stratToShow.expected_case1 || 0} <span class="text-amber-400 text-[10px]">дер.</span></span>
+                                            <span class="text-gray-400 mx-1">+</span>
+                                            <span>${stratToShow.expected_case2 || 0} <span class="text-sky-400 text-[10px]">зал.</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs">+${formatNumber(stratToShow.total_cases_value || 0)} ₴</div>
+                            </div>
+
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">♻️</span>
+                                    <div>
+                                        <div class="text-[10px] uppercase font-bold text-gray-400">Брухт (1/3 Scrap)</div>
+                                        <div class="text-white font-mono font-bold text-xs">${formatNumber(stratToShow.total_scrap || 0)} <span class="text-gray-400 text-[10px]">од. брухту</span></div>
+                                    </div>
+                                </div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs">+${formatNumber(stratToShow.scrap_value || 0)} ₴</div>
+                            </div>
+
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">⚔️</span>
+                                    <div>
+                                        <div class="text-[10px] uppercase font-bold text-gray-400">Баунті клану</div>
+                                        <div class="text-white font-mono font-bold text-xs">~0.20 ₴ / 1k урону</div>
+                                    </div>
+                                </div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs">+${formatNumber(stratToShow.bounty_income || 0)} ₴</div>
                             </div>
                         </div>
                     </div>
@@ -1425,7 +1468,10 @@
                                 <div class="text-[9px] text-gray-500 font-mono">${s.hunger_usage_pct}% ліміту</div>
                             </td>
                             <td class="p-2.5 text-right font-black text-xs ${isBest ? 'text-emerald-400 text-sm' : 'text-gray-200'}">
-                                ${formatNumber(s.grand_total_cost)} ₴
+                                <div>${formatNumber(s.grand_total_cost)} ₴</div>
+                                <div class="text-[9px] font-mono font-semibold ${s.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                    ${s.net_profit >= 0 ? 'Профіт +' : 'Мінус '}${formatNumber(s.net_profit)} ₴
+                                </div>
                                 ${s.savings_vs_best > 0 ? `<div class="text-[9px] text-gray-500 font-normal">+${formatNumber(s.savings_vs_best)} ₴</div>` : ''}
                             </td>
                             <td class="p-2.5 text-center font-sans">
@@ -1451,7 +1497,8 @@
             if (!strat) return;
 
             document.getElementById('calcSelectedStratLabel').innerText = `${strat.label} (${strat.food_name})`;
-            document.getElementById('calcSelectedGrandTotal').innerText = `${formatNumber(strat.grand_total_cost)} ₴`;
+            const netBadge = `<span class="text-xs font-mono font-bold ml-2 ${strat.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">(${strat.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(strat.net_profit)} ₴)</span>`;
+            document.getElementById('calcSelectedGrandTotal').innerHTML = `${formatNumber(strat.grand_total_cost)} ₴ ${netBadge}`;
 
             const grid = document.getElementById('calcGearSlotsGrid');
             if (grid) {
@@ -1802,7 +1849,7 @@
                                     <th class="p-2.5 text-center">🔫 Зброя</th>
                                     <th class="p-2.5 text-center">🦺 Броня</th>
                                     <th class="p-2.5 text-center">🥪 Їжа / Ліміт</th>
-                                    <th class="p-2.5 text-right font-bold text-gray-200">💰 Разом</th>
+                                    <th class="p-2.5 text-right font-bold text-gray-200">💰 Бюджет / Профіт</th>
                                     <th class="p-2.5 text-center">Статус</th>
                                 </tr>
                             </thead>
