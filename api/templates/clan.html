@@ -111,67 +111,88 @@
 
                 <!-- Live Salvo Highlight Card -->
                 <div class="bg-gradient-to-br from-rose-950/40 to-cardbg p-3 sm:p-3.5 rounded-xl border border-rose-500/30 flex items-center gap-3 sm:gap-4 shrink-0 shadow-lg">
-                    <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xl sm:text-2xl shrink-0">
+                    <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-lg sm:text-xl shrink-0">
                         <i class="fa-solid fa-crosshairs"></i>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
+                        <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300 flex items-center gap-1.5 mb-1">
                             <span>Залп клану за таблетку</span>
                             <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer" title="Сумарний дамаг бойових бійців клану за 1 повну таблетку (8 год) з повним зливом 100% HP та їжі. Еко-воїни виключені з розрахунку."></i>
                         </div>
-                        <div class="text-xl sm:text-2xl font-black text-white mt-0.5" id="statClanSalvo">--</div>
-                        <div class="text-[10px] sm:text-[11px] text-gray-400 flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
-                            <span>🔥 Залишок: <b id="statActiveSalvo" class="text-rose-400 font-extrabold">--</b></span>
-                            <span class="text-gray-600">|</span>
-                            <span>Сьогодні: <b id="statClanToday" class="text-emerald-400 font-extrabold">--</b></span>
-                            <span class="text-gray-600">|</span>
-                            <span>Вчора: <b id="statClanYesterday" class="text-indigo-300 font-bold">--</b></span>
+                        <div class="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 sm:gap-3 text-xs sm:text-sm">
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-[11px] text-gray-400">Залп:</span>
+                                <b id="statClanSalvo" class="text-white font-bold font-mono text-sm sm:text-base">--</b>
+                            </div>
+                            <span class="text-gray-600 hidden sm:inline">|</span>
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-[11px] text-gray-400">🔥 Залишок:</span>
+                                <b id="statActiveSalvo" class="text-rose-400 font-bold font-mono text-sm sm:text-base">--</b>
+                            </div>
+                            <span class="text-gray-600 hidden sm:inline">|</span>
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-[11px] text-gray-400">Сьогодні:</span>
+                                <b id="statClanToday" class="text-emerald-400 font-bold font-mono text-sm sm:text-base">--</b>
+                            </div>
+                            <span class="text-gray-600 hidden sm:inline">|</span>
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-[11px] text-gray-400">Вчора:</span>
+                                <b id="statClanYesterday" class="text-indigo-300 font-bold font-mono text-sm sm:text-base">--</b>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 4 Key Stat Summary Cards -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <!-- 4 Key Stat Summary Cards (Compact 3x smaller) -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
             <!-- 1. Вар білди -->
-            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Бойові білди (War)</span>
-                    <i class="fa-solid fa-swords text-emerald-400"></i>
+                    <i class="fa-solid fa-swords text-emerald-400 text-xs"></i>
                 </div>
-                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-emerald-400" id="statWarCount">--</div>
-                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statWarSub">-- бійців (≥70% вар)</div>
+                <div class="flex items-baseline justify-between mt-0.5">
+                    <span class="text-sm sm:text-base font-extrabold text-emerald-400" id="statWarCount">--</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statWarSub">-- бійців (≥70% вар)</span>
+                </div>
             </div>
 
             <!-- 2. Таблетка (Бойова готовність) -->
-            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Під таблеткою (+60%)</span>
-                    <i class="fa-solid fa-capsules text-purple-400"></i>
+                    <i class="fa-solid fa-capsules text-purple-400 text-xs"></i>
                 </div>
-                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-purple-300" id="statPillActive">--</div>
-                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statPillSub">-- можуть пити таблетку</div>
+                <div class="flex items-baseline justify-between mt-0.5">
+                    <span class="text-sm sm:text-base font-extrabold text-purple-300" id="statPillActive">--</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statPillSub">-- готові</span>
+                </div>
             </div>
 
             <!-- 3. Еко-тил / Гібриди -->
-            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Еко-тил & Гібриди</span>
-                    <i class="fa-solid fa-tractor text-amber-400"></i>
+                    <i class="fa-solid fa-tractor text-amber-400 text-xs"></i>
                 </div>
-                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-amber-300" id="statEcoCount">--</div>
-                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statEcoSub">-- еко · -- гібрид</div>
+                <div class="flex items-baseline justify-between mt-0.5">
+                    <span class="text-sm sm:text-base font-extrabold text-amber-300" id="statEcoCount">--</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statEcoSub">-- еко · -- гібрид</span>
+                </div>
             </div>
 
             <!-- 4. Активність / AFK -->
-            <div class="glass-panel p-3.5 sm:p-4 rounded-xl border border-bordercolor shadow-md hover:border-gray-600 transition-all">
-                <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Детектор онлайну</span>
-                    <i class="fa-solid fa-clock text-blue-400"></i>
+                    <i class="fa-solid fa-clock text-blue-400 text-xs"></i>
                 </div>
-                <div class="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-black text-blue-400" id="statOnlineCount">--</div>
-                <div class="text-[11px] sm:text-xs text-gray-400 mt-1 truncate" id="statAfkSub">-- інактив (>24 год)</div>
+                <div class="flex items-baseline justify-between mt-0.5">
+                    <span class="text-sm sm:text-base font-extrabold text-blue-400" id="statOnlineCount">--</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statAfkSub">-- інактив (>24 год)</span>
+                </div>
             </div>
         </section>
 
