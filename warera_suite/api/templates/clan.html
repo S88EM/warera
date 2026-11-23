@@ -665,7 +665,7 @@
                                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                                     <span>${m.username}</span>
                                     <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
-                                    <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
                                         <span>🎯</span>
                                         <span class="text-[10px] hidden xl:inline">Ціль</span>
                                     </button>
@@ -721,7 +721,7 @@
                             ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                         </div>
                         ${m.target_damage ? `
-                            <div class="mt-2 flex flex-col items-end cursor-pointer group p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" title="Клікніть, щоб змінити ціль або переглянути розрахунок спорядження">
+                            <div data-user="${encodeURIComponent(m.username)}" class="mt-2 flex flex-col items-end cursor-pointer group p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль або переглянути розрахунок спорядження">
                                 <div class="flex items-center gap-1.5 mb-1 text-xs">
                                     <span class="text-gray-400 group-hover:text-blue-300 font-medium transition-colors">🎯 Ціль:</span>
                                     <span class="font-extrabold font-mono text-emerald-400 group-hover:text-emerald-300 transition-colors">${formatMillions(m.target_damage)}</span>
@@ -732,7 +732,7 @@
                                 </div>
                             </div>
                         ` : `
-                            <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
+                            <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
                                 <span class="group-hover:scale-110 transition-transform">🎯</span>
                                 <span>Ціль</span>
                             </button>
@@ -831,7 +831,7 @@
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
                                     <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
-                                    <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
                                         <span>🎯</span>
                                         <span class="text-[10px]">Ціль</span>
                                     </button>
@@ -888,7 +888,7 @@
                                 ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                             </div>
                             ${m.target_damage ? `
-                                <div class="mt-1.5 flex flex-col items-center cursor-pointer p-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" title="Клікніть, щоб змінити ціль">
+                                <div data-user="${encodeURIComponent(m.username)}" class="mt-1.5 flex flex-col items-center cursor-pointer p-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль">
                                     <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-400 mb-1">
                                         <span>🎯 ${m.target_progress_pct}%</span>
                                         <span class="text-gray-400 font-normal">з</span>
@@ -899,7 +899,7 @@
                                     </div>
                                 </div>
                             ` : `
-                                <button onclick="event.stopPropagation(); openTargetCalculator('${m.username.replace(/'/g, &quot;\\'&quot;)}')" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
+                                <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
                                     <span>🎯 Ціль</span>
                                 </button>
                             `}
