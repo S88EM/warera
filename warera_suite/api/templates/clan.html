@@ -1448,23 +1448,31 @@
                             tierPill = ''; // No tier pill for ammo & food!
                             if (item.slot === 'ammo') {
                                 if (item.item_code === 'lightAmmo') {
-                                    cardBorder = 'border-emerald-500/60';
+                                    cardBorder = 'border-emerald-500/70';
                                     cardBg = 'bg-gradient-to-b from-[#0a2016] via-[#07160f] to-[#040c08]';
-                                    cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.18)]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.25)]';
                                 } else if (item.item_code === 'heavyAmmo') {
-                                    cardBorder = 'border-purple-500/60';
+                                    cardBorder = 'border-purple-500/70';
                                     cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
-                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.18)]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.25)]';
                                 } else {
-                                    cardBorder = 'border-blue-500/60';
+                                    // standard blue ammo
+                                    cardBorder = 'border-blue-500/70';
                                     cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
-                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.18)]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.25)]';
                                 }
                             } else {
-                                // Food styling
-                                cardBorder = 'border-amber-600/50';
-                                cardBg = 'bg-gradient-to-b from-[#24130a] via-[#170c06] to-[#0c0603]';
-                                cardGlow = 'shadow-[0_4px_16px_rgba(249,115,22,0.18)]';
+                                // Food styling: User requested Steak = Blue background, Fish = Purple background!
+                                if (item.item_code === 'cookedFish' || item.item_code === 'fish') {
+                                    cardBorder = 'border-purple-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.25)]';
+                                } else {
+                                    // steak
+                                    cardBorder = 'border-blue-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.25)]';
+                                }
                             }
                         } else if (rarity === 'mythic' || item.tier === 6) {
                             cardBorder = 'border-rose-500/60';

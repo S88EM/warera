@@ -952,8 +952,17 @@ class CombatDamageCalculator:
         # Identify Best Value option (cheapest among reachable ones)
         feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
         if feasible_opts:
-            feasible_opts.sort(key=lambda x: x["grand_total_cost"])
-            best_opt = feasible_opts[0]
+            # User rule: "Завжди збираємо білд зеленими патронами, синіми тільки якщо не дотягуємо"
+            # Prioritize reachable options using green ammo (lightAmmo) first!
+            # Only fall back to blue/heavy ammo if green ammo cannot reach the goal in this session.
+            green_feasible = [o for o in feasible_opts if o["ammo_key"] == "lightAmmo"]
+            if green_feasible:
+                green_feasible.sort(key=lambda x: (x["grand_total_cost"], x["hunger_usage_pct"]))
+                best_opt = green_feasible[0]
+            else:
+                feasible_opts.sort(key=lambda x: (x["grand_total_cost"], x["hunger_usage_pct"]))
+                best_opt = feasible_opts[0]
+
             best_opt["is_best_value"] = True
             cheapest_total = best_opt["grand_total_cost"]
 
