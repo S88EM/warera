@@ -210,6 +210,7 @@ class CombatDamageCalculator:
 
         # 3. Base Character Stats
         base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
+        atk_overflow = float(skills.get("attack", {}).get("overflow", 0))
         rank_bonus_pct = float(player_member.get("rank_bonus_pct") or skills.get("attack", {}).get("militaryRankPercent", 0.0))
         rank_mult = 1.0 + (rank_bonus_pct / 100.0)
 
@@ -332,7 +333,7 @@ class CombatDamageCalculator:
             # 2. Attack per hit with weapon & ammo
             eff_w_atk = max(equipped_weapon_atk, w_atk)
             ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
-            sim_atk = (base_atk + eff_w_atk) * rank_mult * ammo_mult * 1.60
+            sim_atk = (base_atk + eff_w_atk + atk_overflow) * rank_mult * ammo_mult * 1.60
 
             # 3. Precision & Crits
             curr_prec = float(skills.get("precision", {}).get("value", 75))
@@ -353,7 +354,7 @@ class CombatDamageCalculator:
             crit_mult = (1.0 - prec_ratio) * 0.5 + prec_ratio * ((1.0 - crit_ch_ratio) * 1.0 + crit_ch_ratio * crit_hit_mult)
 
             avg_dmg = sim_atk * crit_mult * 1.50 # Standard clan battle bonus (+50%)
-            return round(avg_dmg, 1), round(hp_cost, 2), round(eff_dodge, 1)
+            return round(avg_dmg, 1), round(hp_cost, 2), round(eff_dodge, 1), round(eff_armor, 1)
 
         # Resolve Ammo Selection: prioritize Green Light ammo (0.20 ₴) for maximum economy
         def get_best_ammo_for_tier(tier_num: float) -> str:
@@ -497,13 +498,15 @@ class CombatDamageCalculator:
                         sim_dmg = round(base_calc_dmg * ammo_ratio, 1)
                         sim_hp_cost = curr_hp_cost if curr_hp_cost > 0 else 1.30
                         eff_dodge = curr_dodge_pct if curr_dodge_pct > 0 else 47.5
+                        eff_armor = float(skills.get("armor", {}).get("totalAfterSoftCap", 0)) or 55.0
                     else:
                         sim_dmg = 0.0
                         sim_hp_cost = 6.5
                         eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
+                        eff_armor = float(skills.get("armor", {}).get("totalAfterSoftCap", 0)) or 24.0
                 else:
                     s_def = strat["slots_def"]
-                    sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
+                    sim_dmg, sim_hp_cost, eff_dodge, eff_armor = simulate_tier_combat(
                         s_def["weapon_atk"], s_def["weapon_crit_chance"],
                         s_def["helmet_crit_dmg"],
                         s_def["chest_armor"], s_def["pants_armor"],
@@ -561,10 +564,17 @@ class CombatDamageCalculator:
                     # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
                     weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
     
-                    # 2. Armor & Equipment durability burn (attenuated by dodge!)
-                    # Hits absorbed by armor = hits * (1 - dodge)
-                    armor_hits = hits_needed * (1.0 - (eff_dodge / 100.0))
-                    armor_sets_burned = max(1, math.ceil(armor_hits / 100.0)) if hits_needed > 0 else 1
+                    # 2. Armor & Equipment durability burn (attenuated by dodge and armor absorption!)
+                    # Empirical calibration from M1ph 8-hour live telemetry:
+                    # - Set 1 (T5 47, Armor 96, Dodge 45): 202-203 hits (~0.49% per hit)
+                    # - Set 2 (T5 45, Armor 95, Dodge 45): 218-239 hits (~0.45% per hit)
+                    # - Set 3 (T4 25, Armor 75, Dodge 43): 66 hits -> 34% wear (0.515% per hit -> ~194 hits)
+                    # 1 full set of armor absorbs ~110-115 non-dodged hits before breaking.
+                    # Higher armor tier (T5 vs T4) gives additional resilience (+10% for T5 vs T4).
+                    eff_non_dodge = max(0.12, 1.0 - (eff_dodge / 100.0))
+                    armor_resilience_mult = 1.0 + max(0.0, eff_armor - 70.0) / 250.0
+                    hits_per_armor_set = (110.0 * armor_resilience_mult) / eff_non_dodge
+                    armor_sets_burned = max(1, math.ceil(hits_needed / hits_per_armor_set)) if hits_needed > 0 else 1
     
                     # 3. Ammo consumption (1 ammo per hit)
                     ammo_units_needed = hits_needed
