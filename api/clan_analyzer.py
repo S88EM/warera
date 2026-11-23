@@ -118,14 +118,7 @@ class WarEraClanAnalyzer:
         return None
 
     async def get_owner_user(self) -> Optional[Dict[str, Any]]:
-        workforce = await self._call_trpc("user.getWorkforce")
-        if workforce and isinstance(workforce, dict):
-            employees = workforce.get("employees", [])
-            if employees:
-                owner_id = employees[0].get("user")
-                if owner_id:
-                    return await self._call_trpc("user.getUserById", {"userId": owner_id})
-        return None
+        return await self.resolve_user_by_name("Luc1fer")
 
     def _format_relative_time(self, iso_str: Optional[str]) -> str:
         if not iso_str:

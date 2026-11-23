@@ -1,7 +1,7 @@
 name: "WarEra Suite"
 slug: "warera_suite"
-version: "1.8.8"
-description: "Автономний комплекс для WarEra: Штаб клану (Combat Intelligence), аналіз фабрик і кадрів (Workforce), сканер ринку спорядження з Web UI та Telegram сповіщеннями"
+version: "1.9.0"
+description: "Автономний комплекс для WarEra: Штаб клану (Combat Intelligence), сканер битв і баунті (Purple Sniper), сканер ринку спорядження з Web UI та Telegram сповіщеннями"
 url: "https://warera.io"
 arch:
   - aarch64

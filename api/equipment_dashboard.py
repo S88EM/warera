@@ -292,32 +292,6 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "item": item_code, "offers": offers})
             return
 
-        # Workforce & Factory Intelligence routes
-        if clean_path.endswith("/workers") or clean_path.endswith("/workforce"):
-            import worker_dashboard
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(worker_dashboard.DASHBOARD_HTML.encode("utf-8"))
-            return
-
-        if clean_path.endswith("/api/analyze"):
-            from worker_analyzer import WarEraWorkerAnalyzer
-            query_params = parse_qs(parsed.query)
-            nick = query_params.get("nick", [None])[0]
-            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
-            analyzer = WarEraWorkerAnalyzer(api_key=user_key) if user_key else WarEraWorkerAnalyzer()
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                data = loop.run_until_complete(analyzer.analyze_user(nick))
-                loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
         # 2b-3. Active Mercenary Contract Auctions API endpoint (PUBLIC, Zero-Auth)
         if clean_path.endswith("/api/auctions"):
             try:
@@ -343,7 +317,7 @@ class EquipmentDashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
             return
 
-        # Serve SPA HTML for Ingress (Owner UI: Market Scanner & Workforce)
+        # Serve SPA HTML for Ingress (Owner UI: Market Scanner)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
