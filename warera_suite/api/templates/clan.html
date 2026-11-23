@@ -1442,7 +1442,31 @@
                         let cardGlow = '';
                         let tierPill = '';
 
-                        if (rarity === 'mythic' || item.tier === 6) {
+                        const isConsumable = item.is_consumable || item.slot === 'ammo' || item.slot === 'food';
+
+                        if (isConsumable) {
+                            tierPill = ''; // No tier pill for ammo & food!
+                            if (item.slot === 'ammo') {
+                                if (item.item_code === 'lightAmmo') {
+                                    cardBorder = 'border-emerald-500/60';
+                                    cardBg = 'bg-gradient-to-b from-[#0a2016] via-[#07160f] to-[#040c08]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.18)]';
+                                } else if (item.item_code === 'heavyAmmo') {
+                                    cardBorder = 'border-purple-500/60';
+                                    cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.18)]';
+                                } else {
+                                    cardBorder = 'border-blue-500/60';
+                                    cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.18)]';
+                                }
+                            } else {
+                                // Food styling
+                                cardBorder = 'border-amber-600/50';
+                                cardBg = 'bg-gradient-to-b from-[#24130a] via-[#170c06] to-[#0c0603]';
+                                cardGlow = 'shadow-[0_4px_16px_rgba(249,115,22,0.18)]';
+                            }
+                        } else if (rarity === 'mythic' || item.tier === 6) {
                             cardBorder = 'border-rose-500/60';
                             cardBg = 'bg-gradient-to-b from-[#260a12] via-[#1a070c] to-[#0e0407]';
                             cardGlow = 'shadow-[0_4px_16px_rgba(244,63,94,0.18)]';
@@ -1495,6 +1519,12 @@
                             `;
                         }
 
+                        const fallbackSrc = item.slot === 'food' 
+                            ? 'https://media.warera.io/images/itemsv2/steak.png' 
+                            : (item.slot === 'ammo' 
+                                ? 'https://media.warera.io/images/itemsv2/lightAmmo.png' 
+                                : 'https://media.warera.io/images/itemsv2/sniper.png');
+
                         return `
                             <div class="glass-panel p-2.5 sm:p-3 rounded-2xl border-2 ${cardBorder} ${cardBg} ${cardGlow} flex flex-col justify-between hover:border-gray-400 transition-all group relative overflow-hidden">
                                 <!-- Top slot label + tier pill -->
@@ -1509,7 +1539,7 @@
                                 <!-- Center: Item Image & Name -->
                                 <div class="py-1.5 text-center">
                                     <div class="h-14 sm:h-16 flex items-center justify-center">
-                                        <img src="${item.image_url}" class="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform" onerror="this.onerror=null; this.src='https://media.warera.io/images/itemsv2/sniper.png';">
+                                        <img src="${item.image_url}" class="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform" onerror="this.onerror=null; this.src='${fallbackSrc}';">
                                     </div>
                                     <div class="font-extrabold text-white text-xs sm:text-[13px] truncate mt-1" title="${item.name}">${item.name}</div>
                                     

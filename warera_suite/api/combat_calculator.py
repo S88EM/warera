@@ -578,19 +578,53 @@ class CombatDamageCalculator:
                 if strat.get("is_current"):
                     # Slot 1: Weapon
                     if has_equipped_weapon:
-                        w_tier = 5 if equipped_weapon_atk >= 140 else (4 if equipped_weapon_atk >= 100 else 3)
-                        w_code = "tank" if w_tier == 5 else ("sniper" if w_tier == 4 else "rifle")
+                        w_crit = float(skills.get("criticalChance", {}).get("weapon", 0))
+                        # Accurate detection: Sniper vs Tank vs Jet based on crit chance & attack
+                        if w_crit >= 38 or equipped_weapon_atk >= 230:
+                            w_tier = 6
+                            w_code = "jet"
+                            w_name = "Винищувач VI"
+                            w_rarity = "mythic"
+                        elif w_crit >= 25 or equipped_weapon_atk >= 165:
+                            w_tier = 5
+                            w_code = "tank"
+                            w_name = "Танк V"
+                            w_rarity = "legendary"
+                        elif w_crit >= 15 or equipped_weapon_atk >= 95:
+                            w_tier = 4
+                            w_code = "sniper"
+                            w_name = "Снайперка IV"
+                            w_rarity = "epic"
+                        elif w_crit >= 10 or equipped_weapon_atk >= 65:
+                            w_tier = 3
+                            w_code = "rifle"
+                            w_name = "Гвинтівка III"
+                            w_rarity = "rare"
+                        else:
+                            w_tier = 2
+                            w_code = "gun"
+                            w_name = "Пістолет II"
+                            w_rarity = "uncommon"
+
+                        # Formatted stats showing BOTH attack and critical chance
+                        if w_crit > 0:
+                            w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака • 🎯 {int(w_crit)}% Крит"
+                            w_stat_badge = f"🗡 {int(equipped_weapon_atk)} 🎯 {int(w_crit)}%"
+                        else:
+                            w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака"
+                            w_stat_badge = f"🗡 {int(equipped_weapon_atk)}"
+
                         build_slots.append({
                             "slot": "weapon",
                             "slot_title": "Зброя",
                             "item_code": w_code,
-                            "name": "Поточна зброя",
+                            "name": w_name,
                             "tier": w_tier,
-                            "rarity": "legendary" if w_tier == 5 else ("epic" if w_tier == 4 else "rare"),
+                            "rarity": w_rarity,
                             "image_url": get_item_image_url(w_code),
                             "icon": get_item_icon(w_code),
-                            "target_stats": f"🗡 {int(equipped_weapon_atk)} Атака",
-                            "stat_badge": f"🗡 {int(equipped_weapon_atk)}",
+                            "target_stats": w_stats_str,
+                            "stat_badge": w_stat_badge,
                             "qty_needed": 0,
                             "qty_required_total": 1,
                             "unit_price": 0.0,
@@ -626,11 +660,12 @@ class CombatDamageCalculator:
                     h_cd = float(skills.get("criticalDamages", {}).get("equipment", 0))
                     h_tier = 5 if h_cd >= 90 else (4 if h_cd >= 60 else (3 if h_cd > 0 else 0))
                     h_code = f"helmet{h_tier}" if h_tier in (3, 4, 5, 6) else "helmet4"
+                    h_roman = ('I','II','III','IV','V','VI')[h_tier-1] if 1 <= h_tier <= 6 else "IV"
                     build_slots.append({
                         "slot": "helmet",
                         "slot_title": "Шолом",
                         "item_code": h_code,
-                        "name": "Поточний шолом",
+                        "name": f"Шолом {h_roman}",
                         "tier": h_tier if h_tier > 0 else 4,
                         "rarity": "legendary" if h_tier == 5 else ("epic" if h_tier == 4 else ("rare" if h_tier == 3 else "common")),
                         "image_url": get_item_image_url(h_code),
@@ -651,11 +686,12 @@ class CombatDamageCalculator:
                     g_pr = float(skills.get("precision", {}).get("equipment", 0))
                     g_tier = 5 if g_pr >= 30 else (4 if g_pr >= 20 else (3 if g_pr > 0 else 0))
                     g_code = f"gloves{g_tier}" if g_tier in (3, 4, 5, 6) else "gloves4"
+                    g_roman = ('I','II','III','IV','V','VI')[g_tier-1] if 1 <= g_tier <= 6 else "IV"
                     build_slots.append({
                         "slot": "gloves",
                         "slot_title": "Рукавиці",
                         "item_code": g_code,
-                        "name": "Поточні рукавиці",
+                        "name": f"Рукавиці {g_roman}",
                         "tier": g_tier if g_tier > 0 else 4,
                         "rarity": "legendary" if g_tier == 5 else ("epic" if g_tier == 4 else ("rare" if g_tier == 3 else "common")),
                         "image_url": get_item_image_url(g_code),
@@ -676,11 +712,12 @@ class CombatDamageCalculator:
                     c_arm = int(equipped_armor / 2.0)
                     c_tier = 5 if c_arm >= 35 else (4 if c_arm >= 20 else (3 if c_arm > 0 else 0))
                     c_code = f"chest{c_tier}" if c_tier in (3, 4, 5, 6) else "chest4"
+                    c_roman = ('I','II','III','IV','V','VI')[c_tier-1] if 1 <= c_tier <= 6 else "IV"
                     build_slots.append({
                         "slot": "chest",
                         "slot_title": "Броня",
                         "item_code": c_code,
-                        "name": "Поточна броня",
+                        "name": f"Броня {c_roman}",
                         "tier": c_tier if c_tier > 0 else 4,
                         "rarity": "legendary" if c_tier == 5 else ("epic" if c_tier == 4 else ("rare" if c_tier == 3 else "common")),
                         "image_url": get_item_image_url(c_code),
@@ -701,11 +738,12 @@ class CombatDamageCalculator:
                     p_arm = int(equipped_armor / 2.0)
                     p_tier = 5 if p_arm >= 35 else (4 if p_arm >= 20 else (3 if p_arm > 0 else 0))
                     p_code = f"pants{p_tier}" if p_tier in (3, 4, 5, 6) else "pants4"
+                    p_roman = ('I','II','III','IV','V','VI')[p_tier-1] if 1 <= p_tier <= 6 else "IV"
                     build_slots.append({
                         "slot": "pants",
                         "slot_title": "Штани",
                         "item_code": p_code,
-                        "name": "Поточні штани",
+                        "name": f"Штани {p_roman}",
                         "tier": p_tier if p_tier > 0 else 4,
                         "rarity": "legendary" if p_tier == 5 else ("epic" if p_tier == 4 else ("rare" if p_tier == 3 else "common")),
                         "image_url": get_item_image_url(p_code),
@@ -726,11 +764,12 @@ class CombatDamageCalculator:
                     b_d = int(equipped_dodge)
                     b_tier = 5 if b_d >= 30 else (4 if b_d >= 20 else (3 if b_d > 0 else 0))
                     b_code = f"boots{b_tier}" if b_tier in (3, 4, 5, 6) else "boots4"
+                    b_roman = ('I','II','III','IV','V','VI')[b_tier-1] if 1 <= b_tier <= 6 else "IV"
                     build_slots.append({
                         "slot": "boots",
                         "slot_title": "Чоботи",
                         "item_code": b_code,
-                        "name": "Поточні чоботи",
+                        "name": f"Чоботи {b_roman}",
                         "tier": b_tier if b_tier > 0 else 4,
                         "rarity": "legendary" if b_tier == 5 else ("epic" if b_tier == 4 else ("rare" if b_tier == 3 else "common")),
                         "image_url": get_item_image_url(b_code),
@@ -807,13 +846,20 @@ class CombatDamageCalculator:
                         gear_cost += total_item_p
 
                 # Slot 7: Ammo
+                ammo_display_name = {
+                    "lightAmmo": "Зелені патрони",
+                    "ammo": "Сині патрони",
+                    "heavyAmmo": "Фіолетові патрони",
+                }.get(ammo_key, ammo_spec["name"])
+
                 ammo_item = {
                     "slot": "ammo",
                     "slot_title": "Патрони",
                     "item_code": ammo_key,
-                    "name": ammo_spec["name"],
-                    "tier": 3 if ammo_key == "lightAmmo" else (4 if ammo_key == "ammo" else 5),
-                    "rarity": "uncommon" if ammo_key == "lightAmmo" else ("rare" if ammo_key == "ammo" else "epic"),
+                    "name": ammo_display_name,
+                    "tier": 0,
+                    "rarity": "consumable",
+                    "is_consumable": True,
                     "image_url": get_item_image_url(ammo_key),
                     "icon": ammo_spec["icon"],
                     "target_stats": f"+{int(ammo_spec['bonus_pct'])}% Бонус атаки",
@@ -836,8 +882,9 @@ class CombatDamageCalculator:
                     "slot_title": "Їжа",
                     "item_code": f_key,
                     "name": f_spec["name"],
-                    "tier": 3,
-                    "rarity": "rare",
+                    "tier": 0,
+                    "rarity": "consumable",
+                    "is_consumable": True,
                     "image_url": get_item_image_url(f_key),
                     "icon": f_spec["icon"],
                     "target_stats": f"+{int(f_spec['hp_pct']*100)}% HP / 1 сит.",
