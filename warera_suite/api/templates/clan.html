@@ -62,6 +62,12 @@
 
             <!-- Header Actions -->
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <a href="./battles" class="px-2 sm:px-2.5 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 hover:text-white border border-purple-800/40 text-xs font-medium transition flex items-center gap-1.5" title="Purple Sniper">
+                    <i class="fa-solid fa-crosshairs text-purple-400"></i><span class="hidden md:inline">Снайпер </span>Битв
+                </a>
+                <a href="./" class="px-2 sm:px-2.5 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 hover:text-white border border-blue-800/40 text-xs font-medium transition flex items-center gap-1.5" title="Маркет Сканер">
+                    <i class="fa-solid fa-gem text-blue-400"></i><span class="hidden md:inline">Маркет</span>
+                </a>
                 <button onclick="copyDiscordReport()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5" title="Скопіювати бойовий звіт">
                     <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Скопіювати </span>звіт
                 </button>
@@ -288,6 +294,8 @@
     <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2"></div>
 
+    <!-- INCLUDE: common_utils.js -->
+
     <script>
         let clanData = null;
         let currentFilter = 'ALL';
@@ -307,17 +315,6 @@
             const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
             const customMult = 1.0 + (customBattleBonus / 100.0);
             return Math.round((m.pill_fish_hits || 0) * unbuffedHit * customMult);
-        }
-
-        function showToast(msg, isSuccess = true) {
-            const toast = document.getElementById('toast');
-            toast.className = `fixed bottom-5 right-5 z-50 transform translate-y-0 opacity-100 transition-all duration-300 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 ${
-                isSuccess ? 'bg-emerald-950 text-emerald-200 border border-emerald-600/50' : 'bg-rose-950 text-rose-200 border border-rose-600/50'
-            }`;
-            toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-check-circle text-emerald-400' : 'fa-circle-exclamation text-rose-400'}"></i> ${msg}`;
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
         }
 
         async function loadClanData(isManual = false) {
@@ -356,23 +353,6 @@
             } finally {
                 if (icon) icon.classList.remove('fa-spin');
             }
-        }
-
-        function formatNumber(num) {
-            if (num === undefined || num === null) return '0';
-            return num.toLocaleString('uk-UA');
-        }
-
-        function formatMillions(num) {
-            if (!num || isNaN(num)) return '0';
-            if (num >= 1000000) {
-                return (num / 1000000).toFixed(2) + 'M';
-            } else if (num >= 10000) {
-                return (num / 1000).toFixed(1) + 'k';
-            } else if (num >= 1000) {
-                return (num / 1000).toFixed(2) + 'k';
-            }
-            return num.toLocaleString('uk-UA');
         }
 
         function renderClanHeader() {

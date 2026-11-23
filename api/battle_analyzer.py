@@ -18,6 +18,8 @@ from typing import Dict, Any, List, Optional, Tuple
 import httpx
 
 import config
+from data_manager import get_data_file
+from warera_client import WarEraClient, get_warera_client
 
 logger = logging.getLogger("WarEraBattleAnalyzer")
 
@@ -176,23 +178,15 @@ def calculate_round_eta(current_tick: int, att_pts: int, def_pts: int, points_to
 
 
 class WarEraBattleAnalyzer:
-    def __init__(self, base_url: Optional[str] = None):
-        self.api_hosts = [
-            "https://api2.warera.io/trpc",
-            "https://api3.warera.io/trpc",
-            "https://api4.warera.io/trpc",
-            "https://api5.warera.io/trpc",
-            "https://api6.warera.io/trpc",
-        ]
-        self._host_rate_limits: Dict[str, float] = {}
-        self._ranks_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+    def __init__(self, base_url: Optional[str] = None, client: Optional[WarEraClient] = None):
+        self.client = client or get_warera_client()
+        self.api_hosts = self.client.api_hosts
         self._current_host_idx = 0
-        self._client: Optional[httpx.AsyncClient] = None
-        self._semaphore = asyncio.Semaphore(4)
-
-        self._countries_cache: Dict[str, Dict[str, Any]] = {}
-        self._regions_cache: Dict[str, Dict[str, Any]] = {}
-        self._users_cache: Dict[str, str] = {}
+        self._host_rate_limits = self.client._host_rate_limits
+        self._ranks_cache = self.client._ranks_cache
+        self._countries_cache = self.client._countries_cache
+        self._regions_cache = self.client._regions_cache
+        self._users_cache = self.client._users_cache
         self._meta_loaded = False
 
         # In-memory short-lived cache for complete intel report (8 seconds)
@@ -200,128 +194,23 @@ class WarEraBattleAnalyzer:
         self._cached_intel_time: float = 0.0
 
     async def get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            headers = {
-                "Accept": "application/json",
-                "User-Agent": "WarEraBattleIntel/1.2",
-            }
-            self._client = httpx.AsyncClient(
-                headers=headers,
-                timeout=15.0,
-                limits=httpx.Limits(max_keepalive_connections=20, max_connections=30)
-            )
-        return self._client
+        return await self.client.get_client()
 
     async def close(self):
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        await self.client.close()
 
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None) -> Any:
-        client = await self.get_client()
-        input_param = "{}" if payload is None else json.dumps(payload, separators=(',', ':'))
-        api_key = config.get_api_key()
-
-        async with self._semaphore:
-            # Pacing delay between requests to stay well below limits
-            await asyncio.sleep(0.04)
-            now = time.time()
-            for _ in range(len(self.api_hosts)):
-                host = self.api_hosts[self._current_host_idx]
-                if now < self._host_rate_limits.get(host, 0.0):
-                    # Host is cooling down, rotate to next node immediately
-                    self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                    continue
-
-                url = f"{host}/{endpoint}"
-                headers = {}
-                # WarEra rules: api2 accepts API tokens; api3-api6 forbid API tokens and require public anonymous requests
-                if "api2.warera.io" in host and api_key:
-                    headers["x-api-key"] = api_key
-
-                try:
-                    r = await client.get(url, params={"input": input_param}, headers=headers)
-                    if r.status_code == 200:
-                        data = r.json()
-                        return data.get("result", {}).get("data")
-                    elif r.status_code == 429:
-                        # Cooldown only this specific host for 15s and rotate immediately
-                        self._host_rate_limits[host] = time.time() + 15.0
-                        self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                        logger.warning(f"Rate limit on {host}/{endpoint}. Rotating to next API node...")
-                        continue
-                    elif r.status_code == 403:
-                        self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                        continue
-                    else:
-                        self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-                except Exception:
-                    self._current_host_idx = (self._current_host_idx + 1) % len(self.api_hosts)
-
-        return None
+        return await self.client.call_trpc(endpoint, payload=payload)
 
     async def load_metadata(self, force: bool = False):
-        if self._regions_cache and self._countries_cache and not force:
-            return
-
-        from data_manager import get_data_file
-        reg_file = get_data_file("regions_cache.json")
-        cnt_file = get_data_file("countries_cache.json")
-
-        if reg_file.exists() and not self._regions_cache:
-            try:
-                self._regions_cache = json.loads(reg_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        if cnt_file.exists() and not self._countries_cache:
-            try:
-                self._countries_cache = json.loads(cnt_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        if not self._regions_cache or force:
-            r_data = await self._call_trpc("region.getRegionsObject", {})
-            if isinstance(r_data, dict) and r_data:
-                self._regions_cache = r_data
-                try:
-                    reg_file.write_text(json.dumps(r_data, ensure_ascii=False), encoding="utf-8")
-                except Exception:
-                    pass
-
-        if not self._countries_cache or force:
-            c_data = await self._call_trpc("country.getAllCountries", {})
-            if isinstance(c_data, list) and c_data:
-                self._countries_cache = {c['_id']: c for c in c_data if isinstance(c, dict) and '_id' in c}
-                try:
-                    cnt_file.write_text(json.dumps(self._countries_cache, ensure_ascii=False), encoding="utf-8")
-                except Exception:
-                    pass
-
+        await self.client.load_metadata(force=force)
+        self._regions_cache = self.client._regions_cache
+        self._countries_cache = self.client._countries_cache
         if self._regions_cache and self._countries_cache:
             self._meta_loaded = True
 
     async def get_username(self, user_id: str) -> str:
-        if not user_id:
-            return "Unknown"
-        if user_id in self._users_cache:
-            return self._users_cache[user_id]
-
-        fallback = user_id[:8]
-        try:
-            client = await self.get_client()
-            param = json.dumps({"userId": user_id})
-            host = self.api_hosts[self._current_host_idx]
-            r = await client.get(f"{host}/user.getUserById?input={param}")
-            if r.status_code == 200:
-                u = r.json().get('result', {}).get('data', {})
-                name = u.get('username') or fallback
-                self._users_cache[user_id] = name
-                return name
-        except Exception:
-            pass
-
-        self._users_cache[user_id] = fallback
-        return fallback
+        return await self.client.get_user_name(user_id)
 
     async def fetch_active_battles(self) -> List[Dict[str, Any]]:
         all_battles = []

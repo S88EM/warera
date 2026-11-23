@@ -21,7 +21,7 @@ MIN_COMPARABLE_OFFERS = 2
 
 @dataclass
 class EquipmentOpportunity:
-    opp_type: str  # "MARKET_DISCOUNT" | "STAT_3D_DISCOUNT" | "FLOOR_UNDERCUT"
+    opp_type: str  # "MARKET_DISCOUNT" | "STAT_3D_DISCOUNT" | "FLOOR_UNDERCUT" | "GOD_ROLL_FLOOR"
     offer_id: str
     item_code: str
     item_name: str

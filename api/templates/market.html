@@ -475,6 +475,9 @@
         </div>
     </footer>
 
+    <!-- Universal Shared Utilities -->
+    <!-- INCLUDE: common_utils.js -->
+
     <!-- Client-side Logic -->
     <script>
         // State
@@ -483,16 +486,6 @@
         let selectedRarity = 'all';
         let isPaused = false;
         let isPolling = true;
-
-        // Auto-detect Ingress base URL
-        const BASE_PATH = window.location.pathname.replace(/\/+$/, '');
-        window.BASE_PATH = BASE_PATH;
-
-        function getApiUrl(endpoint) {
-            const cleanEndpoint = endpoint.replace(/^\/+/, '');
-            return BASE_PATH ? `${BASE_PATH}/${cleanEndpoint}` : `/${cleanEndpoint}`;
-        }
-        window.getApiUrl = getApiUrl;
 
         // Rarity styling helpers
         const RARITY_MAP = {

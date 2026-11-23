@@ -54,7 +54,7 @@ def main():
     if args.battles_web:
         import battle_dashboard
         target_port = args.port if args.port != 8080 else 8086
-        battle_dashboard.start_dashboard(host=args.host, port=target_port)
+        battle_dashboard.run_standalone(host=args.host, port=target_port)
         return
 
     if args.sniper_bot:
@@ -79,14 +79,9 @@ def main():
 
     if args.web:
         import equipment_dashboard
-        from http.server import HTTPServer
-        print(f"🚀 Запуск автономного веб-дашборду WarEra на http://{args.host}:{args.port}...")
-        server = HTTPServer((args.host, args.port), equipment_dashboard.EquipmentDashboardHandler)
-        try:
-            print(f"Відкрийте у браузері: http://localhost:{args.port}")
-            server.serve_forever()
-        except KeyboardInterrupt:
-            print("\nВеб-дашборд зупинено.")
+        from equipment_scanner import EquipmentScannerApp
+        scanner_app = EquipmentScannerApp()
+        equipment_dashboard.run_standalone(host=args.host, port=args.port, app_instance=scanner_app)
         return
 
     from orchestrator import TaskOrchestrator

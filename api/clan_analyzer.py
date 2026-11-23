@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 import httpx
 import config
 from clan_history_db import ClanHistoryDB
+from warera_client import WarEraClient, get_warera_client
 
 logger = logging.getLogger("WarEraClanAnalyzer")
 
@@ -27,71 +28,24 @@ _CLAN_CACHE: Dict[str, Dict[str, Any]] = {}
 _CLAN_CACHE_TIME: Dict[str, float] = {}
 
 class WarEraClanAnalyzer:
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, client: Optional[WarEraClient] = None):
         self.user_api_key = (api_key or config.get_api_key()).strip()
-        self.base_url = (base_url or getattr(config, "API_BASE_URL", "https://api2.warera.io").replace("/trpc", "")).rstrip("/")
-        self.proxy_url = "https://arcana.warera.wiki/api/proxy"
-        self._client: Optional[httpx.AsyncClient] = None
-        self.history_db = ClanHistoryDB()
-        self._cached_config: Optional[Dict[str, Any]] = None
-        self.is_community_key = False
         self.api_key = self.user_api_key
-
-    def _get_headers(self, key_override: Optional[str] = None) -> Dict[str, str]:
-        key = key_override or self.api_key
-        headers = {
-            "Accept": "application/json, text/plain, */*",
-            "User-Agent": "WarEra-Clan-Intelligence/1.4.0",
-        }
-        if key:
-            headers["Authorization"] = f"Bearer {key}"
-        return headers
+        self.client = client or WarEraClient(api_key=self.api_key, base_url=base_url)
+        self.history_db = ClanHistoryDB()
+        self.is_community_key = False
 
     async def get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=15.0)
-        return self._client
+        return await self.client.get_client()
 
     async def close(self):
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        await self.client.close()
 
     async def _call_trpc(self, endpoint: str, payload: Optional[Dict[str, Any]] = None) -> Any:
-        client = await self.get_client()
-        input_param = "{}"
-        if payload is not None:
-            import json
-            input_param = json.dumps(payload, separators=(',', ':'))
-
-        headers = self._get_headers()
-        urls = [
-            f"{self.base_url}/trpc/{endpoint}",
-            f"https://api6.warera.io/trpc/{endpoint}",
-            f"https://api2.warera.io/trpc/{endpoint}",
-        ]
-        unique_urls = list(dict.fromkeys(urls))
-
-        for url in unique_urls:
-            for attempt in range(2):
-                try:
-                    r = await client.get(url, params={"input": input_param}, headers=headers)
-                    if r.status_code == 200:
-                        data = r.json()
-                        if "result" in data:
-                            return data["result"].get("data")
-                    elif r.status_code == 429:
-                        await asyncio.sleep(0.5)
-                except Exception as e:
-                    logger.debug(f"TRPC {endpoint} on {url} (attempt {attempt+1}): {e}")
-                    await asyncio.sleep(0.3)
-
-        return None
+        return await self.client.call_trpc(endpoint, payload=payload, key_override=self.api_key)
 
     async def get_game_config(self) -> Dict[str, Any]:
-        if self._cached_config is None:
-            cfg = await self._call_trpc("config.getConfig")
-            self._cached_config = cfg or {}
-        return self._cached_config
+        return await self.client.get_game_config()
 
     async def resolve_user_by_name(self, nickname: str) -> Optional[Dict[str, Any]]:
         # If 24-char hex ID

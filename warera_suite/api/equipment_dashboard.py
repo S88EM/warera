@@ -1,20 +1,22 @@
 """
-Interactive Web Dashboard for WarEra Equipment Market Scanner.
-Provides real-time visualization of market bargains, anomalies, stat rolls,
-filters by rarity/slot, direct links to game market, and live scanner controls.
+Interactive Web Dashboard for WarEra Equipment Market Scanner & Intelligence Suite.
+Provides real-time visualization of market bargains, clan member intelligence,
+purple battle drops, active contracts, and live scanner controls.
+Powered by high-performance asynchronous aiohttp routing.
 Compatible with Home Assistant Ingress and standalone desktop/Raspberry Pi mode.
 """
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
-from http import HTTPStatus
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from typing import Dict, Any, Optional, List
 from urllib.parse import parse_qs, urlparse
+
+from aiohttp import web
 
 # Ensure UTF-8 output
 if sys.platform == "win32":
@@ -28,408 +30,391 @@ import config
 from equipment_data import EQUIPMENT_METADATA, ALL_QUALITIES, QUALITY_TIERS
 from template_loader import get_template
 
+logger = logging.getLogger("WarEraWebDashboard")
+
 # Reference to the running EquipmentScannerApp instance
 _app_instance: Optional[Any] = None
-_loop_instance: Optional[asyncio.AbstractEventLoop] = None
+_web_runner: Optional[web.AppRunner] = None
 
 
 def set_app_instance(app: Any, loop: Optional[asyncio.AbstractEventLoop] = None):
-    global _app_instance, _loop_instance
+    global _app_instance
     _app_instance = app
-    _loop_instance = loop or getattr(app, "event_loop", None)
 
 
 # Load HTML template from api/templates/market.html
 DASHBOARD_HTML = get_template("market.html")
 
 
-class EquipmentDashboardHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        # Silence default request logging to avoid terminal clutter
-        pass
-
-    def _send_json(self, data: Any, status: int = HTTPStatus.OK):
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-User-API-Key")
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
-
-    def do_OPTIONS(self):
-        self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-User-API-Key")
-        self.end_headers()
-
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        clean_path = parsed.path.rstrip("/")
-
-        # Determine client origin: Home Assistant Ingress vs External Clan / Keenetic
-        host_header = (self.headers.get("Host") or "").lower()
-        xf_host = (self.headers.get("X-Forwarded-Host") or "").lower()
-        orig_host = (self.headers.get("X-Original-Host") or "").lower()
-        xf_server = (self.headers.get("X-Forwarded-Server") or "").lower()
-        referer = (self.headers.get("Referer") or "").lower()
-
-        is_ingress = bool(
-            self.headers.get("X-Ingress-Path")
-            or "hassio_ingress" in self.path
-            or "ingress_session" in (self.headers.get("Cookie") or "")
-        )
-        is_clan_domain = any(
-            "mace" in h or "clan" in h or "keenetic.link" in h
-            for h in (host_header, xf_host, orig_host, xf_server, referer)
-        )
-
-        # 1. Clan & Military Unit (MU) Intelligence API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/clan"):
-            from clan_analyzer import WarEraClanAnalyzer
-            query_params = parse_qs(parsed.query)
-            mu_id = query_params.get("mu", [None])[0] or query_params.get("nick", [None])[0]
-            user_key = self.headers.get("X-User-API-Key") or query_params.get("apiKey", [None])[0]
-            analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
-            try:
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(analyzer.analyze_clan(mu_id), _loop_instance)
-                    data = future.result(timeout=10.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    data = loop.run_until_complete(analyzer.analyze_clan(mu_id))
-                    loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # 1b. Combat Damage & Gear Calculator API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/calculator"):
-            from combat_calculator import CombatDamageCalculator
-            from clan_analyzer import WarEraClanAnalyzer
-
-            query_params = parse_qs(parsed.query)
-            target_dmg = float(query_params.get("target", [5_000_000])[0])
-            user_nick = query_params.get("nick", [None])[0]
-            use_pill = query_params.get("pill", ["1"])[0].lower() in ("1", "true", "yes")
-            use_fish = query_params.get("fish", ["1"])[0].lower() in ("1", "true", "yes")
-            gear_tier = query_params.get("gear", ["epic"])[0].lower()
-
-            try:
-                clan_analyzer = WarEraClanAnalyzer()
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(clan_analyzer.analyze_clan(), _loop_instance)
-                    clan_data = future.result(timeout=10.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    clan_data = loop.run_until_complete(clan_analyzer.analyze_clan())
-                    loop.close()
-
-                members = clan_data.get("members", [])
-                target_member = None
-                if user_nick:
-                    for m in members:
-                        if m.get("username", "").lower() == user_nick.lower():
-                            target_member = m
-                            break
-                if not target_member and members:
-                    target_member = members[0]
-
-                if not target_member:
-                    self._send_json({"status": "error", "message": "Боєць не знайдений"}, HTTPStatus.NOT_FOUND)
-                    return
-
-                calc = CombatDamageCalculator(market_app=_app_instance)
-                plan = calc.calculate_plan(
-                    target_member,
-                    target_damage=target_dmg,
-                    use_pill=use_pill,
-                    use_fish=use_fish,
-                    gear_tier=gear_tier,
-                )
-                self._send_json({"status": "ok", "plan": plan})
-            except Exception as e:
-                self._send_json({"status": "error", "message": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # 2. Clan Standalone HTML Dashboard (PUBLIC, Zero-Auth)
-        is_root_path = clean_path in ("", "/", "/index.html")
-        should_serve_clan = (
-            clean_path.endswith("/clan")
-            or clean_path.endswith("/clan.html")
-            or (is_root_path and (is_clan_domain or not is_ingress))
-        )
-
-        if should_serve_clan and not clean_path.endswith("/api/clan"):
-            import clan_dashboard
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(clan_dashboard.CLAN_DASHBOARD_HTML.encode("utf-8"))
-            return
-
-        # 2b. Battle & Purple Sniper API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/battles"):
-            from battle_analyzer import get_shared_battle_analyzer
-            query_params = parse_qs(parsed.query)
-            sniper_only = query_params.get("sniper", ["false"])[0].lower() in ("1", "true", "yes")
-            analyzer = get_shared_battle_analyzer()
-            try:
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(analyzer.get_all_battles_intel(), _loop_instance)
-                    data = future.result(timeout=6.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    data = loop.run_until_complete(analyzer.get_all_battles_intel())
-                    loop.close()
-                if sniper_only:
-                    data = [b for b in data if b.get("timing", {}).get("isSniperWindow")]
-                self._send_json(data)
-            except Exception as e:
-                cached = getattr(analyzer, "_cached_intel", None) or []
-                if sniper_only:
-                    cached = [b for b in cached if b.get("timing", {}).get("isSniperWindow")]
-                self._send_json(cached)
-            return
-
-        # 2b-2. Active Contracts / Bounties API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/contracts") or clean_path.endswith("/api/bounties"):
-            from battle_analyzer import get_shared_battle_analyzer
-            analyzer = get_shared_battle_analyzer()
-            try:
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contracts(), _loop_instance)
-                    data = future.result(timeout=6.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    data = loop.run_until_complete(analyzer.get_active_contracts())
-                    loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # 2b-3. Active Mercenary Contract Auctions API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/auctions"):
-            try:
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contract_auctions(), _loop_instance)
-                    data = future.result(timeout=6.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    data = loop.run_until_complete(analyzer.get_active_contract_auctions())
-                    loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # 2c. Battle & Purple Sniper Standalone HTML Dashboard (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/battles") or clean_path.endswith("/battles.html") or clean_path.endswith("/sniper"):
-            import battle_dashboard
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(battle_dashboard.DASHBOARD_HTML.encode("utf-8"))
-            return
-
-        # 3. PRIVACY & SECURITY SHIELD:
-        # If client connects via clan domain or outside Ingress, block private market endpoints
-        if is_clan_domain:
-            self.send_response(HTTPStatus.FOUND)
-            self.send_header("Location", "./")
-            self.end_headers()
-            return
-
-        # Status endpoint (Ingress only)
-        if clean_path.endswith("/api/status"):
-            if _app_instance:
-                status = _app_instance.get_status()
-            else:
-                status = {
-                    "version": config.APP_VERSION,
-                    "running": False,
-                    "paused": True,
-                    "scan_interval": config.EQUIPMENT_SCAN_INTERVAL,
-                    "pricing_mode": config.PRICING_MODE,
-                    "cycles": 0,
-                    "total_alerts": 0,
-                    "active_deals_count": 0,
-                    "history_deals_count": 0,
-                    "best_discount": 0.0,
-                    "best_deal_item": "--",
-                    "last_scan_time": "--:--:--",
-                    "active_qualities": config.EQUIPMENT_QUALITIES,
-                    "monitored_items_count": len(config.EQUIPMENT_TO_MONITOR),
-                    "min_discount": config.EQUIPMENT_MIN_DISCOUNT,
-                    "god_roll_threshold": config.EQUIPMENT_GOD_ROLL_THRESHOLD,
-                }
-            self._send_json(status)
-            return
-
-        # Deals endpoint (Ingress only)
-        if clean_path.endswith("/api/deals"):
-            deals = _app_instance.get_deals() if _app_instance else []
-            self._send_json({"status": "ok", "deals": deals, "count": len(deals)})
-            return
-
-        # Market offers inspector endpoint (Ingress only)
-        if clean_path.endswith("/api/market"):
-            query_params = parse_qs(parsed.query)
-            item_code = query_params.get("item", ["boots4"])[0]
-            offers = []
-            if _app_instance:
-                offers = _app_instance.get_market_offers(item_code)
-            self._send_json({"status": "ok", "item": item_code, "offers": offers})
-            return
-
-        # 2b-3. Active Mercenary Contract Auctions API endpoint (PUBLIC, Zero-Auth)
-        if clean_path.endswith("/api/auctions"):
-            try:
-                if _loop_instance and _loop_instance.is_running():
-                    future = asyncio.run_coroutine_threadsafe(analyzer.get_active_contract_auctions(), _loop_instance)
-                    data = future.result(timeout=6.0)
-                else:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    data = loop.run_until_complete(analyzer.get_active_contract_auctions())
-                    loop.close()
-                self._send_json(data)
-            except Exception as e:
-                self._send_json({"error": str(e)}, HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        # Explicit scanner view for owner
-        if clean_path.endswith("/scanner") or clean_path.endswith("/market"):
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
-            return
-
-        # Serve SPA HTML for Ingress (Owner UI: Market Scanner)
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
-
-    def do_POST(self):
-        parsed = urlparse(self.path)
-        clean_path = parsed.path.rstrip("/")
-
-        host_header = (self.headers.get("Host") or "").lower()
-        xf_host = (self.headers.get("X-Forwarded-Host") or "").lower()
-        orig_host = (self.headers.get("X-Original-Host") or "").lower()
-        xf_server = (self.headers.get("X-Forwarded-Server") or "").lower()
-        referer = (self.headers.get("Referer") or "").lower()
-
-        is_ingress = bool(
-            self.headers.get("X-Ingress-Path")
-            or "hassio_ingress" in self.path
-            or "ingress_session" in (self.headers.get("Cookie") or "")
-        )
-        is_clan_domain = any(
-            "mace" in h or "clan" in h or "keenetic.link" in h
-            for h in (host_header, xf_host, orig_host, xf_server, referer)
-        )
-
-        # Protect all POST endpoints (scan, control) from external clan domain or non-ingress clients
-        if is_clan_domain or not is_ingress:
-            self._send_json({"status": "error", "message": "Access denied"}, HTTPStatus.FORBIDDEN)
-            return
-
-        # Manual Scan endpoint
-        if clean_path.endswith("/api/scan"):
-            if _app_instance:
-                if _loop_instance and _loop_instance.is_running():
-                    asyncio.run_coroutine_threadsafe(_app_instance.trigger_manual_scan(), _loop_instance)
-                else:
-                    _app_instance.wake_event.set()
-                self._send_json({"status": "ok", "message": "Сканування запущено"})
-            else:
-                self._send_json({"status": "error", "message": "Сканер не підключено"}, HTTPStatus.SERVICE_UNAVAILABLE)
-            return
-
-        # Control actions endpoint
-        if clean_path.endswith("/api/control"):
-            content_length = int(self.headers.get("Content-Length", 0))
-            body_raw = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-            try:
-                body = json.loads(body_raw)
-            except Exception:
-                body = {}
-
-            action = body.get("action", "")
-
-            if not _app_instance:
-                self._send_json({"status": "error", "message": "Сканер не підключено"}, HTTPStatus.SERVICE_UNAVAILABLE)
-                return
-
-            if action == "pause":
-                _app_instance.pause()
-            elif action == "resume":
-                _app_instance.resume()
-            elif action == "set_interval":
-                sec = int(body.get("interval", 1))
-                _app_instance.set_scan_interval(sec)
-            elif action == "set_mode":
-                mode = str(body.get("mode", "live"))
-                _app_instance.set_pricing_mode(mode)
-            elif action == "toggle_quality":
-                q = str(body.get("quality", "mythic"))
-                _app_instance.toggle_quality(q)
-            elif action == "set_thresholds":
-                if "min_discount" in body:
-                    _app_instance.set_min_discount_pct(float(body["min_discount"]))
-                if "god_roll" in body:
-                    _app_instance.set_god_roll_threshold(float(body["god_roll"]))
-            elif action == "clear_deals":
-                _app_instance.clear_deals()
-
-            self._send_json({
-                "status": "ok",
-                "action": action,
-                "current_status": _app_instance.get_status()
-            })
-            return
-
-        self._send_json({"status": "error", "message": "Невідомий маршрут"}, HTTPStatus.NOT_FOUND)
+def is_client_ingress(request: web.Request) -> bool:
+    return bool(
+        request.headers.get("X-Ingress-Path")
+        or "hassio_ingress" in request.path
+        or "ingress_session" in (request.headers.get("Cookie") or "")
+    )
 
 
-def start_dashboard(host: str = "0.0.0.0", port: int = 8080, app_instance: Optional[Any] = None, loop: Optional[asyncio.AbstractEventLoop] = None):
-    """Starts the Web Dashboard HTTP server in a separate background daemon thread."""
-    if app_instance is not None:
-        set_app_instance(app_instance, loop)
+def is_client_clan_domain(request: web.Request) -> bool:
+    host_header = (request.headers.get("Host") or "").lower()
+    xf_host = (request.headers.get("X-Forwarded-Host") or "").lower()
+    orig_host = (request.headers.get("X-Original-Host") or "").lower()
+    xf_server = (request.headers.get("X-Forwarded-Server") or "").lower()
+    referer = (request.headers.get("Referer") or "").lower()
+    return any(
+        "mace" in h or "clan" in h or "keenetic.link" in h
+        for h in (host_header, xf_host, orig_host, xf_server, referer)
+    )
 
-    def _serve():
+
+@web.middleware
+async def cors_and_headers_middleware(request: web.Request, handler):
+    if request.method == "OPTIONS":
+        resp = web.Response(status=204)
+    else:
         try:
-            server = ThreadingHTTPServer((host, port), EquipmentDashboardHandler)
-            print(f"\n[🚀 Web Dashboard] Активний за адресою: http://{host}:{port} (Ingress port {port})")
-            server.serve_forever()
+            resp = await handler(request)
+        except web.HTTPException as ex:
+            resp = ex
         except Exception as e:
-            print(f"[Web Dashboard] Помилка або сервер зупинено: {e}")
+            logger.error(f"Unhandled error in {request.path}: {e}")
+            resp = web.json_response({"status": "error", "message": str(e)}, status=500)
 
-    thread = Thread(target=_serve, daemon=True)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-User-API-Key"
+    return resp
+
+
+async def handle_clan(request: web.Request) -> web.Response:
+    from clan_analyzer import WarEraClanAnalyzer
+    mu_id = request.query.get("mu") or request.query.get("nick")
+    user_key = request.headers.get("X-User-API-Key") or request.query.get("apiKey")
+    analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
+    try:
+        data = await analyzer.analyze_clan(mu_id)
+        return web.json_response(data)
+    except Exception as e:
+        logger.error(f"Error in handle_clan: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def handle_calculator(request: web.Request) -> web.Response:
+    from combat_calculator import CombatDamageCalculator
+    from clan_analyzer import WarEraClanAnalyzer
+
+    try:
+        target_dmg = float(request.query.get("target", "5000000"))
+    except (ValueError, TypeError):
+        target_dmg = 5_000_000.0
+
+    user_nick = request.query.get("nick")
+    use_pill = request.query.get("pill", "1").lower() in ("1", "true", "yes")
+    use_fish = request.query.get("fish", "1").lower() in ("1", "true", "yes")
+    gear_tier = request.query.get("gear", "epic").lower()
+
+    try:
+        clan_analyzer = WarEraClanAnalyzer()
+        clan_data = await clan_analyzer.analyze_clan()
+        members = clan_data.get("members", [])
+        target_member = None
+        if user_nick:
+            for m in members:
+                if m.get("username", "").lower() == user_nick.lower():
+                    target_member = m
+                    break
+        if not target_member and members:
+            target_member = members[0]
+
+        if not target_member:
+            return web.json_response({"status": "error", "message": "Боєць не знайдений"}, status=404)
+
+        calc = CombatDamageCalculator(market_app=_app_instance)
+        plan = calc.calculate_plan(
+            target_member,
+            target_damage=target_dmg,
+            use_pill=use_pill,
+            use_fish=use_fish,
+            gear_tier=gear_tier,
+        )
+        return web.json_response({"status": "ok", "plan": plan})
+    except Exception as e:
+        logger.error(f"Error in handle_calculator: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def handle_battles(request: web.Request) -> web.Response:
+    from battle_analyzer import get_shared_battle_analyzer
+    sniper_only = request.query.get("sniper", "false").lower() in ("1", "true", "yes")
+    analyzer = get_shared_battle_analyzer()
+    try:
+        data = await analyzer.get_all_battles_intel()
+        if sniper_only:
+            data = [b for b in data if b.get("timing", {}).get("isSniperWindow")]
+        return web.json_response(data)
+    except Exception as e:
+        logger.warning(f"Error in handle_battles (using cache fallback): {e}")
+        cached = getattr(analyzer, "_cached_intel", None) or []
+        if sniper_only:
+            cached = [b for b in cached if b.get("timing", {}).get("isSniperWindow")]
+        return web.json_response(cached)
+
+
+async def handle_contracts(request: web.Request) -> web.Response:
+    from battle_analyzer import get_shared_battle_analyzer
+    analyzer = get_shared_battle_analyzer()
+    try:
+        data = await analyzer.get_active_contracts()
+        return web.json_response(data)
+    except Exception as e:
+        logger.error(f"Error in handle_contracts: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_auctions(request: web.Request) -> web.Response:
+    from battle_analyzer import get_shared_battle_analyzer
+    analyzer = get_shared_battle_analyzer()
+    try:
+        data = await analyzer.get_active_contract_auctions()
+        return web.json_response(data)
+    except Exception as e:
+        logger.error(f"Error in handle_auctions: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_status(request: web.Request) -> web.Response:
+    if is_client_clan_domain(request):
+        raise web.HTTPFound(location="./")
+
+    if _app_instance:
+        status = _app_instance.get_status()
+    else:
+        status = {
+            "version": config.APP_VERSION,
+            "running": False,
+            "paused": True,
+            "scan_interval": config.EQUIPMENT_SCAN_INTERVAL,
+            "pricing_mode": config.PRICING_MODE,
+            "cycles": 0,
+            "total_alerts": 0,
+            "active_deals_count": 0,
+            "history_deals_count": 0,
+            "best_discount": 0.0,
+            "best_deal_item": "--",
+            "last_scan_time": "--:--:--",
+            "active_qualities": config.EQUIPMENT_QUALITIES,
+            "monitored_items_count": len(config.EQUIPMENT_TO_MONITOR),
+            "min_discount": config.EQUIPMENT_MIN_DISCOUNT,
+            "god_roll_threshold": config.EQUIPMENT_GOD_ROLL_THRESHOLD,
+        }
+    return web.json_response(status)
+
+
+async def handle_deals(request: web.Request) -> web.Response:
+    if is_client_clan_domain(request):
+        raise web.HTTPFound(location="./")
+
+    deals = _app_instance.get_deals() if _app_instance else []
+    return web.json_response({"status": "ok", "deals": deals, "count": len(deals)})
+
+
+async def handle_market(request: web.Request) -> web.Response:
+    if is_client_clan_domain(request):
+        raise web.HTTPFound(location="./")
+
+    item_code = request.query.get("item", "boots4")
+    offers = []
+    if _app_instance:
+        offers = _app_instance.get_market_offers(item_code)
+    return web.json_response({"status": "ok", "item": item_code, "offers": offers})
+
+
+async def handle_scan(request: web.Request) -> web.Response:
+    if is_client_clan_domain(request) or not is_client_ingress(request):
+        return web.json_response({"status": "error", "message": "Access denied"}, status=403)
+
+    if not _app_instance:
+        return web.json_response({"status": "error", "message": "Сканер не підключено"}, status=503)
+
+    if hasattr(_app_instance, "trigger_manual_scan"):
+        asyncio.create_task(_app_instance.trigger_manual_scan())
+    elif hasattr(_app_instance, "wake_event"):
+        _app_instance.wake_event.set()
+
+    return web.json_response({"status": "ok", "message": "Сканування запущено"})
+
+
+async def handle_control(request: web.Request) -> web.Response:
+    if is_client_clan_domain(request) or not is_client_ingress(request):
+        return web.json_response({"status": "error", "message": "Access denied"}, status=403)
+
+    if not _app_instance:
+        return web.json_response({"status": "error", "message": "Сканер не підключено"}, status=503)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    action = body.get("action", "")
+
+    if action == "pause":
+        _app_instance.pause()
+    elif action == "resume":
+        _app_instance.resume()
+    elif action == "set_interval":
+        sec = int(body.get("interval", 1))
+        _app_instance.set_scan_interval(sec)
+    elif action == "set_mode":
+        mode = str(body.get("mode", "live"))
+        _app_instance.set_pricing_mode(mode)
+    elif action == "toggle_quality":
+        q = str(body.get("quality", "mythic"))
+        _app_instance.toggle_quality(q)
+    elif action == "set_thresholds":
+        if "min_discount" in body:
+            _app_instance.set_min_discount_pct(float(body["min_discount"]))
+        if "god_roll" in body:
+            _app_instance.set_god_roll_threshold(float(body["god_roll"]))
+    elif action == "clear_deals":
+        _app_instance.clear_deals()
+
+    return web.json_response({
+        "status": "ok",
+        "action": action,
+        "current_status": _app_instance.get_status()
+    })
+
+
+async def handle_html_views(request: web.Request) -> web.Response:
+    path = request.path.rstrip("/")
+    is_clan_domain = is_client_clan_domain(request)
+    is_ingress = is_client_ingress(request)
+
+    # 1. Clan Standalone View
+    is_root_path = path in ("", "/")
+    should_serve_clan = (
+        path.endswith("/clan")
+        or path.endswith("/clan.html")
+        or (is_root_path and (is_clan_domain or not is_ingress))
+    )
+    if should_serve_clan:
+        import clan_dashboard
+        return web.Response(text=clan_dashboard.CLAN_DASHBOARD_HTML, content_type="text/html", charset="utf-8")
+
+    # 2. Battle & Purple Sniper Standalone View
+    if path.endswith("/battles") or path.endswith("/battles.html") or path.endswith("/sniper"):
+        import battle_dashboard
+        return web.Response(text=battle_dashboard.DASHBOARD_HTML, content_type="text/html", charset="utf-8")
+
+    # 3. Privacy Shield: Clan domain redirected away from private scanner view
+    if is_clan_domain:
+        raise web.HTTPFound(location="./")
+
+    # 4. Default: Market Scanner Owner Dashboard
+    return web.Response(text=DASHBOARD_HTML, content_type="text/html", charset="utf-8")
+
+
+async def handle_common_js(request: web.Request) -> web.Response:
+    from template_loader import _resolve_template_path
+    path = _resolve_template_path("common_utils.js")
+    if path.exists():
+        return web.Response(text=path.read_text(encoding="utf-8"), content_type="application/javascript", charset="utf-8")
+    return web.Response(text="// common_utils not found", content_type="application/javascript", status=404)
+
+
+def create_app(app_instance: Optional[Any] = None) -> web.Application:
+    """Creates and configures the aiohttp Application with all routes and middlewares."""
+    if app_instance is not None:
+        set_app_instance(app_instance)
+
+    app = web.Application(middlewares=[cors_and_headers_middleware])
+
+    # Static JS utilities
+    app.router.add_get(r"/{prefix:.*}common_utils.js", handle_common_js)
+
+    # API endpoints (supporting both direct and Ingress prefixed paths)
+    app.router.add_get(r"/{prefix:.*}api/clan", handle_clan)
+    app.router.add_get(r"/{prefix:.*}api/calculator", handle_calculator)
+    app.router.add_get(r"/{prefix:.*}api/battles", handle_battles)
+    app.router.add_get(r"/{prefix:.*}api/contracts", handle_contracts)
+    app.router.add_get(r"/{prefix:.*}api/bounties", handle_contracts)
+    app.router.add_get(r"/{prefix:.*}api/auctions", handle_auctions)
+    app.router.add_get(r"/{prefix:.*}api/status", handle_status)
+    app.router.add_get(r"/{prefix:.*}api/deals", handle_deals)
+    app.router.add_get(r"/{prefix:.*}api/market", handle_market)
+
+    app.router.add_post(r"/{prefix:.*}api/scan", handle_scan)
+    app.router.add_post(r"/{prefix:.*}api/control", handle_control)
+
+    # HTML Views and Fallbacks
+    app.router.add_get(r"/{tail:.*}", handle_html_views)
+
+    return app
+
+
+async def start_web_server(
+    host: str = "0.0.0.0",
+    port: int = 8080,
+    app_instance: Optional[Any] = None,
+) -> web.AppRunner:
+    """
+    Starts the aiohttp web server on the active asyncio event loop.
+    Returns the AppRunner instance for lifecycle management.
+    """
+    app = create_app(app_instance)
+    runner = web.AppRunner(app, access_log=None)
+    await runner.setup()
+    site = web.TCPSite(runner, host, port)
+    await site.start()
+    print(f"\n[🚀 Web Dashboard] Активний (aiohttp async) за адресою: http://{host}:{port} (Ingress port {port})")
+    return runner
+
+
+def start_dashboard(
+    host: str = "0.0.0.0",
+    port: int = 8080,
+    app_instance: Optional[Any] = None,
+    loop: Optional[asyncio.AbstractEventLoop] = None,
+):
+    """
+    Backwards-compatible launcher for Web Dashboard.
+    If an event loop is running, schedules the async server on it.
+    Otherwise, runs in a dedicated daemon thread with its own asyncio loop.
+    """
+    if app_instance is not None:
+        set_app_instance(app_instance)
+
+    active_loop = loop
+    if not active_loop:
+        try:
+            active_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            active_loop = None
+
+    if active_loop and active_loop.is_running():
+        return active_loop.create_task(start_web_server(host, port, app_instance))
+
+    def _serve_thread():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            runner = new_loop.run_until_complete(start_web_server(host, port, app_instance))
+            new_loop.run_forever()
+        except Exception as e:
+            logger.error(f"Web Dashboard thread terminated: {e}")
+
+    thread = Thread(target=_serve_thread, daemon=True)
     thread.start()
     return thread
 
 
+def run_standalone(host: str = "0.0.0.0", port: int = 8080, app_instance: Optional[Any] = None):
+    """Blocking standalone launcher for CLI / direct execution."""
+    app = create_app(app_instance)
+    print(f"🚀 WarEra Equipment Dashboard (aiohttp) запущено на http://{host}:{port}")
+    print(f"👉 Відкрийте у браузері: http://localhost:{port}")
+    web.run_app(app, host=host, port=port, print=None, access_log=None)
+
+
 if __name__ == "__main__":
-    print(f"Starting standalone WarEra Equipment Dashboard on port {config.WEB_DASHBOARD_PORT}...")
-    server = ThreadingHTTPServer((config.WEB_DASHBOARD_HOST, config.WEB_DASHBOARD_PORT), EquipmentDashboardHandler)
-    try:
-        print(f"Open: http://localhost:{config.WEB_DASHBOARD_PORT}")
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopped.")
+    run_standalone(config.WEB_DASHBOARD_HOST, config.WEB_DASHBOARD_PORT)

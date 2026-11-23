@@ -24,8 +24,13 @@ ENV/
 # Temporary databases, runtime data and logs
 data/*
 !data/.gitkeep
+!data/countries_cache.json
+!data/regions_cache.json
 *.db
-api/clan_history.db
+api/*.db
+warera_suite/api/*.db
+api/*_cache.json
+warera_suite/api/*_cache.json
 scratch/-journal
 *.log
 *bot_subscribers.json

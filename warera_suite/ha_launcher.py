@@ -27,8 +27,10 @@ if sys.platform == "win32":
 BASE_DIR = Path(__file__).parent.resolve()
 APP_DIR = BASE_DIR.parent.resolve()
 
-for p in [str(BASE_DIR), str(BASE_DIR / "api"), str(APP_DIR), str(APP_DIR / "api")]:
-    if p not in sys.path:
+# Add app paths to sys.path (prioritize root api for single source of truth in local dev)
+search_paths = [str(APP_DIR / "api"), str(BASE_DIR / "api"), str(APP_DIR), str(BASE_DIR)]
+for p in search_paths:
+    if os.path.exists(p) and p not in sys.path:
         sys.path.insert(0, p)
 
 # Pre-load local .env files if present (fallbacks)
@@ -155,19 +157,14 @@ def apply_configuration(opts: dict):
         pass
 
     # Persistent database handling in /data
-    data_dir = Path("/data")
-    if data_dir.exists():
-        target_db = data_dir / "market_history.db"
-        bundled_db = BASE_DIR / "api" / "market_history.db"
-        if not target_db.exists() and bundled_db.exists():
-            try:
-                shutil.copy2(bundled_db, target_db)
-                print("[HA Launcher] 💾 Базу даних market_history.db успішно ініціалізовано в /data")
-            except Exception as e:
-                print(f"[HA Launcher] ⚠️ Не вдалося скопіювати базу в /data: {e}")
-
+    try:
+        from data_manager import get_data_file
+        target_db = get_data_file("market_history.db")
         if target_db.exists():
             os.environ["MARKET_DB_PATH"] = str(target_db)
+            print(f"[HA Launcher] 💾 Базу даних market_history.db успішно ініціалізовано: {target_db}")
+    except Exception as e:
+        print(f"[HA Launcher] ⚠️ Не вдалося ініціалізувати базу даних через data_manager: {e}")
 
     os.environ["WEB_DASHBOARD_HOST"] = "0.0.0.0"
     os.environ["WEB_DASHBOARD_PORT"] = "8080"

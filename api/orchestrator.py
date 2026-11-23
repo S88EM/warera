@@ -49,6 +49,7 @@ class TaskOrchestrator:
         self.clan_tracker = None
         self.market_bot = None
         self.sniper_bot = None
+        self.web_runner = None
         self.tasks: List[asyncio.Task] = []
 
     def stop(self, *args):
@@ -115,13 +116,12 @@ class TaskOrchestrator:
         if self.enable_web:
             try:
                 import equipment_dashboard
-                equipment_dashboard.start_dashboard(
+                self.web_runner = await equipment_dashboard.start_web_server(
                     host=self.web_host,
                     port=self.web_port,
                     app_instance=self.market_app,
-                    loop=loop,
                 )
-                console.print(f"[green]✓ Веб-дашборд запущено на http://{self.web_host}:{self.web_port}[/green]")
+                console.print(f"[green]✓ Веб-дашборд (aiohttp) запущено на http://{self.web_host}:{self.web_port}[/green]")
             except Exception as e:
                 console.print(f"[yellow]⚠️ Не вдалося запустити веб-дашборд: {e}[/yellow]")
 
@@ -173,6 +173,11 @@ class TaskOrchestrator:
             pass
         finally:
             self.stop()
+            if self.web_runner:
+                try:
+                    await self.web_runner.cleanup()
+                except Exception:
+                    pass
             # Wait for tasks to terminate
             if self.tasks:
                 await asyncio.gather(*[t for t in self.tasks if not t.done()], return_exceptions=True)
