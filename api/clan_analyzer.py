@@ -350,9 +350,9 @@ class WarEraClanAnalyzer:
             eff_armor_pct = max(game_armor_softcap, calc_armor_softcap)
             eff_dodge_pct = max(game_dodge_softcap, calc_dodge_softcap)
 
-            # Effective HP cost per hit (empirically confirmed: ~1.85 HP with 63% armor / 51% dodge)
-            # Armor reduces damage taken, Dodge gives chance of 0 HP cost (and 0 durability lost)
-            base_hit_cost = 10.0 # game constant
+            # Effective HP cost per hit (calibrated to live WarEra combat empirical data: ~1.25-1.30 HP with 64% armor / 45% dodge)
+            # Empirical proof: GeF dealt 2.43M in round #6b03e1a2 (~255 hits) from 336 initial HP pool -> ~1.29 HP cost per hit
+            base_hit_cost = 6.5 # calibrated from live combat empirical data
             hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor_pct / 100.0)) * (1.0 - (eff_dodge_pct / 100.0))
             hp_cost_per_hit = max(hp_cost_per_hit, 0.8) # floor at 0.8 HP cost
 
@@ -380,24 +380,32 @@ class WarEraClanAnalyzer:
             # Base character attack with simulated/actual weapon (clean from temporary buff and debuff)
             base_unbuffed_atk = (base_atk + effective_weapon_atk) * rank_mult * ammo_mult
 
-            # When pill is taken (+60% attack buff)
-            simulated_atk = base_unbuffed_atk * 1.60
+            # When pill is taken (+60% attack buff):
+            # If player currently has active pill (+60%), server's exact live total attack takes precedence
+            server_total_atk = float(atk_skill.get("total", 0.0))
+            if buff_pct >= 50.0 and server_total_atk > 0:
+                simulated_atk = max(server_total_atk, base_unbuffed_atk * 1.60)
+            else:
+                simulated_atk = base_unbuffed_atk * 1.60
 
             # Precision (Влучність): Miss deals 50% damage and cannot crit
             curr_precision = float(skills.get("precision", {}).get("value", 75))
             eq_precision = float(skills.get("precision", {}).get("equipment", 0))
             strat_precision = float(skills.get("precision", {}).get("strategic", 0))
-            total_precision = min(100.0, curr_precision + max(eq_precision, EPIC_PRECISION_ADD) + strat_precision)
+            server_precision = float(skills.get("precision", {}).get("total", 0))
+            total_precision = min(100.0, max(server_precision, curr_precision + max(eq_precision, EPIC_PRECISION_ADD) + strat_precision))
             precision_ratio = total_precision / 100.0
 
-            # Critical Chance and Critical Damage with Epic Set
+            # Critical Chance and Critical Damage with Epic/Legendary gear
             curr_crit_chance = float(skills.get("criticalChance", {}).get("value", 10))
             curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
             eq_crit_chance = float(skills.get("criticalChance", {}).get("weapon", 0))
             eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
+            server_crit_chance = float(skills.get("criticalChance", {}).get("total", 0))
+            server_crit_dmg = float(skills.get("criticalDamages", {}).get("total", 0))
 
-            total_crit_chance = min(100.0, curr_crit_chance + max(eq_crit_chance, EPIC_CRIT_CHANCE_ADD))
-            total_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, EPIC_CRIT_DMG_ADD)
+            total_crit_chance = min(100.0, max(server_crit_chance, curr_crit_chance + max(eq_crit_chance, EPIC_CRIT_CHANCE_ADD)))
+            total_crit_dmg = max(server_crit_dmg, curr_crit_dmg + max(eq_crit_dmg, EPIC_CRIT_DMG_ADD))
 
             # In WarEra (empirically confirmed by live battle video), crit deals (1 + CritDamage/100)x damage
             crit_hit_mult = 1.0 + (total_crit_dmg / 100.0)

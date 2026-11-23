@@ -85,8 +85,8 @@ class CombatDamageCalculator:
         eff_armor = max(game_armor_softcap, calc_armor_softcap)
         eff_dodge = max(game_dodge_softcap, calc_dodge_softcap)
 
-        # 2. HP cost per hit (empirically confirmed in live combat: ~1.85 HP with 63% armor / 51% dodge)
-        base_hit_cost = 10.0
+        # 2. HP cost per hit (calibrated to live WarEra combat empirical data: ~1.25-1.30 HP with heavy armor/dodge)
+        base_hit_cost = 6.5
         hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor / 100.0)) * (1.0 - (eff_dodge / 100.0))
         hp_cost_per_hit = max(hp_cost_per_hit, 0.8)
 
@@ -100,22 +100,29 @@ class CombatDamageCalculator:
         ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
 
         effective_weapon = max(equipped_weapon_atk, gear_bonus_atk)
-        simulated_atk = (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier
+        server_total_atk = float(atk_skill.get("total", 0.0))
+        if use_pill and float(atk_skill.get("buffsPercent", 0.0)) >= 50.0 and server_total_atk > 0:
+            simulated_atk = max(server_total_atk, (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier)
+        else:
+            simulated_atk = (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier
 
         # Precision (miss deals 50% dmg, no crit)
         curr_precision = float(skills.get("precision", {}).get("value", 75))
         eq_precision = float(skills.get("precision", {}).get("equipment", 0))
         strat_precision = float(skills.get("precision", {}).get("strategic", 0))
-        total_precision = min(100.0, curr_precision + max(eq_precision, 22.0) + strat_precision)
+        server_precision = float(skills.get("precision", {}).get("total", 0))
+        total_precision = min(100.0, max(server_precision, curr_precision + max(eq_precision, 22.0) + strat_precision))
         precision_ratio = total_precision / 100.0
 
         curr_crit_chance = float(skills.get("criticalChance", {}).get("value", 10))
         curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
         eq_crit_chance = float(skills.get("criticalChance", {}).get("weapon", 0))
         eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
+        server_crit_chance = float(skills.get("criticalChance", {}).get("total", 0))
+        server_crit_dmg = float(skills.get("criticalDamages", {}).get("total", 0))
 
-        total_crit_chance = min(100.0, curr_crit_chance + max(eq_crit_chance, 17.0))
-        total_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, 75.0)
+        total_crit_chance = min(100.0, max(server_crit_chance, curr_crit_chance + max(eq_crit_chance, 17.0)))
+        total_crit_dmg = max(server_crit_dmg, curr_crit_dmg + max(eq_crit_dmg, 75.0))
 
         # Crit hit multiplier is (1.0 + CritDamage/100)x
         crit_hit_mult = 1.0 + (total_crit_dmg / 100.0)
