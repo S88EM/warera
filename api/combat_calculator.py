@@ -478,477 +478,477 @@ class CombatDamageCalculator:
 
         for strat in strategies_config:
             t_num = strat["tier_num"]
-            ammo_key = get_best_ammo_for_tier(t_num)
-            ammo_spec = AMMO_SPECS[ammo_key]
-            ammo_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
-
-            if strat.get("is_current"):
-                if has_equipped_weapon:
-                    # Simulate real equipped stats
-                    sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
-                        w_atk=equipped_weapon_atk,
-                        w_crit_ch=float(skills.get("criticalChance", {}).get("weapon", 0)),
-                        h_crit_dmg=float(skills.get("criticalDamages", {}).get("equipment", 0)),
-                        c_armor=equipped_armor / 2.0,
-                        p_armor=equipped_armor / 2.0,
-                        b_dodge=equipped_dodge,
-                        g_prec=float(skills.get("precision", {}).get("equipment", 0)),
-                        ammo_bonus_pct=ammo_spec["bonus_pct"],
-                    )
-                else:
-                    # Naked / no weapon equipped
-                    sim_dmg = 0.0
-                    sim_hp_cost = 6.5
-                    eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
+            if selected_ammo in AMMO_SPECS:
+                candidate_ammos = [selected_ammo]
             else:
-                s_def = strat["slots_def"]
-                sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
-                    s_def["weapon_atk"], s_def["weapon_crit_chance"],
-                    s_def["helmet_crit_dmg"],
-                    s_def["chest_armor"], s_def["pants_armor"],
-                    s_def["boots_dodge"], s_def["gloves_precision"],
-                    ammo_spec["bonus_pct"]
-                )
+                candidate_ammos = ["lightAmmo"]
+                if deficit_damage >= 1_500_000 or t_num >= 4.0:
+                    candidate_ammos.append("ammo")
+                if deficit_damage >= 6_000_000:
+                    candidate_ammos.append("heavyAmmo")
 
-            # Evaluate with food options (Steaks vs Fish)
-            food_options = ["steak", "cookedFish"] if not custom_food_key else [custom_food_key]
-
-            for f_key in food_options:
-                f_spec = FOOD_SPECS[f_key]
-                f_price = float(consumable_prices.get(f_key, f_spec["default_price"]))
-
-                # Calculate hits needed
-                if deficit_damage <= 0:
-                    hits_needed = 0
-                    total_hp_needed = 0.0
-                    hp_deficit = 0.0
-                    food_units_needed = 0
-                else:
-                    hits_needed = math.ceil(deficit_damage / max(1.0, sim_dmg))
-                    total_hp_needed = hits_needed * sim_hp_cost
-                    hp_deficit = max(0.0, total_hp_needed - natural_hp_pool)
-
-                    hp_per_food_unit = health_max * f_spec["hp_pct"]
-                    food_units_needed = math.ceil(hp_deficit / hp_per_food_unit) if hp_per_food_unit > 0 else 0
-
-                food_cost = round(food_units_needed * f_price, 2)
-                hunger_usage_pct = round((food_units_needed / available_hunger) * 100.0, 1) if available_hunger > 0 else 100.0
-
-                # Hunger capacity check
-                if strat.get("is_current") and not has_equipped_weapon:
-                    can_reach = False
-                    reach_status = "no_weapon"
-                    reach_badge = "⚠️ Без зброї"
-                    reach_note = "На бійцеві немає зброї! Для бою потрібно екіпірувати або придбати зброю."
-                elif food_units_needed <= available_hunger:
-                    can_reach = True
-                    reach_status = "ok"
-                    reach_badge = "✅ Досяжно"
-                    reach_note = "Повністю вміщається в поточну сесію таблетки"
-                elif food_units_needed <= (available_hunger + 2.0):
-                    # Soft cap: exceeds slightly, reachable with a brief wait
-                    can_reach = True
-                    reach_status = "soft_cap"
-                    extra_h = round((food_units_needed - available_hunger) / max(0.4, hunger_regen), 1)
-                    reach_badge = f"⏳ +{extra_h}г регену"
-                    reach_note = f"Потребує +{extra_h}г регену голоду, але зберігає золото!"
-                else:
-                    can_reach = False
-                    reach_status = "exceeded"
-                    reach_badge = f"❌ Ліміт голоду ({hunger_usage_pct}%)"
-                    reach_note = "Перевищує ліміт голоду за сесію"
-
-                # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
-                weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
-
-                # 2. Armor & Equipment durability burn (attenuated by dodge!)
-                # Hits absorbed by armor = hits * (1 - dodge)
-                armor_hits = hits_needed * (1.0 - (eff_dodge / 100.0))
-                armor_sets_burned = max(1, math.ceil(armor_hits / 100.0)) if hits_needed > 0 else 1
-
-                # 3. Ammo consumption (1 ammo per hit)
-                ammo_units_needed = hits_needed
-                ammo_cost = round(ammo_units_needed * ammo_price, 2)
-
-                # 4. 8-Slot RPG Build Visualizer & Shopping list
-                build_slots = []
-                shopping_items = []
-                gear_cost = 0.0
-
+            for ammo_key in candidate_ammos:
+                ammo_spec = AMMO_SPECS[ammo_key]
+                ammo_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
                 if strat.get("is_current"):
-                    # Slot 1: Weapon
                     if has_equipped_weapon:
-                        w_crit = float(skills.get("criticalChance", {}).get("weapon", 0))
-                        # Accurate detection: Sniper vs Tank vs Jet based on crit chance & attack
-                        if w_crit >= 38 or equipped_weapon_atk >= 230:
-                            w_tier = 6
-                            w_code = "jet"
-                            w_name = "Винищувач VI"
-                            w_rarity = "mythic"
-                        elif w_crit >= 25 or equipped_weapon_atk >= 165:
-                            w_tier = 5
-                            w_code = "tank"
-                            w_name = "Танк V"
-                            w_rarity = "legendary"
-                        elif w_crit >= 15 or equipped_weapon_atk >= 95:
-                            w_tier = 4
-                            w_code = "sniper"
-                            w_name = "Снайперка IV"
-                            w_rarity = "epic"
-                        elif w_crit >= 10 or equipped_weapon_atk >= 65:
-                            w_tier = 3
-                            w_code = "rifle"
-                            w_name = "Гвинтівка III"
-                            w_rarity = "rare"
+                        base_calc_dmg = curr_avg_dmg if curr_avg_dmg > 0 else 1000.0
+                        ammo_ratio = (1.0 + (ammo_spec["bonus_pct"] / 100.0)) / 1.10
+                        sim_dmg = round(base_calc_dmg * ammo_ratio, 1)
+                        sim_hp_cost = curr_hp_cost if curr_hp_cost > 0 else 1.30
+                        eff_dodge = curr_dodge_pct if curr_dodge_pct > 0 else 47.5
+                    else:
+                        sim_dmg = 0.0
+                        sim_hp_cost = 6.5
+                        eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
+                else:
+                    s_def = strat["slots_def"]
+                    sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
+                        s_def["weapon_atk"], s_def["weapon_crit_chance"],
+                        s_def["helmet_crit_dmg"],
+                        s_def["chest_armor"], s_def["pants_armor"],
+                        s_def["boots_dodge"], s_def["gloves_precision"],
+                        ammo_spec["bonus_pct"]
+                    )
+                # Evaluate with food options (Steaks vs Fish)
+                food_options = ["steak", "cookedFish"] if not custom_food_key else [custom_food_key]
+    
+                for f_key in food_options:
+                    f_spec = FOOD_SPECS[f_key]
+                    f_price = float(consumable_prices.get(f_key, f_spec["default_price"]))
+    
+                    # Calculate hits needed
+                    if deficit_damage <= 0:
+                        hits_needed = 0
+                        total_hp_needed = 0.0
+                        hp_deficit = 0.0
+                        food_units_needed = 0
+                    else:
+                        hits_needed = math.ceil(deficit_damage / max(1.0, sim_dmg))
+                        total_hp_needed = hits_needed * sim_hp_cost
+                        hp_deficit = max(0.0, total_hp_needed - natural_hp_pool)
+    
+                        hp_per_food_unit = health_max * f_spec["hp_pct"]
+                        food_units_needed = math.ceil(hp_deficit / hp_per_food_unit) if hp_per_food_unit > 0 else 0
+    
+                    food_cost = round(food_units_needed * f_price, 2)
+                    hunger_usage_pct = round((food_units_needed / available_hunger) * 100.0, 1) if available_hunger > 0 else 100.0
+    
+                    # Hunger capacity check
+                    if strat.get("is_current") and not has_equipped_weapon:
+                        can_reach = False
+                        reach_status = "no_weapon"
+                        reach_badge = "⚠️ Без зброї"
+                        reach_note = "На бійцеві немає зброї! Для бою потрібно екіпірувати або придбати зброю."
+                    elif food_units_needed <= available_hunger:
+                        can_reach = True
+                        reach_status = "ok"
+                        reach_badge = "✅ Досяжно"
+                        reach_note = "Повністю вміщається в поточну сесію таблетки"
+                    elif food_units_needed <= (available_hunger + 2.0):
+                        # Soft cap: exceeds slightly, reachable with a brief wait
+                        can_reach = True
+                        reach_status = "soft_cap"
+                        extra_h = round((food_units_needed - available_hunger) / max(0.4, hunger_regen), 1)
+                        reach_badge = f"⏳ +{extra_h}г регену"
+                        reach_note = f"Потребує +{extra_h}г регену голоду, але зберігає золото!"
+                    else:
+                        can_reach = False
+                        reach_status = "exceeded"
+                        reach_badge = f"❌ Ліміт голоду ({hunger_usage_pct}%)"
+                        reach_note = "Перевищує ліміт голоду за сесію"
+    
+                    # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
+                    weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
+    
+                    # 2. Armor & Equipment durability burn (attenuated by dodge!)
+                    # Hits absorbed by armor = hits * (1 - dodge)
+                    armor_hits = hits_needed * (1.0 - (eff_dodge / 100.0))
+                    armor_sets_burned = max(1, math.ceil(armor_hits / 100.0)) if hits_needed > 0 else 1
+    
+                    # 3. Ammo consumption (1 ammo per hit)
+                    ammo_units_needed = hits_needed
+                    ammo_cost = round(ammo_units_needed * ammo_price, 2)
+    
+                    # 4. 8-Slot RPG Build Visualizer & Shopping list
+                    build_slots = []
+                    shopping_items = []
+                    gear_cost = 0.0
+    
+                    if strat.get("is_current"):
+                        # Slot 1: Weapon
+                        if has_equipped_weapon:
+                            w_crit = float(skills.get("criticalChance", {}).get("weapon", 0))
+                            # Accurate detection: Sniper vs Tank vs Jet based on crit chance & attack
+                            if w_crit >= 38 or equipped_weapon_atk >= 230:
+                                w_tier = 6
+                                w_code = "jet"
+                                w_name = "Винищувач VI"
+                                w_rarity = "mythic"
+                            elif w_crit >= 25 or equipped_weapon_atk >= 165:
+                                w_tier = 5
+                                w_code = "tank"
+                                w_name = "Танк V"
+                                w_rarity = "legendary"
+                            elif w_crit >= 15 or equipped_weapon_atk >= 95:
+                                w_tier = 4
+                                w_code = "sniper"
+                                w_name = "Снайперка IV"
+                                w_rarity = "epic"
+                            elif w_crit >= 10 or equipped_weapon_atk >= 65:
+                                w_tier = 3
+                                w_code = "rifle"
+                                w_name = "Гвинтівка III"
+                                w_rarity = "rare"
+                            else:
+                                w_tier = 2
+                                w_code = "gun"
+                                w_name = "Пістолет II"
+                                w_rarity = "uncommon"
+    
+                            # Formatted stats showing BOTH attack and critical chance
+                            if w_crit > 0:
+                                w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака • 🎯 {int(w_crit)}% Крит"
+                                w_stat_badge = f"🗡 {int(equipped_weapon_atk)} 🎯 {int(w_crit)}%"
+                            else:
+                                w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака"
+                                w_stat_badge = f"🗡 {int(equipped_weapon_atk)}"
+    
+                            build_slots.append({
+                                "slot": "weapon",
+                                "slot_title": "Зброя",
+                                "item_code": w_code,
+                                "name": w_name,
+                                "tier": w_tier,
+                                "rarity": w_rarity,
+                                "image_url": get_item_image_url(w_code),
+                                "icon": get_item_icon(w_code),
+                                "target_stats": w_stats_str,
+                                "stat_badge": w_stat_badge,
+                                "qty_needed": 0,
+                                "qty_required_total": 1,
+                                "unit_price": 0.0,
+                                "total_price": 0.0,
+                                "already_equipped": True,
+                                "eco_status": "already_equipped",
+                                "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
+                                "url": "https://app.warera.io/market/equipments",
+                            })
                         else:
-                            w_tier = 2
-                            w_code = "gun"
-                            w_name = "Пістолет II"
-                            w_rarity = "uncommon"
-
-                        # Formatted stats showing BOTH attack and critical chance
-                        if w_crit > 0:
-                            w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака • 🎯 {int(w_crit)}% Крит"
-                            w_stat_badge = f"🗡 {int(equipped_weapon_atk)} 🎯 {int(w_crit)}%"
-                        else:
-                            w_stats_str = f"🗡 {int(equipped_weapon_atk)} Атака"
-                            w_stat_badge = f"🗡 {int(equipped_weapon_atk)}"
-
+                            build_slots.append({
+                                "slot": "weapon",
+                                "slot_title": "Зброя",
+                                "item_code": "knife",
+                                "name": "⚠️ Зброю не одягнено",
+                                "tier": 0,
+                                "rarity": "common",
+                                "image_url": get_item_image_url("knife"),
+                                "icon": "⚠️",
+                                "target_stats": "Немає зброї",
+                                "stat_badge": "0 АТК",
+                                "qty_needed": 1,
+                                "qty_required_total": 1,
+                                "unit_price": 0.0,
+                                "total_price": 0.0,
+                                "already_equipped": False,
+                                "eco_status": "upgrade_needed",
+                                "eco_note": "Одягніть зброю в грі або оберіть сет із покупкою!",
+                                "url": "https://app.warera.io/market/equipments",
+                            })
+    
+                        # Slot 2: Helmet
+                        h_cd = float(skills.get("criticalDamages", {}).get("equipment", 0))
+                        h_tier = 5 if h_cd >= 90 else (4 if h_cd >= 60 else (3 if h_cd > 0 else 0))
+                        h_code = f"helmet{h_tier}" if h_tier in (3, 4, 5, 6) else "helmet4"
+                        h_roman = ('I','II','III','IV','V','VI')[h_tier-1] if 1 <= h_tier <= 6 else "IV"
                         build_slots.append({
-                            "slot": "weapon",
-                            "slot_title": "Зброя",
-                            "item_code": w_code,
-                            "name": w_name,
-                            "tier": w_tier,
-                            "rarity": w_rarity,
-                            "image_url": get_item_image_url(w_code),
-                            "icon": get_item_icon(w_code),
-                            "target_stats": w_stats_str,
-                            "stat_badge": w_stat_badge,
+                            "slot": "helmet",
+                            "slot_title": "Шолом",
+                            "item_code": h_code,
+                            "name": f"Шолом {h_roman}",
+                            "tier": h_tier if h_tier > 0 else 4,
+                            "rarity": "legendary" if h_tier == 5 else ("epic" if h_tier == 4 else ("rare" if h_tier == 3 else "common")),
+                            "image_url": get_item_image_url(h_code),
+                            "icon": get_item_icon(h_code),
+                            "target_stats": f"💥 +{int(h_cd)}% Крит-урон" if h_cd > 0 else "Базовий захист",
+                            "stat_badge": f"💥 +{int(h_cd)}%" if h_cd > 0 else "0%",
                             "qty_needed": 0,
                             "qty_required_total": 1,
                             "unit_price": 0.0,
                             "total_price": 0.0,
-                            "already_equipped": True,
+                            "already_equipped": (h_cd > 0 or has_equipped_armor),
                             "eco_status": "already_equipped",
                             "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                            "url": "https://app.warera.io/market/equipments",
+                            "url": f"https://app.warera.io/market/equipments?item={h_code}",
                         })
-                    else:
+    
+                        # Slot 3: Gloves
+                        g_pr = float(skills.get("precision", {}).get("equipment", 0))
+                        g_tier = 5 if g_pr >= 30 else (4 if g_pr >= 20 else (3 if g_pr > 0 else 0))
+                        g_code = f"gloves{g_tier}" if g_tier in (3, 4, 5, 6) else "gloves4"
+                        g_roman = ('I','II','III','IV','V','VI')[g_tier-1] if 1 <= g_tier <= 6 else "IV"
                         build_slots.append({
-                            "slot": "weapon",
-                            "slot_title": "Зброя",
-                            "item_code": "knife",
-                            "name": "⚠️ Зброю не одягнено",
-                            "tier": 0,
-                            "rarity": "common",
-                            "image_url": get_item_image_url("knife"),
-                            "icon": "⚠️",
-                            "target_stats": "Немає зброї",
-                            "stat_badge": "0 АТК",
-                            "qty_needed": 1,
+                            "slot": "gloves",
+                            "slot_title": "Рукавиці",
+                            "item_code": g_code,
+                            "name": f"Рукавиці {g_roman}",
+                            "tier": g_tier if g_tier > 0 else 4,
+                            "rarity": "legendary" if g_tier == 5 else ("epic" if g_tier == 4 else ("rare" if g_tier == 3 else "common")),
+                            "image_url": get_item_image_url(g_code),
+                            "icon": get_item_icon(g_code),
+                            "target_stats": f"🎯 +{int(g_pr)}% Влучність" if g_pr > 0 else "Базові рукавиці",
+                            "stat_badge": f"🎯 +{int(g_pr)}%" if g_pr > 0 else "0%",
+                            "qty_needed": 0,
                             "qty_required_total": 1,
                             "unit_price": 0.0,
                             "total_price": 0.0,
-                            "already_equipped": False,
-                            "eco_status": "upgrade_needed",
-                            "eco_note": "Одягніть зброю в грі або оберіть сет із покупкою!",
-                            "url": "https://app.warera.io/market/equipments",
+                            "already_equipped": (g_pr > 0 or has_equipped_armor),
+                            "eco_status": "already_equipped",
+                            "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
+                            "url": f"https://app.warera.io/market/equipments?item={g_code}",
                         })
-
-                    # Slot 2: Helmet
-                    h_cd = float(skills.get("criticalDamages", {}).get("equipment", 0))
-                    h_tier = 5 if h_cd >= 90 else (4 if h_cd >= 60 else (3 if h_cd > 0 else 0))
-                    h_code = f"helmet{h_tier}" if h_tier in (3, 4, 5, 6) else "helmet4"
-                    h_roman = ('I','II','III','IV','V','VI')[h_tier-1] if 1 <= h_tier <= 6 else "IV"
-                    build_slots.append({
-                        "slot": "helmet",
-                        "slot_title": "Шолом",
-                        "item_code": h_code,
-                        "name": f"Шолом {h_roman}",
-                        "tier": h_tier if h_tier > 0 else 4,
-                        "rarity": "legendary" if h_tier == 5 else ("epic" if h_tier == 4 else ("rare" if h_tier == 3 else "common")),
-                        "image_url": get_item_image_url(h_code),
-                        "icon": get_item_icon(h_code),
-                        "target_stats": f"💥 +{int(h_cd)}% Крит-урон" if h_cd > 0 else "Базовий захист",
-                        "stat_badge": f"💥 +{int(h_cd)}%" if h_cd > 0 else "0%",
-                        "qty_needed": 0,
-                        "qty_required_total": 1,
-                        "unit_price": 0.0,
-                        "total_price": 0.0,
-                        "already_equipped": (h_cd > 0 or has_equipped_armor),
-                        "eco_status": "already_equipped",
-                        "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                        "url": f"https://app.warera.io/market/equipments?item={h_code}",
-                    })
-
-                    # Slot 3: Gloves
-                    g_pr = float(skills.get("precision", {}).get("equipment", 0))
-                    g_tier = 5 if g_pr >= 30 else (4 if g_pr >= 20 else (3 if g_pr > 0 else 0))
-                    g_code = f"gloves{g_tier}" if g_tier in (3, 4, 5, 6) else "gloves4"
-                    g_roman = ('I','II','III','IV','V','VI')[g_tier-1] if 1 <= g_tier <= 6 else "IV"
-                    build_slots.append({
-                        "slot": "gloves",
-                        "slot_title": "Рукавиці",
-                        "item_code": g_code,
-                        "name": f"Рукавиці {g_roman}",
-                        "tier": g_tier if g_tier > 0 else 4,
-                        "rarity": "legendary" if g_tier == 5 else ("epic" if g_tier == 4 else ("rare" if g_tier == 3 else "common")),
-                        "image_url": get_item_image_url(g_code),
-                        "icon": get_item_icon(g_code),
-                        "target_stats": f"🎯 +{int(g_pr)}% Влучність" if g_pr > 0 else "Базові рукавиці",
-                        "stat_badge": f"🎯 +{int(g_pr)}%" if g_pr > 0 else "0%",
-                        "qty_needed": 0,
-                        "qty_required_total": 1,
-                        "unit_price": 0.0,
-                        "total_price": 0.0,
-                        "already_equipped": (g_pr > 0 or has_equipped_armor),
-                        "eco_status": "already_equipped",
-                        "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                        "url": f"https://app.warera.io/market/equipments?item={g_code}",
-                    })
-
-                    # Slot 4: Chest
-                    c_arm = int(equipped_armor / 2.0)
-                    c_tier = 5 if c_arm >= 35 else (4 if c_arm >= 20 else (3 if c_arm > 0 else 0))
-                    c_code = f"chest{c_tier}" if c_tier in (3, 4, 5, 6) else "chest4"
-                    c_roman = ('I','II','III','IV','V','VI')[c_tier-1] if 1 <= c_tier <= 6 else "IV"
-                    build_slots.append({
-                        "slot": "chest",
-                        "slot_title": "Броня",
-                        "item_code": c_code,
-                        "name": f"Броня {c_roman}",
-                        "tier": c_tier if c_tier > 0 else 4,
-                        "rarity": "legendary" if c_tier == 5 else ("epic" if c_tier == 4 else ("rare" if c_tier == 3 else "common")),
-                        "image_url": get_item_image_url(c_code),
-                        "icon": get_item_icon(c_code),
-                        "target_stats": f"🛡 {c_arm} Броня" if c_arm > 0 else "Немає броні",
-                        "stat_badge": f"🛡 {c_arm}" if c_arm > 0 else "0",
-                        "qty_needed": 0,
-                        "qty_required_total": 1,
-                        "unit_price": 0.0,
-                        "total_price": 0.0,
-                        "already_equipped": (c_arm > 0),
-                        "eco_status": "already_equipped",
-                        "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                        "url": f"https://app.warera.io/market/equipments?item={c_code}",
-                    })
-
-                    # Slot 5: Pants
-                    p_arm = int(equipped_armor / 2.0)
-                    p_tier = 5 if p_arm >= 35 else (4 if p_arm >= 20 else (3 if p_arm > 0 else 0))
-                    p_code = f"pants{p_tier}" if p_tier in (3, 4, 5, 6) else "pants4"
-                    p_roman = ('I','II','III','IV','V','VI')[p_tier-1] if 1 <= p_tier <= 6 else "IV"
-                    build_slots.append({
-                        "slot": "pants",
-                        "slot_title": "Штани",
-                        "item_code": p_code,
-                        "name": f"Штани {p_roman}",
-                        "tier": p_tier if p_tier > 0 else 4,
-                        "rarity": "legendary" if p_tier == 5 else ("epic" if p_tier == 4 else ("rare" if p_tier == 3 else "common")),
-                        "image_url": get_item_image_url(p_code),
-                        "icon": get_item_icon(p_code),
-                        "target_stats": f"🛡 {p_arm} Броня" if p_arm > 0 else "Немає штанів",
-                        "stat_badge": f"🛡 {p_arm}" if p_arm > 0 else "0",
-                        "qty_needed": 0,
-                        "qty_required_total": 1,
-                        "unit_price": 0.0,
-                        "total_price": 0.0,
-                        "already_equipped": (p_arm > 0),
-                        "eco_status": "already_equipped",
-                        "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                        "url": f"https://app.warera.io/market/equipments?item={p_code}",
-                    })
-
-                    # Slot 6: Boots
-                    b_d = int(equipped_dodge)
-                    b_tier = 5 if b_d >= 30 else (4 if b_d >= 20 else (3 if b_d > 0 else 0))
-                    b_code = f"boots{b_tier}" if b_tier in (3, 4, 5, 6) else "boots4"
-                    b_roman = ('I','II','III','IV','V','VI')[b_tier-1] if 1 <= b_tier <= 6 else "IV"
-                    build_slots.append({
-                        "slot": "boots",
-                        "slot_title": "Чоботи",
-                        "item_code": b_code,
-                        "name": f"Чоботи {b_roman}",
-                        "tier": b_tier if b_tier > 0 else 4,
-                        "rarity": "legendary" if b_tier == 5 else ("epic" if b_tier == 4 else ("rare" if b_tier == 3 else "common")),
-                        "image_url": get_item_image_url(b_code),
-                        "icon": get_item_icon(b_code),
-                        "target_stats": f"👟 +{b_d}% Ухилення" if b_d > 0 else "Базові чоботи",
-                        "stat_badge": f"👟 +{b_d}%" if b_d > 0 else "0%",
-                        "qty_needed": 0,
-                        "qty_required_total": 1,
-                        "unit_price": 0.0,
-                        "total_price": 0.0,
-                        "already_equipped": (b_d > 0),
-                        "eco_status": "already_equipped",
-                        "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
-                        "url": f"https://app.warera.io/market/equipments?item={b_code}",
-                    })
-                else:
-                    s_def = strat["slots_def"]
-                    slots_to_quote = [
-                        ("weapon", "Зброя", s_def["weapon_code"], weapons_burned, s_def["weapon_atk"]),
-                        ("helmet", "Шолом", s_def["helmet_code"], armor_sets_burned, s_def["helmet_crit_dmg"]),
-                        ("gloves", "Рукавиці", s_def["gloves_code"], armor_sets_burned, s_def["gloves_precision"]),
-                        ("chest", "Броня", s_def["chest_code"], armor_sets_burned, s_def["chest_armor"]),
-                        ("pants", "Штани", s_def["pants_code"], armor_sets_burned, s_def["pants_armor"]),
-                        ("boots", "Чоботи", s_def["boots_code"], armor_sets_burned, s_def["boots_dodge"]),
-                    ]
-
-                    for slot_name, slot_title, item_code, qty_needed, tier_stat_val in slots_to_quote:
-                        quote = get_item_quote(item_code)
-                        unit_p = quote["price"]
-
-                        # Determine overkill / upgrade advice compared to player's current gear
-                        player_equipped_val = 0.0
-                        if slot_name == "weapon":
-                            player_equipped_val = equipped_weapon_atk
-                        elif slot_name in ("chest", "pants"):
-                            player_equipped_val = equipped_armor / 2.0
-                        elif slot_name == "boots":
-                            player_equipped_val = equipped_dodge
-                        elif slot_name == "helmet":
-                            player_equipped_val = float(skills.get("criticalDamages", {}).get("equipment", 0))
-                        elif slot_name == "gloves":
-                            player_equipped_val = float(skills.get("precision", {}).get("equipment", 0))
-
-                        # Smart deduction: If slot is already covered by equipped gear (>= 85% of tier benchmark),
-                        # the first item is already in hand! Only buy replacements if durability runs out.
-                        if player_equipped_val >= (tier_stat_val * 0.85):
-                            qty_to_buy = max(0, qty_needed - 1)
-                            if qty_to_buy == 0:
-                                total_item_p = 0.0
-                                eco_status = "already_equipped"
-                                eco_note = f"✅ Вже на тобі ({quote['name']}). Докупка не потрібна (0 ₴)!"
+    
+                        # Slot 4: Chest
+                        c_arm = int(equipped_armor / 2.0)
+                        c_tier = 5 if c_arm >= 35 else (4 if c_arm >= 20 else (3 if c_arm > 0 else 0))
+                        c_code = f"chest{c_tier}" if c_tier in (3, 4, 5, 6) else "chest4"
+                        c_roman = ('I','II','III','IV','V','VI')[c_tier-1] if 1 <= c_tier <= 6 else "IV"
+                        build_slots.append({
+                            "slot": "chest",
+                            "slot_title": "Броня",
+                            "item_code": c_code,
+                            "name": f"Броня {c_roman}",
+                            "tier": c_tier if c_tier > 0 else 4,
+                            "rarity": "legendary" if c_tier == 5 else ("epic" if c_tier == 4 else ("rare" if c_tier == 3 else "common")),
+                            "image_url": get_item_image_url(c_code),
+                            "icon": get_item_icon(c_code),
+                            "target_stats": f"🛡 {c_arm} Броня" if c_arm > 0 else "Немає броні",
+                            "stat_badge": f"🛡 {c_arm}" if c_arm > 0 else "0",
+                            "qty_needed": 0,
+                            "qty_required_total": 1,
+                            "unit_price": 0.0,
+                            "total_price": 0.0,
+                            "already_equipped": (c_arm > 0),
+                            "eco_status": "already_equipped",
+                            "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
+                            "url": f"https://app.warera.io/market/equipments?item={c_code}",
+                        })
+    
+                        # Slot 5: Pants
+                        p_arm = int(equipped_armor / 2.0)
+                        p_tier = 5 if p_arm >= 35 else (4 if p_arm >= 20 else (3 if p_arm > 0 else 0))
+                        p_code = f"pants{p_tier}" if p_tier in (3, 4, 5, 6) else "pants4"
+                        p_roman = ('I','II','III','IV','V','VI')[p_tier-1] if 1 <= p_tier <= 6 else "IV"
+                        build_slots.append({
+                            "slot": "pants",
+                            "slot_title": "Штани",
+                            "item_code": p_code,
+                            "name": f"Штани {p_roman}",
+                            "tier": p_tier if p_tier > 0 else 4,
+                            "rarity": "legendary" if p_tier == 5 else ("epic" if p_tier == 4 else ("rare" if p_tier == 3 else "common")),
+                            "image_url": get_item_image_url(p_code),
+                            "icon": get_item_icon(p_code),
+                            "target_stats": f"🛡 {p_arm} Броня" if p_arm > 0 else "Немає штанів",
+                            "stat_badge": f"🛡 {p_arm}" if p_arm > 0 else "0",
+                            "qty_needed": 0,
+                            "qty_required_total": 1,
+                            "unit_price": 0.0,
+                            "total_price": 0.0,
+                            "already_equipped": (p_arm > 0),
+                            "eco_status": "already_equipped",
+                            "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
+                            "url": f"https://app.warera.io/market/equipments?item={p_code}",
+                        })
+    
+                        # Slot 6: Boots
+                        b_d = int(equipped_dodge)
+                        b_tier = 5 if b_d >= 30 else (4 if b_d >= 20 else (3 if b_d > 0 else 0))
+                        b_code = f"boots{b_tier}" if b_tier in (3, 4, 5, 6) else "boots4"
+                        b_roman = ('I','II','III','IV','V','VI')[b_tier-1] if 1 <= b_tier <= 6 else "IV"
+                        build_slots.append({
+                            "slot": "boots",
+                            "slot_title": "Чоботи",
+                            "item_code": b_code,
+                            "name": f"Чоботи {b_roman}",
+                            "tier": b_tier if b_tier > 0 else 4,
+                            "rarity": "legendary" if b_tier == 5 else ("epic" if b_tier == 4 else ("rare" if b_tier == 3 else "common")),
+                            "image_url": get_item_image_url(b_code),
+                            "icon": get_item_icon(b_code),
+                            "target_stats": f"👟 +{b_d}% Ухилення" if b_d > 0 else "Базові чоботи",
+                            "stat_badge": f"👟 +{b_d}%" if b_d > 0 else "0%",
+                            "qty_needed": 0,
+                            "qty_required_total": 1,
+                            "unit_price": 0.0,
+                            "total_price": 0.0,
+                            "already_equipped": (b_d > 0),
+                            "eco_status": "already_equipped",
+                            "eco_note": "✅ Вже надіто на бійцеві (0 ₴)",
+                            "url": f"https://app.warera.io/market/equipments?item={b_code}",
+                        })
+                    else:
+                        s_def = strat["slots_def"]
+                        slots_to_quote = [
+                            ("weapon", "Зброя", s_def["weapon_code"], weapons_burned, s_def["weapon_atk"]),
+                            ("helmet", "Шолом", s_def["helmet_code"], armor_sets_burned, s_def["helmet_crit_dmg"]),
+                            ("gloves", "Рукавиці", s_def["gloves_code"], armor_sets_burned, s_def["gloves_precision"]),
+                            ("chest", "Броня", s_def["chest_code"], armor_sets_burned, s_def["chest_armor"]),
+                            ("pants", "Штани", s_def["pants_code"], armor_sets_burned, s_def["pants_armor"]),
+                            ("boots", "Чоботи", s_def["boots_code"], armor_sets_burned, s_def["boots_dodge"]),
+                        ]
+    
+                        for slot_name, slot_title, item_code, qty_needed, tier_stat_val in slots_to_quote:
+                            quote = get_item_quote(item_code)
+                            unit_p = quote["price"]
+    
+                            # Determine overkill / upgrade advice compared to player's current gear
+                            player_equipped_val = 0.0
+                            if slot_name == "weapon":
+                                player_equipped_val = equipped_weapon_atk
+                            elif slot_name in ("chest", "pants"):
+                                player_equipped_val = equipped_armor / 2.0
+                            elif slot_name == "boots":
+                                player_equipped_val = equipped_dodge
+                            elif slot_name == "helmet":
+                                player_equipped_val = float(skills.get("criticalDamages", {}).get("equipment", 0))
+                            elif slot_name == "gloves":
+                                player_equipped_val = float(skills.get("precision", {}).get("equipment", 0))
+    
+                            # Smart deduction: If slot is already covered by equipped gear (>= 85% of tier benchmark),
+                            # the first item is already in hand! Only buy replacements if durability runs out.
+                            if player_equipped_val >= (tier_stat_val * 0.85):
+                                qty_to_buy = max(0, qty_needed - 1)
+                                if qty_to_buy == 0:
+                                    total_item_p = 0.0
+                                    eco_status = "already_equipped"
+                                    eco_note = f"✅ Вже на тобі ({quote['name']}). Докупка не потрібна (0 ₴)!"
+                                else:
+                                    total_item_p = round(unit_p * qty_to_buy, 2)
+                                    eco_status = "wear_replacement"
+                                    eco_note = f"🛡 1-й на тобі, докупити +{qty_to_buy} шт на зміну при зносі."
                             else:
+                                qty_to_buy = qty_needed
                                 total_item_p = round(unit_p * qty_to_buy, 2)
-                                eco_status = "wear_replacement"
-                                eco_note = f"🛡 1-й на тобі, докупити +{qty_to_buy} шт на зміну при зносі."
-                        else:
-                            qty_to_buy = qty_needed
-                            total_item_p = round(unit_p * qty_to_buy, 2)
-                            eco_status = "upgrade_needed"
-                            eco_note = f"⚠️ Купити {quote['name']} ({qty_to_buy} шт) на ринку."
-
-                        item_entry = dict(quote)
-                        item_entry["slot_title"] = slot_title
-                        item_entry["qty_needed"] = qty_to_buy
-                        item_entry["qty_required_total"] = qty_needed
-                        item_entry["total_price"] = total_item_p
-                        item_entry["already_equipped"] = (qty_to_buy == 0)
-                        item_entry["eco_status"] = eco_status
-                        item_entry["eco_note"] = eco_note
-                        build_slots.append(item_entry)
-
-                        if qty_to_buy > 0:
-                            shopping_items.append(item_entry)
-                        gear_cost += total_item_p
-
-                # Slot 7: Ammo
-                ammo_display_name = {
-                    "lightAmmo": "Зелені патрони",
-                    "ammo": "Сині патрони",
-                    "heavyAmmo": "Фіолетові патрони",
-                }.get(ammo_key, ammo_spec["name"])
-
-                ammo_item = {
-                    "slot": "ammo",
-                    "slot_title": "Патрони",
-                    "item_code": ammo_key,
-                    "name": ammo_display_name,
-                    "tier": 0,
-                    "rarity": "consumable",
-                    "is_consumable": True,
-                    "image_url": get_item_image_url(ammo_key),
-                    "icon": ammo_spec["icon"],
-                    "target_stats": f"+{int(ammo_spec['bonus_pct'])}% Бонус атаки",
-                    "stat_badge": f"+{int(ammo_spec['bonus_pct'])}% АТК",
-                    "qty_needed": ammo_units_needed,
-                    "qty_required_total": ammo_units_needed,
-                    "unit_price": ammo_price,
-                    "price": ammo_price,
-                    "total_price": ammo_cost,
-                    "already_equipped": False,
-                    "eco_status": "buy",
-                    "eco_note": f"{ammo_units_needed} пострілів на сесію",
-                    "url": f"https://app.warera.io/market/commodities?item={ammo_key}",
-                }
-                build_slots.append(ammo_item)
-
-                # Slot 8: Food
-                food_item = {
-                    "slot": "food",
-                    "slot_title": "Їжа",
-                    "item_code": f_key,
-                    "name": f_spec["name"],
-                    "tier": 0,
-                    "rarity": "consumable",
-                    "is_consumable": True,
-                    "image_url": get_item_image_url(f_key),
-                    "icon": f_spec["icon"],
-                    "target_stats": f"+{int(f_spec['hp_pct']*100)}% HP / 1 сит.",
-                    "stat_badge": f"{food_units_needed} шт",
-                    "qty_needed": food_units_needed,
-                    "qty_required_total": food_units_needed,
-                    "unit_price": f_price,
-                    "price": f_price,
-                    "total_price": food_cost,
-                    "already_equipped": False,
-                    "eco_status": "buy",
-                    "eco_note": f"{food_units_needed} од. ситості ({food_cost} ₴)",
-                    "url": f"https://app.warera.io/market/commodities?item={f_key}",
-                }
-                build_slots.append(food_item)
-
-                grand_total = round(gear_cost + ammo_cost + food_cost + pill_cost, 2)
-                cost_per_m_dmg = round((grand_total / max(1.0, deficit_damage)) * 1_000_000, 1) if deficit_damage > 0 else 0.0
-
-                opt_record = {
-                    "strategy_key": f"{strat['key']}_{f_key}_{ammo_key}",
-                    "base_key": strat["key"],
-                    "label": strat["label"],
-                    "tier_name": strat["tier_name"],
-                    "tier_num": strat["tier_num"],
-                    "food_key": f_key,
-                    "food_name": f_spec["name"],
-                    "food_icon": f_spec["icon"],
-                    "ammo_key": ammo_key,
-                    "ammo_name": ammo_spec["name"],
-                    "ammo_badge": ammo_spec["badge"],
-                    "ammo_icon": ammo_spec["icon"],
-                    "ammo_bonus_pct": ammo_spec["bonus_pct"],
-                    "ammo_price": ammo_price,
-                    "ammo_units_needed": ammo_units_needed,
-                    "ammo_cost": ammo_cost,
-                    "avg_dmg_per_hit": sim_dmg,
-                    "hp_cost_per_hit": sim_hp_cost,
-                    "eff_dodge": eff_dodge,
-                    "hits_needed": hits_needed,
-                    "hp_needed": round(total_hp_needed, 0),
-                    "food_units_needed": food_units_needed,
-                    "available_hunger": round(available_hunger, 1),
-                    "hunger_usage_pct": hunger_usage_pct,
-                    "can_reach_in_session": can_reach,
-                    "reach_badge": reach_badge,
-                    "reach_status": reach_status,
-                    "reach_note": reach_note,
-                    "cost_per_m_dmg": cost_per_m_dmg,
-                    "is_naked": is_player_naked if strat.get("is_current") else False,
-                    "food_unit_price": f_price,
-                    "food_cost": food_cost,
-                    "weapons_burned": weapons_burned,
-                    "armor_sets_burned": armor_sets_burned,
-                    "gear_cost": round(gear_cost, 2),
-                    "pill_cost": round(pill_cost, 2),
-                    "grand_total_cost": grand_total,
-                    "build_slots": build_slots,
-                    "shopping_items": shopping_items,
-                    "shopping_count": len(shopping_items),
-                    "is_best_value": False,
-                }
-                evaluated_options.append(opt_record)
-
+                                eco_status = "upgrade_needed"
+                                eco_note = f"⚠️ Купити {quote['name']} ({qty_to_buy} шт) на ринку."
+    
+                            item_entry = dict(quote)
+                            item_entry["slot_title"] = slot_title
+                            item_entry["qty_needed"] = qty_to_buy
+                            item_entry["qty_required_total"] = qty_needed
+                            item_entry["total_price"] = total_item_p
+                            item_entry["already_equipped"] = (qty_to_buy == 0)
+                            item_entry["eco_status"] = eco_status
+                            item_entry["eco_note"] = eco_note
+                            build_slots.append(item_entry)
+    
+                            if qty_to_buy > 0:
+                                shopping_items.append(item_entry)
+                            gear_cost += total_item_p
+    
+                    # Slot 7: Ammo
+                    ammo_display_name = {
+                        "lightAmmo": "Зелені патрони",
+                        "ammo": "Сині патрони",
+                        "heavyAmmo": "Фіолетові патрони",
+                    }.get(ammo_key, ammo_spec["name"])
+    
+                    ammo_item = {
+                        "slot": "ammo",
+                        "slot_title": "Патрони",
+                        "item_code": ammo_key,
+                        "name": ammo_display_name,
+                        "tier": 0,
+                        "rarity": "consumable",
+                        "is_consumable": True,
+                        "image_url": get_item_image_url(ammo_key),
+                        "icon": ammo_spec["icon"],
+                        "target_stats": f"+{int(ammo_spec['bonus_pct'])}% Бонус атаки",
+                        "stat_badge": f"+{int(ammo_spec['bonus_pct'])}% АТК",
+                        "qty_needed": ammo_units_needed,
+                        "qty_required_total": ammo_units_needed,
+                        "unit_price": ammo_price,
+                        "price": ammo_price,
+                        "total_price": ammo_cost,
+                        "already_equipped": False,
+                        "eco_status": "buy",
+                        "eco_note": f"{ammo_units_needed} пострілів на сесію",
+                        "url": f"https://app.warera.io/market/commodities?item={ammo_key}",
+                    }
+                    build_slots.append(ammo_item)
+    
+                    # Slot 8: Food
+                    food_item = {
+                        "slot": "food",
+                        "slot_title": "Їжа",
+                        "item_code": f_key,
+                        "name": f_spec["name"],
+                        "tier": 0,
+                        "rarity": "consumable",
+                        "is_consumable": True,
+                        "image_url": get_item_image_url(f_key),
+                        "icon": f_spec["icon"],
+                        "target_stats": f"+{int(f_spec['hp_pct']*100)}% HP / 1 сит.",
+                        "stat_badge": f"{food_units_needed} шт",
+                        "qty_needed": food_units_needed,
+                        "qty_required_total": food_units_needed,
+                        "unit_price": f_price,
+                        "price": f_price,
+                        "total_price": food_cost,
+                        "already_equipped": False,
+                        "eco_status": "buy",
+                        "eco_note": f"{food_units_needed} од. ситості ({food_cost} ₴)",
+                        "url": f"https://app.warera.io/market/commodities?item={f_key}",
+                    }
+                    build_slots.append(food_item)
+    
+                    grand_total = round(gear_cost + ammo_cost + food_cost + pill_cost, 2)
+                    cost_per_m_dmg = round((grand_total / max(1.0, deficit_damage)) * 1_000_000, 1) if deficit_damage > 0 else 0.0
+    
+                    opt_record = {
+                        "strategy_key": f"{strat['key']}_{f_key}_{ammo_key}",
+                        "base_key": strat["key"],
+                        "label": strat["label"],
+                        "tier_name": strat["tier_name"],
+                        "tier_num": strat["tier_num"],
+                        "food_key": f_key,
+                        "food_name": f_spec["name"],
+                        "food_icon": f_spec["icon"],
+                        "ammo_key": ammo_key,
+                        "ammo_name": ammo_spec["name"],
+                        "ammo_badge": ammo_spec["badge"],
+                        "ammo_icon": ammo_spec["icon"],
+                        "ammo_bonus_pct": ammo_spec["bonus_pct"],
+                        "ammo_price": ammo_price,
+                        "ammo_units_needed": ammo_units_needed,
+                        "ammo_cost": ammo_cost,
+                        "avg_dmg_per_hit": sim_dmg,
+                        "hp_cost_per_hit": sim_hp_cost,
+                        "eff_dodge": eff_dodge,
+                        "hits_needed": hits_needed,
+                        "hp_needed": round(total_hp_needed, 0),
+                        "food_units_needed": food_units_needed,
+                        "available_hunger": round(available_hunger, 1),
+                        "hunger_usage_pct": hunger_usage_pct,
+                        "can_reach_in_session": can_reach,
+                        "reach_badge": reach_badge,
+                        "reach_status": reach_status,
+                        "reach_note": reach_note,
+                        "cost_per_m_dmg": cost_per_m_dmg,
+                        "is_naked": is_player_naked if strat.get("is_current") else False,
+                        "food_unit_price": f_price,
+                        "food_cost": food_cost,
+                        "weapons_burned": weapons_burned,
+                        "armor_sets_burned": armor_sets_burned,
+                        "gear_cost": round(gear_cost, 2),
+                        "pill_cost": round(pill_cost, 2),
+                        "grand_total_cost": grand_total,
+                        "build_slots": build_slots,
+                        "shopping_items": shopping_items,
+                        "shopping_count": len(shopping_items),
+                        "is_best_value": False,
+                    }
+                    evaluated_options.append(opt_record)
+    
         # Identify Best Value option (cheapest among reachable ones)
         feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
         if feasible_opts:
