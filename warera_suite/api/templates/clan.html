@@ -665,6 +665,7 @@
                                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                                     <span>${m.username}</span>
                                     <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
+                                    <button onclick="openTargetCalculator('${m.username}')" class="px-1.5 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 hover:text-white text-[10px] transition-all ml-0.5" title="Калькулятор бойового спорядження під урон">🎯</button>
                                 </div>
                                 <div class="text-[10px] text-gray-400">Ранг ${m.military_rank}</div>
                             </div>
@@ -716,7 +717,18 @@
                         <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
                             ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                         </div>
-                        <div class="text-[10px] text-gray-500">з 02:00</div>
+                        ${m.target_damage ? `
+                            <div class="mt-1 flex flex-col items-end cursor-pointer group" onclick="openTargetCalculator('${m.username}')" title="Ціль: ${formatMillions(m.target_damage)} (Виконано: ${m.target_progress_pct}%)">
+                                <div class="w-20 bg-gray-700/60 rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                </div>
+                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5 group-hover:text-emerald-300 font-bold">${m.target_progress_pct}% з ${formatMillions(m.target_damage)}</div>
+                            </div>
+                        ` : `
+                            <button onclick="openTargetCalculator('${m.username}')" class="text-[9px] text-gray-500 hover:text-blue-400 transition-colors mt-0.5 underline block ml-auto">
+                                + ціль 🎯
+                            </button>
+                        `}
                     </td>
 
                     <!-- Дамаг вчора -->
@@ -811,6 +823,7 @@
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
                                     <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
+                                    <button onclick="openTargetCalculator('${m.username}')" class="px-1.5 py-0.2 rounded bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 hover:text-white text-[10px] transition-all ml-0.5" title="Калькулятор бойового спорядження під урон">🎯</button>
                                 </div>
                                 <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
                                     <span class="${roleColor} font-medium">${m.role_label}</span>
@@ -863,7 +876,16 @@
                             <div class="text-xs font-bold ${m.today_damage > 0 ? 'text-emerald-400 font-black' : 'text-gray-400'} mt-1 truncate" title="Точно: ${formatNumber(m.today_damage)}">
                                 ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                             </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">з 02:00</div>
+                            ${m.target_damage ? `
+                                <div class="mt-1 flex flex-col items-center cursor-pointer" onclick="openTargetCalculator('${m.username}')" title="Ціль: ${formatMillions(m.target_damage)} (${m.target_progress_pct}%)">
+                                    <div class="w-full bg-gray-700/60 rounded-full h-1 overflow-hidden">
+                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                    </div>
+                                    <div class="text-[8px] text-emerald-400 font-mono mt-0.5 font-bold">${m.target_progress_pct}% з ${formatMillions(m.target_damage)}</div>
+                                </div>
+                            ` : `
+                                <div class="text-[9px] text-gray-500 mt-0.5 cursor-pointer hover:text-blue-400" onclick="openTargetCalculator('${m.username}')">+ ціль 🎯</div>
+                            `}
                         </div>
 
                         <div class="px-1 border-r border-bordercolor/40">
@@ -1033,6 +1055,517 @@
                 }
             }
         });
+
+        // ================= TARGET DAMAGE & GEAR CALCULATOR MODAL LOGIC =================
+        let activeCalcMember = null;
+        let activeCalcData = null;
+        let activeCalcTarget = 4000000;
+        let activeCalcAmmo = 'auto';
+        let activeSelectedStrat = null;
+
+        function openTargetCalculator(username) {
+            if (!clanData || !clanData.members) return;
+            const m = clanData.members.find(x => x.username.toLowerCase() === (username || '').toLowerCase());
+            if (!m) {
+                showToast('Бійця не знайдено', false);
+                return;
+            }
+
+            activeCalcMember = m;
+            activeCalcTarget = m.target_damage || 4000000;
+            activeCalcAmmo = 'auto';
+
+            // Populate header details
+            document.getElementById('calcUserName').innerText = m.username;
+            document.getElementById('calcUserLevel').innerText = `Lv.${m.level}`;
+            document.getElementById('calcUserRank').innerText = `Ранг ${m.military_rank}`;
+            const avatarImg = document.getElementById('calcUserAvatar');
+            if (avatarImg) avatarImg.src = m.avatar_url || 'https://media.warera.io/images/itemsv2/sniper.png';
+
+            // Badges
+            document.getElementById('calcPillBadge').innerText = m.pill_label || '💊 Таблетка';
+            document.getElementById('calcPillBadge').className = `px-2 py-0.5 rounded text-[10px] border ${getPillBadgeClass(m.pill_status)}`;
+            document.getElementById('calcHungerBadge').innerText = `🥪 Голод: ${m.hunger_curr || 0}/${m.hunger_max || 0}`;
+            document.getElementById('calcHealthBadge').innerText = `❤️ HP: ${Math.round(m.health_curr || 0)}/${Math.round(m.health_max || 0)}`;
+
+            // Target input
+            const input = document.getElementById('calcTargetInput');
+            if (input) input.value = activeCalcTarget;
+
+            // Reset ammo buttons
+            updateAmmoSelectorUI();
+
+            // Show modal
+            const modal = document.getElementById('targetCalcModal');
+            if (modal) modal.classList.remove('hidden');
+
+            // Fetch live plan
+            fetchCalculatorPlan();
+        }
+
+        function closeTargetCalculator() {
+            const modal = document.getElementById('targetCalcModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function setCalcTarget(val) {
+            activeCalcTarget = Number(val);
+            const input = document.getElementById('calcTargetInput');
+            if (input) input.value = activeCalcTarget;
+            fetchCalculatorPlan();
+        }
+
+        function setCalcAmmo(ammoKey) {
+            activeCalcAmmo = ammoKey;
+            updateAmmoSelectorUI();
+            fetchCalculatorPlan();
+        }
+
+        function updateAmmoSelectorUI() {
+            ['auto', 'lightAmmo', 'ammo', 'heavyAmmo'].forEach(k => {
+                const btn = document.getElementById(`ammoBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcAmmo) {
+                    btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        async function fetchCalculatorPlan() {
+            if (!activeCalcMember) return;
+            const stratBody = document.getElementById('calcStrategiesBody');
+            const banner = document.getElementById('calcStatusBanner');
+            const slotsGrid = document.getElementById('calcGearSlotsGrid');
+
+            if (stratBody) {
+                stratBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-blue-500 mr-2"></i> Прораховуємо економіку бою та ціни ринку...</td></tr>`;
+            }
+            if (banner) {
+                banner.innerHTML = `<span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Оцінка зносу та дефіциту...</span>`;
+            }
+
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}`;
+
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                if (data.status !== 'ok' || !data.result) {
+                    throw new Error(data.message || 'Не вдалося прорахувати план');
+                }
+
+                activeCalcData = data.result;
+                renderCalculatorUI(activeCalcData);
+            } catch (err) {
+                console.error('Calculator fetch error:', err);
+                if (stratBody) {
+                    stratBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Помилка: ${err.message}</td></tr>`;
+                }
+            }
+        }
+
+        function renderCalculatorUI(result) {
+            const p = result.player;
+            const t = result.target;
+            const best = result.best_strategy;
+            activeSelectedStrat = best;
+
+            // Updated time
+            const timeSpan = document.getElementById('calcUpdatedTime');
+            if (timeSpan && result.updated_at) {
+                const dt = new Date(result.updated_at);
+                timeSpan.innerText = `ціни оновлено: ${dt.toLocaleTimeString()}`;
+            }
+
+            // Status Banner
+            const banner = document.getElementById('calcStatusBanner');
+            if (banner) {
+                const deficitStr = t.deficit_damage > 0 ? `Залишилося: <b class="text-white font-mono">+${formatNumber(t.deficit_damage)}</b>` : `<b class="text-emerald-400 font-mono">Ціль уже виконана!</b>`;
+                const pillTimeStr = p.has_active_pill ? `⏳ Таблетка діє ще: <b class="text-amber-400 font-mono">${p.pill_remaining_hours} год</b>` : `💊 Нова таблетка: <b class="text-blue-400 font-mono">8.0 год</b>`;
+                banner.innerHTML = `
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span>Сьогодні набито: <b class="text-emerald-400 font-mono">+${formatNumber(p.today_damage)}</b></span>
+                        <span class="text-gray-500">|</span>
+                        <span>${deficitStr}</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span>${pillTimeStr}</span>
+                        <span class="text-gray-500">|</span>
+                        <span>Доступний голод: <b class="text-sky-400 font-mono">${best ? best.available_hunger : 0} од.</b></span>
+                    </div>
+                `;
+            }
+
+            // Strategies Table
+            const tbody = document.getElementById('calcStrategiesBody');
+            if (tbody) {
+                tbody.innerHTML = result.strategies.map((s, idx) => {
+                    const isSelected = activeSelectedStrat && activeSelectedStrat.strategy_key === s.strategy_key;
+                    const isBest = s.is_best_value;
+                    const canReach = s.can_reach_in_session;
+
+                    let statusBadge = '';
+                    if (isBest) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black">🏆 НАЙВИГІДНІШИЙ</span>`;
+                    } else if (canReach) {
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px]">✅ Досяжно</span>`;
+                    } else {
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px]" title="Не вистачить шкали голоду за 1 сесію таблетки">❌ Ліміт голоду</span>`;
+                    }
+
+                    const rowBg = isSelected 
+                        ? 'bg-blue-600/20 border-l-4 border-l-blue-400 border-bordercolor/80' 
+                        : (isBest ? 'bg-emerald-950/20 hover:bg-emerald-950/40' : 'hover:bg-cardbg/80');
+
+                    return `
+                        <tr class="${rowBg} cursor-pointer transition-all" onclick="selectStrategyRow('${s.strategy_key}')">
+                            <td class="p-2.5 font-sans">
+                                <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                    <span>${s.label}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                    <span>${s.food_icon} ${s.food_name}</span>
+                                    <span>•</span>
+                                    <span>${formatNumber(s.avg_dmg_per_hit)} дамагу/удар</span>
+                                </div>
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <span class="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] border border-bordercolor text-gray-300 font-bold" title="${s.ammo_name} (${s.ammo_price} ₴/шт)">
+                                    ${s.ammo_badge}
+                                </span>
+                            </td>
+                            <td class="p-2.5 text-center font-bold text-gray-200">
+                                ${formatNumber(s.hits_needed)}
+                            </td>
+                            <td class="p-2.5 text-center" title="1 пушка = 100 ударів без ухилення">
+                                <span class="text-amber-400 font-bold">${s.weapons_burned} шт</span>
+                            </td>
+                            <td class="p-2.5 text-center" title="Захищено ухиленням ${s.eff_dodge}%">
+                                <span class="text-indigo-300 font-bold">${s.armor_sets_burned} компл.</span>
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <div class="font-bold ${canReach ? 'text-sky-300' : 'text-rose-400'}">${s.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-500 font-mono">${s.hunger_usage_pct}% ліміту</div>
+                            </td>
+                            <td class="p-2.5 text-right font-black text-xs ${isBest ? 'text-emerald-400 text-sm' : 'text-gray-200'}">
+                                ${formatNumber(s.grand_total_cost)} ₴
+                                ${s.savings_vs_best > 0 ? `<div class="text-[9px] text-gray-500 font-normal">+${formatNumber(s.savings_vs_best)} ₴</div>` : ''}
+                            </td>
+                            <td class="p-2.5 text-center font-sans">
+                                ${statusBadge}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            renderShoppingList(activeSelectedStrat);
+        }
+
+        function selectStrategyRow(stratKey) {
+            if (!activeCalcData || !activeCalcData.strategies) return;
+            const strat = activeCalcData.strategies.find(s => s.strategy_key === stratKey);
+            if (!strat) return;
+            activeSelectedStrat = strat;
+            renderCalculatorUI(activeCalcData);
+        }
+
+        function renderShoppingList(strat) {
+            if (!strat) return;
+
+            document.getElementById('calcSelectedStratLabel').innerText = `${strat.label} (${strat.food_name})`;
+            document.getElementById('calcSelectedGrandTotal').innerText = `${formatNumber(strat.grand_total_cost)} ₴`;
+
+            const grid = document.getElementById('calcGearSlotsGrid');
+            if (grid) {
+                if (!strat.shopping_items || strat.shopping_items.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full p-4 rounded-xl bg-darkbg/60 border border-emerald-500/30 text-center space-y-1">
+                            <div class="text-emerald-400 font-bold text-sm">🛡 Використовується поточний надітий шмот бійця</div>
+                            <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 ₴)</div>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = strat.shopping_items.map(item => {
+                        const slotIcons = {
+                            weapon: '🔫',
+                            helmet: '🪖',
+                            chest: '🦺',
+                            pants: '👖',
+                            boots: '👢',
+                            gloves: '🧤',
+                        };
+                        const icon = slotIcons[item.slot] || '📦';
+
+                        let ecoBadgeClass = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+                        if (item.eco_status === 'overkill') {
+                            ecoBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+                        } else if (item.eco_status === 'upgrade_needed') {
+                            ecoBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                        }
+
+                        return `
+                            <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between gap-2 hover:border-gray-500 transition-all">
+                                <div>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                            <span>${icon}</span>
+                                            <span class="truncate">${item.name}</span>
+                                        </div>
+                                        <span class="text-amber-400 font-mono font-bold text-xs shrink-0">${item.qty_needed} шт</span>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 mt-1 flex items-center justify-between font-mono">
+                                        <span>Ціна на ринку:</span>
+                                        <span class="text-gray-200">${item.price} ₴ / шт</span>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 flex items-center justify-between font-mono font-bold border-t border-bordercolor/40 pt-1 mt-1">
+                                        <span>Сума (${item.qty_needed} шт):</span>
+                                        <span class="text-emerald-400">${item.total_price} ₴</span>
+                                    </div>
+                                    <!-- Eco Durability Note -->
+                                    <div class="mt-2 text-[10px] p-1.5 rounded-lg border ${ecoBadgeClass} font-sans leading-tight">
+                                        ${item.eco_note}
+                                    </div>
+                                </div>
+                                <a href="${item.url}" target="_blank" class="mt-1 w-full py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 hover:border-blue-400 text-blue-200 hover:text-white font-bold text-center text-[10px] transition-all flex items-center justify-center gap-1.5">
+                                    <span>Купити на WarEra</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Consumables Breakdown
+            const consGrid = document.getElementById('calcConsumablesGrid');
+            if (consGrid) {
+                consGrid.innerHTML = `
+                    <!-- Ammo Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
+                            <div class="text-xs font-bold text-white mt-0.5">${strat.ammo_badge}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${formatNumber(strat.ammo_units_needed)} пострілів @ ${strat.ammo_price} ₴</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-amber-400 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${formatNumber(strat.ammo_cost)} ₴
+                        </div>
+                    </div>
+
+                    <!-- Food Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">${strat.food_icon} Їжа</div>
+                            <div class="text-xs font-bold text-white mt-0.5">${strat.food_name}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.food_units_needed} шт @ ${strat.food_unit_price} ₴</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-sky-400 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${formatNumber(strat.food_cost)} ₴
+                        </div>
+                    </div>
+
+                    <!-- Pill Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">💊 Таблетка (Cocain)</div>
+                            <div class="text-xs font-bold ${strat.pill_cost > 0 ? 'text-white' : 'text-emerald-400'} mt-0.5">
+                                ${strat.pill_cost > 0 ? 'Потрібно докупити' : 'Вже активна на бійці'}
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.pill_cost > 0 ? '1 шт на 8 годин (+60%)' : 'Діє до кінця сесії (0 ₴)'}</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-rose-300 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${strat.pill_cost > 0 ? `${strat.pill_cost} ₴` : '0.00 ₴'}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function saveCurrentTarget() {
+            if (!activeCalcMember) return;
+            const btn = document.getElementById('btnSaveTarget');
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Збереження...`;
+
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const postUrl = `${basePath ? `${basePath}/` : '/'}api/clan/targets`;
+
+                const resp = await fetch(postUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: activeCalcMember.username,
+                        user_id: activeCalcMember.user_id || '',
+                        target_damage: activeCalcTarget,
+                        gear_tier: activeSelectedStrat ? activeSelectedStrat.tier_name : 'epic',
+                        use_pill: true,
+                        use_fish: activeSelectedStrat ? activeSelectedStrat.food_key === 'cookedFish' : true,
+                    })
+                });
+
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                if (data.status !== 'ok') throw new Error(data.message || 'Помилка збереження');
+
+                // Update local memory in clanData so table progress bar renders immediately!
+                activeCalcMember.target_damage = activeCalcTarget;
+                activeCalcMember.target_gear_tier = activeSelectedStrat ? activeSelectedStrat.tier_name : 'epic';
+                const todayVal = Number(activeCalcMember.today_damage || 0);
+                activeCalcMember.target_progress_pct = Math.round(Math.min(100.0, (todayVal / activeCalcTarget) * 100.0) * 10) / 10;
+
+                renderMembersTable();
+                showToast(`Ціль ${formatMillions(activeCalcTarget)} збережено для ${activeCalcMember.username}!`);
+                closeTargetCalculator();
+            } catch (err) {
+                console.error('Save target error:', err);
+                showToast(`Помилка: ${err.message}`, false);
+            } finally {
+                if (btn) btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Зберегти ціль`;
+            }
+        }
+    </script>
+
+    <!-- ================= TARGET DAMAGE & GEAR CALCULATOR MODAL ================= -->
+    <div id="targetCalcModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200">
+        <div class="glass-panel w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-blue-500/40 shadow-[0_0_50px_rgba(59,130,246,0.2)] overflow-hidden bg-[#0e131f]/95 animate-fadeIn">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-bordercolor flex items-center justify-between bg-cardbg/80">
+                <div class="flex items-center gap-3">
+                    <img id="calcUserAvatar" src="" class="w-10 h-10 rounded-full border border-blue-500/50 bg-darkbg object-cover" onerror="this.src='https://media.warera.io/images/itemsv2/sniper.png'">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="calcUserName" class="font-bold text-white text-base sm:text-lg">Боєць</span>
+                            <span id="calcUserLevel" class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.0</span>
+                            <span id="calcUserRank" class="text-xs text-gray-400 font-mono">Ранг 0</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
+                            <span id="calcPillBadge" class="px-1.5 py-0.2 rounded text-[10px] border">💊 Таблетка</span>
+                            <span>•</span>
+                            <span id="calcHungerBadge">🥪 Голод: 0/0</span>
+                            <span>•</span>
+                            <span id="calcHealthBadge">❤️ HP: 0/0</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeTargetCalculator()" class="w-8 h-8 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="p-5 overflow-y-auto space-y-5 text-xs text-gray-300">
+                <!-- 1. Target Controls -->
+                <div class="bg-cardbg/60 p-4 rounded-xl border border-bordercolor/80 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex-1">
+                            <label class="block text-gray-400 text-[11px] font-bold uppercase mb-1">🎯 Бажаний урон за сьогодні:</label>
+                            <div class="relative">
+                                <input type="number" id="calcTargetInput" step="500000" min="500000" max="50000000" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-base font-bold focus:outline-none focus:border-blue-400" placeholder="4000000" onchange="setCalcTarget(this.value)">
+                                <span class="absolute right-3 top-2.5 text-gray-400 font-mono text-xs">дамагу</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-end">
+                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-floppy-disk"></i> Зберегти ціль
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Presets & Ammo selector -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-bordercolor/40">
+                        <!-- Quick presets -->
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-gray-400 text-[10px]">Швидкий вибір:</span>
+                            <button onclick="setCalcTarget(1000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">1M</button>
+                            <button onclick="setCalcTarget(2500000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">2.5M</button>
+                            <button onclick="setCalcTarget(4000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">4M</button>
+                            <button onclick="setCalcTarget(6000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">6M</button>
+                            <button onclick="setCalcTarget(10000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">10M</button>
+                            <button onclick="setCalcTarget(20000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
+                        </div>
+
+                        <!-- Ammo Selector -->
+                        <div class="flex items-center gap-1.5" id="calcAmmoSelector">
+                            <span class="text-gray-400 text-[10px]">💥 Патрони:</span>
+                            <button onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
+                            <button onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
+                            <button onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
+                            <button onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
+                        </div>
+                    </div>
+
+                    <!-- Deficit and Status Banner -->
+                    <div id="calcStatusBanner" class="p-2.5 rounded-lg bg-darkbg/90 border border-blue-500/20 text-gray-300 text-[11px] flex flex-wrap items-center justify-between gap-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 2. Strategies Comparative Table -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="font-bold text-gray-200 text-xs sm:text-sm flex items-center gap-1.5">
+                            <span>📊 Порівняння стратегій бою</span>
+                            <span class="text-gray-400 text-[11px] font-normal">(натисніть на варіант для детального шопінг-листа)</span>
+                        </div>
+                        <span id="calcUpdatedTime" class="text-[10px] text-gray-500">оновлено: --:--:--</span>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-bordercolor bg-cardbg/40">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-cardbg text-gray-400 font-semibold border-b border-bordercolor text-[11px]">
+                                    <th class="p-2.5">Стратегія та Їжа</th>
+                                    <th class="p-2.5 text-center">💥 Патрони</th>
+                                    <th class="p-2.5 text-center">🎯 Удари</th>
+                                    <th class="p-2.5 text-center">🔫 Зброя</th>
+                                    <th class="p-2.5 text-center">🦺 Броня</th>
+                                    <th class="p-2.5 text-center">🥪 Їжа / Ліміт</th>
+                                    <th class="p-2.5 text-right font-bold text-gray-200">💰 Разом</th>
+                                    <th class="p-2.5 text-center">Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calcStrategiesBody" class="divide-y divide-bordercolor/60 font-mono">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 3. Smart 6-Slot Shopping List & Durability Eco Advice -->
+                <div class="space-y-3" id="calcShoppingSection">
+                    <div class="flex items-center justify-between border-b border-bordercolor/60 pb-2">
+                        <div>
+                            <div class="font-bold text-gray-200 text-xs sm:text-sm flex items-center gap-2">
+                                <span>🛒 Розумний шопінг-лист під обрану стратегію:</span>
+                                <span id="calcSelectedStratLabel" class="text-blue-400 font-mono text-xs">...</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-0.5">Враховано реальний знос: 100 ударів на зброю, броня захищена ухиленням.</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-gray-400 text-[10px] block">Бюджет операції:</span>
+                            <span id="calcSelectedGrandTotal" class="text-base sm:text-lg font-black text-emerald-400 font-mono">0.00 ₴</span>
+                        </div>
+                    </div>
+
+                    <!-- 6-Slot Grid / Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5" id="calcGearSlotsGrid">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Consumables Breakdown Box -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1" id="calcConsumablesGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     </script>
 </body>
 </html>

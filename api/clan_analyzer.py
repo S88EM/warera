@@ -635,6 +635,18 @@ class WarEraClanAnalyzer:
                 "unbuffed_hit_dmg": round(simulated_atk * crit_multiplier),
                 "theoretical_daily_dmg_min": full_pill_dmg,
                 "theoretical_daily_dmg_max": daily_theoretical_dmg,
+                "skills": skills,
+                "health_max": round(health_max, 1),
+                "health_curr": round(health_curr, 1),
+                "health_regen": round(health_regen, 2),
+                "hunger_max": round(hunger_max, 1),
+                "hunger_curr": round(hunger_curr, 1),
+                "hunger_regen": round(hunger_regen, 2),
+                "base_attack": round(base_atk, 1),
+                "rank_bonus_pct": round(rank_bonus_pct, 1),
+                "equipped_weapon_atk": round(actual_weapon_atk, 1),
+                "equipped_armor": round(equipped_armor, 1),
+                "equipped_dodge": round(equipped_dodge, 1),
                 # In-game stats
                 "weekly_damage": weekly_dmg,
                 "total_damage": total_dmg,
@@ -670,6 +682,30 @@ class WarEraClanAnalyzer:
                 m["yesterday_damage"] = None
                 m["has_yesterday"] = False
 
+        # Attach active daily target damage goals and progress
+        try:
+            from clan_targets import get_daily_targets
+            daily_targets = get_daily_targets(game_date=game_date)
+            for m in analyzed_members:
+                uname = m.get("username", "").lower()
+                target_rec = daily_targets.get(uname)
+                if target_rec and target_rec.get("target_damage", 0) > 0:
+                    tg_dmg = float(target_rec["target_damage"])
+                    m["target_damage"] = tg_dmg
+                    m["target_gear_tier"] = target_rec.get("gear_tier", "epic")
+                    m["target_use_pill"] = target_rec.get("use_pill", True)
+                    m["target_use_fish"] = target_rec.get("use_fish", True)
+                    today_val = float(m.get("today_damage", 0))
+                    m["target_progress_pct"] = round(min(100.0, (today_val / tg_dmg) * 100.0), 1)
+                else:
+                    m["target_damage"] = None
+                    m["target_gear_tier"] = None
+                    m["target_use_pill"] = None
+                    m["target_use_fish"] = None
+                    m["target_progress_pct"] = None
+        except Exception as e:
+            logger.warning(f"Error attaching daily clan targets: {e}")
+
         # Sort members: War builds first, then by today's damage (or theoretical max damage)
         analyzed_members.sort(key=lambda x: (x["build_type"] != "WAR", -x["theoretical_daily_dmg_max"], -x["today_damage"], -x["weekly_damage"]))
 
@@ -696,6 +732,7 @@ class WarEraClanAnalyzer:
         clan_pill_ready_start_salvo = sum(m["start_salvo_dmg"] for m in analyzed_members if m["pill_status"] == "READY")
 
         total_clan_today_damage = sum(m["today_damage"] for m in analyzed_members)
+        total_clan_target_damage = sum(m["target_damage"] for m in analyzed_members if m.get("target_damage"))
         has_any_yesterday = any(m["has_yesterday"] for m in analyzed_members)
         total_clan_yesterday_damage = sum(m["yesterday_damage"] or 0 for m in analyzed_members if m["has_yesterday"]) if has_any_yesterday else None
 
@@ -737,6 +774,7 @@ class WarEraClanAnalyzer:
                 "clan_pill_ready_salvo": clan_pill_ready_salvo,
                 "clan_pill_ready_start_salvo": clan_pill_ready_start_salvo,
                 "clan_today_damage": total_clan_today_damage,
+                "clan_target_damage": total_clan_target_damage,
                 "clan_yesterday_damage": total_clan_yesterday_damage,
                 "game_date": game_date,
                 "yesterday_game_date": yesterday_game_date,

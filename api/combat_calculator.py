@@ -1,212 +1,583 @@
 """
-WarEra Combat Damage & Gear Calculator Service.
-Calculates resources and equipment upgrades required for a fighter to achieve a target damage goal:
-- Target damage deficit
-- Required combat hits and effective HP pool
-- Consumables required (Cooked Fish / Steaks / Pills) based on natural regen + hunger restoration
-- Real-time market equipment recommendations with cheapest active prices and direct purchase links
+WarEra Combat Damage & Gear Strategy Optimizer.
+Calculates the most economical equipment, ammo, and food strategy for any clan member to reach a target damage goal:
+- T3 (Rare/Blue), T4 (Epic/Purple), Hybrid T4/T5, T5 (Legendary/Yellow), T6 (Mythic/Red).
+- Real durability burn: 1 weapon per 100 hits (no dodge protection); armor protected by dodge (lasts 200-250+ hits).
+- Ammo mechanics: 🟢 Light (+10%), 🔵 Standard (+20%), 🟣 Heavy (+40%).
+- Food & Hunger capacity limits per pill session.
+- Live market prices & direct buy links from market_cheapest_cache.json.
+- Identifies the lowest total gold cost option (Best Value).
 """
 
 import math
-from typing import Dict, Any, List, Optional
 import logging
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
+
+from market_cache import load_market_cheapest_cache
+from equipment_data import EQUIPMENT_METADATA, QUALITY_TIERS
 
 logger = logging.getLogger("WarEraCombatCalculator")
 
-# Consumable food HP recovery rates (% of character max HP per hunger unit)
+# Consumable food specs: % of character max HP healed per 1 hunger unit
 FOOD_SPECS = {
-    "cookedFish": {"name": "Смажена риба", "hp_pct": 0.20, "default_price": 140.0},
-    "fish": {"name": "Сира риба", "hp_pct": 0.12, "default_price": 90.0},
-    "steak": {"name": "Стейк", "hp_pct": 0.15, "default_price": 110.0},
-    "bread": {"name": "Хліб", "hp_pct": 0.10, "default_price": 50.0},
+    "cookedFish": {"name": "Смажена риба", "hp_pct": 0.20, "default_price": 7.74, "icon": "🐟"},
+    "steak": {"name": "Стейк", "hp_pct": 0.15, "default_price": 3.03, "icon": "🥩"},
+    "fish": {"name": "Сира риба", "hp_pct": 0.12, "default_price": 3.93, "icon": "🎣"},
+    "bread": {"name": "Хліб", "hp_pct": 0.10, "default_price": 1.40, "icon": "🍞"},
 }
 
-# Gear slots to consider for combat upgrades
-COMBAT_GEAR_SLOTS = ["weapon", "helmet", "chest", "pants", "boots", "gloves"]
+# Ammo specs: bonus attack % and live orderbook benchmark prices
+AMMO_SPECS = {
+    "lightAmmo": {
+        "name": "Зелені (Легкі)",
+        "code": "lightAmmo",
+        "icon": "🟢",
+        "badge": "🟢 Зелені (+10%)",
+        "bonus_pct": 10.0,
+        "default_price": 0.20,
+        "tier_affinity": [3, 4],
+        "desc": "Найбільш економічні для Снайперки Т4 та щоденних боїв",
+    },
+    "ammo": {
+        "name": "Сині (Стандартні)",
+        "code": "ammo",
+        "icon": "🔵",
+        "badge": "🔵 Сині (+20%)",
+        "bonus_pct": 20.0,
+        "default_price": 0.825,
+        "tier_affinity": [4.5, 5],
+        "desc": "Оптимальні для Танка Т5 та збільшеного дамагу",
+    },
+    "heavyAmmo": {
+        "name": "Фіолетові (Важкі)",
+        "code": "heavyAmmo",
+        "icon": "🟣",
+        "badge": "🟣 Фіолетові (+40%)",
+        "bonus_pct": 40.0,
+        "default_price": 3.07,
+        "tier_affinity": [6],
+        "desc": "Максимальний урон для Літака Т6 та рекордних планок (7M-10M+)",
+    },
+}
+
+# Standard baseline roll values by tier for combat simulation
+TIER_STAT_BENCHMARKS = {
+    3: { # Rare / Blue
+        "name": "Поліпшений (Т3)",
+        "quality": "rare",
+        "badge": "🔵 Т3 Синій (Економ)",
+        "weapon_code": "rifle",
+        "weapon_name": "Гвинтівка III",
+        "weapon_atk": 80.0,
+        "weapon_crit_chance": 13.0,
+        "helmet_code": "helmet3",
+        "helmet_name": "Шолом III",
+        "helmet_crit_dmg": 40.0,
+        "chest_code": "chest3",
+        "chest_name": "Броня III",
+        "chest_armor": 13.0,
+        "pants_code": "pants3",
+        "pants_name": "Штани III",
+        "pants_armor": 13.0,
+        "boots_code": "boots3",
+        "boots_name": "Чоботи III",
+        "boots_dodge": 13.0,
+        "gloves_code": "gloves3",
+        "gloves_name": "Рукавиці III",
+        "gloves_precision": 13.0,
+    },
+    4: { # Epic / Purple
+        "name": "Елітний (Т4)",
+        "quality": "epic",
+        "badge": "🟣 Т4 Фіолетовий (Стандарт)",
+        "weapon_code": "sniper",
+        "weapon_name": "Снайперка IV",
+        "weapon_atk": 120.0,
+        "weapon_crit_chance": 18.0,
+        "helmet_code": "helmet4",
+        "helmet_name": "Шолом IV",
+        "helmet_crit_dmg": 80.0,
+        "chest_code": "chest4",
+        "chest_name": "Броня IV",
+        "chest_armor": 25.0,
+        "pants_code": "pants4",
+        "pants_name": "Штани IV",
+        "pants_armor": 25.0,
+        "boots_code": "boots4",
+        "boots_name": "Чоботи IV",
+        "boots_dodge": 23.0,
+        "gloves_code": "gloves4",
+        "gloves_name": "Рукавиці IV",
+        "gloves_precision": 23.0,
+    },
+    5: { # Legendary / Yellow
+        "name": "Легендарний (Т5)",
+        "quality": "legendary",
+        "badge": "🟡 Т5 Легендарний (Топ)",
+        "weapon_code": "tank",
+        "weapon_name": "Танк V",
+        "weapon_atk": 155.0,
+        "weapon_crit_chance": 30.0,
+        "helmet_code": "helmet5",
+        "helmet_name": "Шолом V",
+        "helmet_crit_dmg": 100.0,
+        "chest_code": "chest5",
+        "chest_name": "Броня V",
+        "chest_armor": 43.0,
+        "pants_code": "pants5",
+        "pants_name": "Штани V",
+        "pants_armor": 43.0,
+        "boots_code": "boots5",
+        "boots_name": "Чоботи V",
+        "boots_dodge": 35.0,
+        "gloves_code": "gloves5",
+        "gloves_name": "Рукавиці V",
+        "gloves_precision": 35.0,
+    },
+    6: { # Mythic / Red
+        "name": "Міфічний (Т6)",
+        "quality": "mythic",
+        "badge": "🔴 Т6 Міфічний (Максимум)",
+        "weapon_code": "jet",
+        "weapon_name": "Винищувач VI",
+        "weapon_atk": 260.0,
+        "weapon_crit_chance": 45.0,
+        "helmet_code": "helmet6",
+        "helmet_name": "Шолом VI",
+        "helmet_crit_dmg": 135.0,
+        "chest_code": "chest6",
+        "chest_name": "Броня VI",
+        "chest_armor": 63.0,
+        "pants_code": "pants6",
+        "pants_name": "Штани VI",
+        "pants_armor": 63.0,
+        "boots_code": "boots6",
+        "boots_name": "Чоботи VI",
+        "boots_dodge": 55.0,
+        "gloves_code": "gloves6",
+        "gloves_name": "Рукавиці VI",
+        "gloves_precision": 55.0,
+    },
+}
+
+# Fallback default prices for all gear items if market cache is empty
+DEFAULT_MARKET_PRICES = {
+    "rifle": 13.6, "helmet3": 13.6, "chest3": 13.6, "pants3": 13.6, "boots3": 13.6, "gloves3": 13.6,
+    "sniper": 42.0, "helmet4": 47.2, "chest4": 43.0, "pants4": 43.9, "boots4": 40.9, "gloves4": 42.4,
+    "tank": 144.0, "helmet5": 122.0, "chest5": 122.0, "pants5": 122.5, "boots5": 160.0, "gloves5": 155.0,
+    "jet": 446.0, "helmet6": 370.0, "chest6": 368.0, "pants6": 370.0, "boots6": 431.0, "gloves6": 415.0,
+}
 
 
 class CombatDamageCalculator:
     def __init__(self, market_app=None):
         self.market_app = market_app
 
-    def calculate_plan(
+    def calculate_all_strategies(
         self,
         player_member: Dict[str, Any],
-        target_damage: float = 5_000_000.0,
-        use_pill: bool = True,
-        use_fish: bool = True,
-        gear_tier: str = "epic", # "current", "epic", "legendary"
-        custom_fish_price: Optional[float] = None,
+        target_damage: float = 2_500_000.0,
+        selected_ammo: str = "auto",
+        custom_food_key: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Calculates the complete shopping list and action plan for a player to reach `target_damage`.
+        Calculates all viable combat strategies (Current, T3, T4, Hybrid, T5, T6)
+        taking into account:
+        1. 100 hits per weapon burn.
+        2. Armor durability loss attenuated by dodge chance (1 set = 200-250+ hits).
+        3. Ammo type and consumption (1 ammo per hit).
+        4. Food units vs character hunger capacity per session.
+        5. Live market prices.
         """
+        market_cache = load_market_cheapest_cache()
+        cached_items = market_cache.get("items", {})
+        consumable_prices = market_cache.get("consumables", {})
+
         uname = player_member.get("username", "Боєць")
         lvl = player_member.get("level", 1)
-        skills = player_member.get("skills", {})
+        skills = player_member.get("skills") or {}
 
-        # Base player stats
-        atk_skill = skills.get("attack", {})
-        base_atk = float(atk_skill.get("value", 100))
-        health_skill = skills.get("health", {})
-        health_max = float(health_skill.get("total", 100))
-        health_curr = float(health_skill.get("currentBarValue", health_max))
-        health_regen = float(health_skill.get("hourlyBarRegen") or (health_max * 0.10))
+        # 1. Health & Regeneration
+        health_max = float(player_member.get("health_max") or skills.get("health", {}).get("total", 150))
+        health_curr = float(player_member.get("health_curr") or skills.get("health", {}).get("currentBarValue", health_max))
+        health_regen = float(player_member.get("health_regen") or skills.get("health", {}).get("hourlyBarRegen", 15.0))
 
-        hunger_skill = skills.get("hunger", {})
-        hunger_max = float(hunger_skill.get("total", 4))
-        hunger_curr = float(hunger_skill.get("currentBarValue", hunger_max))
-        hunger_regen = float(hunger_skill.get("hourlyBarRegen") or (hunger_max * 0.10))
+        # 2. Hunger & Regeneration
+        hunger_max = float(player_member.get("hunger_max") or skills.get("hunger", {}).get("total", 7))
+        hunger_curr = float(player_member.get("hunger_curr") or skills.get("hunger", {}).get("currentBarValue", hunger_max))
+        hunger_regen = float(player_member.get("hunger_regen") or skills.get("hunger", {}).get("hourlyBarRegen", 0.7))
 
-        # 1. Gear stats (Current vs Upgraded)
-        equipped_armor = float(skills.get("armor", {}).get("equipment", 0))
-        equipped_dodge = float(skills.get("dodge", {}).get("equipment", 0))
-        equipped_weapon_atk = float(atk_skill.get("weapon", 0)) + float(atk_skill.get("overflow", 0))
-
-        # Target baseline adjustments
-        gear_bonus_atk = 137.0 if gear_tier in ("epic", "legendary") else equipped_weapon_atk
-        gear_bonus_armor = 45.0 if gear_tier in ("epic", "legendary") else equipped_armor
-        gear_bonus_dodge = 22.0 if gear_tier in ("epic", "legendary") else equipped_dodge
-
-        curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
-        curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
-
-        total_armor = curr_armor_stat + max(equipped_armor, gear_bonus_armor)
-        total_dodge = curr_dodge_stat + max(equipped_dodge, gear_bonus_dodge)
-
-        # In-game softcap from API if already computed by game server
-        game_armor_softcap = float(skills.get("armor", {}).get("totalAfterSoftCap", 0))
-        game_dodge_softcap = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
-
-        # Softcap calculations (includes +13% server passive defense, softcap at 40%, 50% above)
-        calc_armor_softcap = min(total_armor + 13.0, 40.0) + max(0.0, total_armor + 13.0 - 40.0) * 0.5
-        calc_dodge_softcap = min(total_dodge + 13.0, 40.0) + max(0.0, total_dodge + 13.0 - 40.0) * 0.5
-
-        eff_armor = max(game_armor_softcap, calc_armor_softcap)
-        eff_dodge = max(game_dodge_softcap, calc_dodge_softcap)
-
-        # 2. HP cost per hit (calibrated to live WarEra combat empirical data: ~1.25-1.30 HP with heavy armor/dodge)
-        base_hit_cost = 6.5
-        hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor / 100.0)) * (1.0 - (eff_dodge / 100.0))
-        hp_cost_per_hit = max(hp_cost_per_hit, 0.8)
-
-        # 3. Damage per hit
-        rank_bonus_pct = float(atk_skill.get("militaryRankPercent", 0.0))
-        ammo_bonus_pct = float(atk_skill.get("ammoPercent") or 10.0)
-        ammo_bonus_pct = max(ammo_bonus_pct, 10.0)
-        pill_multiplier = 1.60 if use_pill else 1.0
-
+        # 3. Base Character Stats
+        base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
+        rank_bonus_pct = float(player_member.get("rank_bonus_pct") or skills.get("attack", {}).get("militaryRankPercent", 0.0))
         rank_mult = 1.0 + (rank_bonus_pct / 100.0)
-        ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
 
-        effective_weapon = max(equipped_weapon_atk, gear_bonus_atk)
-        server_total_atk = float(atk_skill.get("total", 0.0))
-        if use_pill and float(atk_skill.get("buffsPercent", 0.0)) >= 50.0 and server_total_atk > 0:
-            simulated_atk = max(server_total_atk, (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier)
+        # 4. Pill Status and Session Duration
+        pill_status = player_member.get("pill_status", "READY")
+        pill_remaining_hours = float(player_member.get("pill_remaining_hours") or 0.0)
+
+        if pill_status == "ACTIVE" and pill_remaining_hours > 0.1:
+            session_hours = min(8.0, pill_remaining_hours)
+            pill_cost = 0.0
+            has_active_pill = True
         else:
-            simulated_atk = (base_atk + effective_weapon) * rank_mult * ammo_mult * pill_multiplier
+            session_hours = 8.0
+            pill_cost = float(consumable_prices.get("cocain", 34.80))
+            has_active_pill = False
 
-        # Precision (miss deals 50% dmg, no crit)
-        curr_precision = float(skills.get("precision", {}).get("value", 75))
-        eq_precision = float(skills.get("precision", {}).get("equipment", 0))
-        strat_precision = float(skills.get("precision", {}).get("strategic", 0))
-        server_precision = float(skills.get("precision", {}).get("total", 0))
-        total_precision = min(100.0, max(server_precision, curr_precision + max(eq_precision, 22.0) + strat_precision))
-        precision_ratio = total_precision / 100.0
+        # Natural resource recovery over the pill session duration
+        natural_hp_pool = health_curr + (session_hours * health_regen)
+        available_hunger = hunger_curr + (session_hours * hunger_regen)
 
-        curr_crit_chance = float(skills.get("criticalChance", {}).get("value", 10))
-        curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
-        eq_crit_chance = float(skills.get("criticalChance", {}).get("weapon", 0))
-        eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
-        server_crit_chance = float(skills.get("criticalChance", {}).get("total", 0))
-        server_crit_dmg = float(skills.get("criticalDamages", {}).get("total", 0))
+        # 5. Damage deficit today
+        today_damage = float(player_member.get("today_damage") or 0.0)
+        deficit_damage = max(0.0, target_damage - today_damage)
 
-        total_crit_chance = min(100.0, max(server_crit_chance, curr_crit_chance + max(eq_crit_chance, 17.0)))
-        total_crit_dmg = max(server_crit_dmg, curr_crit_dmg + max(eq_crit_dmg, 75.0))
+        # Current player combat parameters from analyzer
+        curr_avg_dmg = float(player_member.get("avg_dmg_per_hit") or 1000.0)
+        curr_hp_cost = float(player_member.get("hp_cost_per_hit") or 1.5)
+        curr_dodge_pct = float(player_member.get("effective_dodge") or 50.0)
 
-        # Crit hit multiplier is (1.0 + CritDamage/100)x
-        crit_hit_mult = 1.0 + (total_crit_dmg / 100.0)
-        crit_chance_ratio = total_crit_chance / 100.0
+        # Player equipped gear stats for comparison
+        equipped_weapon_atk = float(player_member.get("equipped_weapon_atk") or skills.get("attack", {}).get("weapon", 0))
+        equipped_armor = float(player_member.get("equipped_armor") or skills.get("armor", {}).get("equipment", 0))
+        equipped_dodge = float(player_member.get("equipped_dodge") or skills.get("dodge", {}).get("equipment", 0))
 
-        crit_multiplier = (1.0 - precision_ratio) * 0.5 + precision_ratio * ((1.0 - crit_chance_ratio) * 1.0 + crit_chance_ratio * crit_hit_mult)
+        # Helper: get price and item details from cache or fallback
+        def get_item_quote(code: str) -> Dict[str, Any]:
+            meta = EQUIPMENT_METADATA.get(code, {})
+            c_info = cached_items.get(code, {})
+            offers = c_info.get("offers", [])
+            cheapest = offers[0] if offers else None
+            price = cheapest.get("price") if cheapest else c_info.get("cheapest_price")
+            if not price or float(price) <= 0:
+                price = DEFAULT_MARKET_PRICES.get(code, 40.0)
+            return {
+                "item_code": code,
+                "name": meta.get("name", code),
+                "slot": meta.get("type", "weapon"),
+                "tier": meta.get("tier", 4),
+                "price": round(float(price), 2),
+                "seller": cheapest.get("seller", "") if cheapest else "",
+                "roll_quality": cheapest.get("roll_quality", 0) if cheapest else 0,
+                "url": f"https://app.warera.io/market/equipments?item={code}",
+            }
 
-        # Standard organized clan battle bonus (+50% standard: MU order 15% + Country order 15% + HQ 20%)
-        battle_bonus = 1.50
-        avg_dmg_per_hit = simulated_atk * crit_multiplier * battle_bonus
+        # Helper to simulate combat hits and damage for any tier combination
+        def simulate_tier_combat(
+            w_atk: float, w_crit_ch: float,
+            h_crit_dmg: float,
+            c_armor: float, p_armor: float,
+            b_dodge: float, g_prec: float,
+            ammo_bonus_pct: float
+        ) -> tuple[float, float, float]:
+            # 1. Effective Armor & Dodge with game softcap curve
+            curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
+            curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
 
-        # 4. Hits required to achieve target damage
-        if avg_dmg_per_hit <= 0:
-            avg_dmg_per_hit = 100.0
-        total_hits_needed = math.ceil(target_damage / avg_dmg_per_hit)
-        total_hp_needed = total_hits_needed * hp_cost_per_hit
+            eff_gear_armor = max(equipped_armor, c_armor + p_armor)
+            eff_gear_dodge = max(equipped_dodge, b_dodge)
 
-        # 5. Natural HP generation (initial full bar + 24h natural regen)
-        natural_hp_pool = health_max + (24.0 * health_regen)
-        hp_deficit = max(0.0, total_hp_needed - natural_hp_pool)
+            total_raw_armor = curr_armor_stat + eff_gear_armor
+            total_raw_dodge = curr_dodge_stat + eff_gear_dodge
 
-        # 6. Food requirement (Cooked Fish or Steak)
-        food_key = "cookedFish" if use_fish else "steak"
-        food_spec = FOOD_SPECS[food_key]
-        hp_per_food_unit = health_max * food_spec["hp_pct"]
+            calc_armor = min(total_raw_armor + 13.0, 40.0) + max(0.0, total_raw_armor + 13.0 - 40.0) * 0.5
+            calc_dodge = min(total_raw_dodge + 13.0, 40.0) + max(0.0, total_raw_dodge + 13.0 - 40.0) * 0.5
 
-        food_units_needed = math.ceil(hp_deficit / hp_per_food_unit) if hp_per_food_unit > 0 else 0
-        fish_price = custom_fish_price if custom_fish_price is not None else food_spec["default_price"]
-        food_total_cost = round(food_units_needed * fish_price, 2)
+            eff_armor = max(float(skills.get("armor", {}).get("totalAfterSoftCap", 0)), calc_armor)
+            eff_dodge = max(float(skills.get("dodge", {}).get("totalAfterSoftCap", 0)), calc_dodge)
 
-        # 7. Live Market Equipment Recommendations
-        recommended_gear = []
-        gear_total_cost = 0.0
+            hp_cost = max(0.80, 6.5 * (1.0 - (eff_armor / 100.0)) * (1.0 - (eff_dodge / 100.0)))
 
-        if self.market_app and gear_tier in ("epic", "legendary"):
-            try:
-                # Query cheapest items from market cache
-                cheapest_items = self.market_app.get_cheapest_gear()
-                # Filter for T4 epic or T5 legendary matching slots
-                target_tier_num = "4" if gear_tier == "epic" else "5"
-                for item in cheapest_items:
-                    code = item.get("item_code", "")
-                    if target_tier_num in code or (gear_tier == "epic" and code == "sniper"):
-                        recommended_gear.append(item)
-                        gear_total_cost += float(item.get("price", 0))
-            except Exception as e:
-                logger.warning(f"Error fetching live market gear: {e}")
+            # 2. Attack per hit with weapon & ammo
+            eff_w_atk = max(equipped_weapon_atk, w_atk)
+            ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+            sim_atk = (base_atk + eff_w_atk) * rank_mult * ammo_mult * 1.60
 
-        grand_total_cost = food_total_cost + gear_total_cost
-        if use_pill:
-            grand_total_cost += 3500.0  # standard market pill price estimate
+            # 3. Precision & Crits
+            curr_prec = float(skills.get("precision", {}).get("value", 75))
+            eq_prec = float(skills.get("precision", {}).get("equipment", 0))
+            tot_prec = min(100.0, max(float(skills.get("precision", {}).get("total", 0)), curr_prec + max(eq_prec, g_prec)))
+            prec_ratio = tot_prec / 100.0
+
+            curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
+            curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
+            eq_crit_ch = float(skills.get("criticalChance", {}).get("weapon", 0))
+            eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
+
+            tot_crit_ch = min(100.0, max(float(skills.get("criticalChance", {}).get("total", 0)), curr_crit_ch + max(eq_crit_ch, w_crit_ch)))
+            tot_crit_dmg = max(float(skills.get("criticalDamages", {}).get("total", 0)), curr_crit_dmg + max(eq_crit_dmg, h_crit_dmg))
+
+            crit_hit_mult = 1.0 + (tot_crit_dmg / 100.0)
+            crit_ch_ratio = tot_crit_ch / 100.0
+            crit_mult = (1.0 - prec_ratio) * 0.5 + prec_ratio * ((1.0 - crit_ch_ratio) * 1.0 + crit_ch_ratio * crit_hit_mult)
+
+            avg_dmg = sim_atk * crit_mult * 1.50 # Standard clan battle bonus (+50%)
+            return round(avg_dmg, 1), round(hp_cost, 2), round(eff_dodge, 1)
+
+        # Resolve Ammo Selection
+        def get_best_ammo_for_tier(tier_num: float) -> str:
+            if selected_ammo in AMMO_SPECS:
+                return selected_ammo
+            # Auto-selection logic:
+            if deficit_damage >= 7_000_000 or tier_num >= 6:
+                return "heavyAmmo" # 🟣 Heavy for 7M-10M or Jet
+            elif deficit_damage >= 3_500_000 or tier_num >= 4.5:
+                return "ammo" # 🔵 Standard for 3.5M+ or Tank/Hybrid
+            return "lightAmmo" # 🟢 Light for everyday economy
+
+        # Strategies definition
+        strategies_config = [
+            {
+                "key": "current_gear",
+                "label": "🛡 Поточний шмот (Економ)",
+                "tier_name": "Поточний",
+                "tier_num": 0,
+                "is_current": True,
+                "sim_dmg": curr_avg_dmg,
+                "sim_hp_cost": curr_hp_cost,
+                "eff_dodge": curr_dodge_pct,
+            },
+            {
+                "key": "t3_rare",
+                "label": "🔵 Т3 Синій Економ (Рідкісний)",
+                "tier_name": "Т3 Синій",
+                "tier_num": 3,
+                "is_current": False,
+                "slots_def": TIER_STAT_BENCHMARKS[3],
+            },
+            {
+                "key": "t4_epic",
+                "label": "🟣 Т4 Фіолетовий (Елітний)",
+                "tier_name": "Т4 Фіолетовий",
+                "tier_num": 4,
+                "is_current": False,
+                "slots_def": TIER_STAT_BENCHMARKS[4],
+            },
+            {
+                "key": "hybrid_t5_defense",
+                "label": "👑 Гібрид (Т5 Броня+Штани, решта Т4)",
+                "tier_name": "Гібрид Т4/Т5",
+                "tier_num": 4.5,
+                "is_current": False,
+                "slots_def": {
+                    "name": "Гібрид Т4/Т5",
+                    "weapon_code": "sniper", "weapon_name": "Снайперка IV", "weapon_atk": 120.0, "weapon_crit_chance": 18.0,
+                    "helmet_code": "helmet4", "helmet_name": "Шолом IV", "helmet_crit_dmg": 80.0,
+                    "chest_code": "chest5", "chest_name": "Броня V (Легенда)", "chest_armor": 43.0,
+                    "pants_code": "pants5", "pants_name": "Штани V (Легенда)", "pants_armor": 43.0,
+                    "boots_code": "boots4", "boots_name": "Чоботи IV", "boots_dodge": 23.0,
+                    "gloves_code": "gloves4", "gloves_name": "Рукавиці IV", "gloves_precision": 23.0,
+                },
+            },
+            {
+                "key": "t5_legendary",
+                "label": "🟡 Т5 Легендарний (Топ-урон)",
+                "tier_name": "Т5 Легендарний",
+                "tier_num": 5,
+                "is_current": False,
+                "slots_def": TIER_STAT_BENCHMARKS[5],
+            },
+            {
+                "key": "t6_mythic",
+                "label": "🔴 Т6 Міфічний (Максимум)",
+                "tier_name": "Т6 Міфічний",
+                "tier_num": 6,
+                "is_current": False,
+                "slots_def": TIER_STAT_BENCHMARKS[6],
+            },
+        ]
+
+        evaluated_options = []
+
+        for strat in strategies_config:
+            t_num = strat["tier_num"]
+            ammo_key = get_best_ammo_for_tier(t_num)
+            ammo_spec = AMMO_SPECS[ammo_key]
+            ammo_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
+
+            if strat.get("is_current"):
+                sim_dmg = strat["sim_dmg"]
+                sim_hp_cost = strat["sim_hp_cost"]
+                eff_dodge = strat["eff_dodge"]
+            else:
+                s_def = strat["slots_def"]
+                sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
+                    s_def["weapon_atk"], s_def["weapon_crit_chance"],
+                    s_def["helmet_crit_dmg"],
+                    s_def["chest_armor"], s_def["pants_armor"],
+                    s_def["boots_dodge"], s_def["gloves_precision"],
+                    ammo_spec["bonus_pct"]
+                )
+
+            # Evaluate with food options (Steaks vs Fish)
+            food_options = ["steak", "cookedFish"] if not custom_food_key else [custom_food_key]
+
+            for f_key in food_options:
+                f_spec = FOOD_SPECS[f_key]
+                f_price = float(consumable_prices.get(f_key, f_spec["default_price"]))
+
+                # Calculate hits needed
+                if deficit_damage <= 0:
+                    hits_needed = 0
+                    total_hp_needed = 0.0
+                    hp_deficit = 0.0
+                    food_units_needed = 0
+                else:
+                    hits_needed = math.ceil(deficit_damage / max(1.0, sim_dmg))
+                    total_hp_needed = hits_needed * sim_hp_cost
+                    hp_deficit = max(0.0, total_hp_needed - natural_hp_pool)
+
+                    hp_per_food_unit = health_max * f_spec["hp_pct"]
+                    food_units_needed = math.ceil(hp_deficit / hp_per_food_unit) if hp_per_food_unit > 0 else 0
+
+                food_cost = round(food_units_needed * f_price, 2)
+
+                # Hunger capacity check
+                can_reach = food_units_needed <= available_hunger
+                hunger_usage_pct = round((food_units_needed / available_hunger) * 100.0, 1) if available_hunger > 0 else 100.0
+
+                # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
+                weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
+
+                # 2. Armor & Equipment durability burn (attenuated by dodge!)
+                # Hits absorbed by armor = hits * (1 - dodge)
+                armor_hits = hits_needed * (1.0 - (eff_dodge / 100.0))
+                armor_sets_burned = max(1, math.ceil(armor_hits / 100.0)) if hits_needed > 0 else 1
+
+                # 3. Ammo consumption (1 ammo per hit)
+                ammo_units_needed = hits_needed
+                ammo_cost = round(ammo_units_needed * ammo_price, 2)
+
+                # 4. Shopping list & durability eco-advice for all 6 slots
+                shopping_items = []
+                gear_cost = 0.0
+
+                if not strat.get("is_current"):
+                    s_def = strat["slots_def"]
+                    slots_to_quote = [
+                        ("weapon", s_def["weapon_code"], weapons_burned, s_def["weapon_atk"]),
+                        ("helmet", s_def["helmet_code"], armor_sets_burned, s_def["helmet_crit_dmg"]),
+                        ("chest", s_def["chest_code"], armor_sets_burned, s_def["chest_armor"]),
+                        ("pants", s_def["pants_code"], armor_sets_burned, s_def["pants_armor"]),
+                        ("boots", s_def["boots_code"], armor_sets_burned, s_def["boots_dodge"]),
+                        ("gloves", s_def["gloves_code"], armor_sets_burned, s_def["gloves_precision"]),
+                    ]
+
+                    for slot_name, item_code, qty_needed, tier_stat_val in slots_to_quote:
+                        quote = get_item_quote(item_code)
+                        unit_p = quote["price"]
+                        total_item_p = round(unit_p * qty_needed, 2)
+
+                        # Determine overkill / upgrade advice compared to player's current gear
+                        player_equipped_val = 0.0
+                        if slot_name == "weapon":
+                            player_equipped_val = equipped_weapon_atk
+                        elif slot_name in ("chest", "pants"):
+                            player_equipped_val = equipped_armor / 2.0
+                        elif slot_name == "boots":
+                            player_equipped_val = equipped_dodge
+                        elif slot_name == "helmet":
+                            player_equipped_val = float(skills.get("criticalDamages", {}).get("equipment", 0))
+                        elif slot_name == "gloves":
+                            player_equipped_val = float(skills.get("precision", {}).get("equipment", 0))
+
+                        if player_equipped_val >= (tier_stat_val * 1.25):
+                            eco_status = "overkill"
+                            eco_note = f"💎 На тобі стоїть вищий грейд! Можна взяти {quote['name']} за {unit_p} ₴ і зберегти міцність дорогого шмоту."
+                        elif player_equipped_val < (tier_stat_val * 0.85):
+                            eco_status = "upgrade_needed"
+                            eco_note = f"⚠️ Потрібен апгрейд на {quote['name']} для закриття цілі."
+                        else:
+                            eco_status = "optimal"
+                            eco_note = f"✅ Твоє поточне спорядження оптимально відповідає цій цілі."
+
+                        item_entry = dict(quote)
+                        item_entry["qty_needed"] = qty_needed
+                        item_entry["total_price"] = total_item_p
+                        item_entry["eco_status"] = eco_status
+                        item_entry["eco_note"] = eco_note
+                        shopping_items.append(item_entry)
+                        gear_cost += total_item_p
+
+                grand_total = round(gear_cost + ammo_cost + food_cost + pill_cost, 2)
+
+                opt_record = {
+                    "strategy_key": f"{strat['key']}_{f_key}_{ammo_key}",
+                    "base_key": strat["key"],
+                    "label": strat["label"],
+                    "tier_name": strat["tier_name"],
+                    "tier_num": strat["tier_num"],
+                    "food_key": f_key,
+                    "food_name": f_spec["name"],
+                    "food_icon": f_spec["icon"],
+                    "ammo_key": ammo_key,
+                    "ammo_name": ammo_spec["name"],
+                    "ammo_badge": ammo_spec["badge"],
+                    "ammo_icon": ammo_spec["icon"],
+                    "ammo_bonus_pct": ammo_spec["bonus_pct"],
+                    "ammo_price": ammo_price,
+                    "ammo_units_needed": ammo_units_needed,
+                    "ammo_cost": ammo_cost,
+                    "avg_dmg_per_hit": sim_dmg,
+                    "hp_cost_per_hit": sim_hp_cost,
+                    "eff_dodge": eff_dodge,
+                    "hits_needed": hits_needed,
+                    "hp_needed": round(total_hp_needed, 0),
+                    "food_units_needed": food_units_needed,
+                    "available_hunger": round(available_hunger, 1),
+                    "hunger_usage_pct": hunger_usage_pct,
+                    "can_reach_in_session": can_reach,
+                    "food_unit_price": f_price,
+                    "food_cost": food_cost,
+                    "weapons_burned": weapons_burned,
+                    "armor_sets_burned": armor_sets_burned,
+                    "gear_cost": round(gear_cost, 2),
+                    "pill_cost": round(pill_cost, 2),
+                    "grand_total_cost": grand_total,
+                    "shopping_items": shopping_items,
+                    "shopping_count": len(shopping_items),
+                    "is_best_value": False,
+                }
+                evaluated_options.append(opt_record)
+
+        # Identify Best Value option (cheapest among reachable ones)
+        feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
+        if feasible_opts:
+            feasible_opts.sort(key=lambda x: x["grand_total_cost"])
+            best_opt = feasible_opts[0]
+            best_opt["is_best_value"] = True
+            cheapest_total = best_opt["grand_total_cost"]
+
+            for o in evaluated_options:
+                o["savings_vs_best"] = round(o["grand_total_cost"] - cheapest_total, 2)
+        else:
+            evaluated_options.sort(key=lambda x: x["grand_total_cost"])
+            if evaluated_options:
+                evaluated_options[0]["is_best_value"] = True
 
         return {
             "player": {
                 "username": uname,
                 "level": lvl,
                 "health_max": health_max,
-                "base_atk": base_atk,
-                "eff_armor": round(eff_armor, 1),
-                "eff_dodge": round(eff_dodge, 1),
+                "health_curr": health_curr,
+                "health_regen": health_regen,
+                "hunger_max": hunger_max,
+                "hunger_curr": hunger_curr,
+                "hunger_regen": hunger_regen,
+                "has_active_pill": has_active_pill,
+                "pill_remaining_hours": round(session_hours, 2),
+                "today_damage": round(today_damage, 0),
             },
             "target": {
-                "damage_goal": target_damage,
-                "use_pill": use_pill,
-                "food_type": food_spec["name"],
-                "gear_tier": gear_tier,
+                "target_damage": round(target_damage, 0),
+                "deficit_damage": round(deficit_damage, 0),
+                "session_hours": round(session_hours, 2),
+                "selected_ammo": selected_ammo,
             },
-            "combat_metrics": {
-                "avg_dmg_per_hit": round(avg_dmg_per_hit, 1),
-                "hp_cost_per_hit": round(hp_cost_per_hit, 2),
-                "total_hits_needed": total_hits_needed,
-                "total_hp_needed": round(total_hp_needed, 0),
-                "natural_hp_pool": round(natural_hp_pool, 0),
-                "hp_deficit": round(hp_deficit, 0),
-            },
-            "consumables": {
-                "food_name": food_spec["name"],
-                "units_needed": food_units_needed,
-                "unit_price": fish_price,
-                "total_cost": food_total_cost,
-                "pill_recommended": use_pill,
-                "pill_cost": 3500.0 if use_pill else 0.0,
-            },
-            "recommended_gear": recommended_gear,
-            "gear_total_cost": round(gear_total_cost, 2),
-            "grand_total_cost": round(grand_total_cost, 2),
+            "strategies": evaluated_options,
+            "best_strategy": feasible_opts[0] if feasible_opts else evaluated_options[0],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }

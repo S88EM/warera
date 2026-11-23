@@ -98,6 +98,43 @@ async def handle_clan(request: web.Request) -> web.Response:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
+async def handle_clan_targets_get(request: web.Request) -> web.Response:
+    from clan_targets import get_daily_targets
+    try:
+        targets = get_daily_targets()
+        return web.json_response({"status": "ok", "targets": targets})
+    except Exception as e:
+        logger.error(f"Error in handle_clan_targets_get: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
+async def handle_clan_targets_set(request: web.Request) -> web.Response:
+    from clan_targets import set_member_target
+    try:
+        data = await request.json()
+        uname = data.get("username")
+        if not uname:
+            return web.json_response({"status": "error", "message": "Username is required"}, status=400)
+        target_dmg = float(data.get("target_damage", 0))
+        gear_tier = data.get("gear_tier", "epic")
+        use_pill = bool(data.get("use_pill", True))
+        use_fish = bool(data.get("use_fish", True))
+        user_id = data.get("user_id")
+
+        rec = set_member_target(
+            username=uname,
+            target_damage=target_dmg,
+            user_id=user_id,
+            gear_tier=gear_tier,
+            use_pill=use_pill,
+            use_fish=use_fish,
+        )
+        return web.json_response({"status": "ok", "target": rec})
+    except Exception as e:
+        logger.error(f"Error in handle_clan_targets_set: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=400)
+
+
 async def handle_calculator(request: web.Request) -> web.Response:
     from combat_calculator import CombatDamageCalculator
     from clan_analyzer import WarEraClanAnalyzer
@@ -128,15 +165,19 @@ async def handle_calculator(request: web.Request) -> web.Response:
         if not target_member:
             return web.json_response({"status": "error", "message": "Боєць не знайдений"}, status=404)
 
+        selected_ammo = request.query.get("ammo", "auto")
         calc = CombatDamageCalculator(market_app=_app_instance)
-        plan = calc.calculate_plan(
+        calc_result = calc.calculate_all_strategies(
             target_member,
             target_damage=target_dmg,
-            use_pill=use_pill,
-            use_fish=use_fish,
-            gear_tier=gear_tier,
+            selected_ammo=selected_ammo,
         )
-        return web.json_response({"status": "ok", "plan": plan})
+        return web.json_response({
+            "status": "ok",
+            "result": calc_result,
+            "best_strategy": calc_result.get("best_strategy"),
+            "plan": calc_result.get("best_strategy"),
+        })
     except Exception as e:
         logger.error(f"Error in handle_calculator: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -333,6 +374,8 @@ def create_app(app_instance: Optional[Any] = None) -> web.Application:
     app.router.add_get(r"/{prefix:.*}common_utils.js", handle_common_js)
 
     # API endpoints (supporting both direct and Ingress prefixed paths)
+    app.router.add_get(r"/{prefix:.*}api/clan/targets", handle_clan_targets_get)
+    app.router.add_post(r"/{prefix:.*}api/clan/targets", handle_clan_targets_set)
     app.router.add_get(r"/{prefix:.*}api/clan", handle_clan)
     app.router.add_get(r"/{prefix:.*}api/calculator", handle_calculator)
     app.router.add_get(r"/{prefix:.*}api/battles", handle_battles)

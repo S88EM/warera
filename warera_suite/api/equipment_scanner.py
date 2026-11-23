@@ -315,6 +315,15 @@ class EquipmentScannerApp:
 
         self.active_deals = new_active_deals
         self.total_alerts_sent += found
+
+        # Persist top-3 cheapest active offers for T3-T6 & consumables into persistent JSON cache
+        try:
+            from market_cache import save_market_cheapest_cache
+            consumable_prices = await self.api.get_prices()
+            save_market_cheapest_cache(self.latest_market_offers, consumable_prices, limit_per_item=3)
+        except Exception as cache_err:
+            console.print(f"[dim yellow]⚠️ Помилка оновлення кешу ринку: {cache_err}[/dim yellow]")
+
         status_msg = f"[dim][{now_str}][/dim] Спорядження #{cycle_num} ({len(items)} кат.):"
         if found > 0:
             status_msg += f" [bold green]Знайдено аномалій: {found}![/bold green]"
