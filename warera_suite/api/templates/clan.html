@@ -1280,6 +1280,7 @@
                             <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
                                 <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Сумарний бюджет:</div>
                                 <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
+                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} ₴ / 1M урону</div>
                                 ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} ₴ дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
                         </div>
@@ -1318,10 +1319,10 @@
 
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
                                 <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
-                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-emerald-400' : 'text-rose-400'} mt-1 flex items-center gap-1">
-                                    <span>${stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт'}</span>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
+                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
                                 </div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься'}</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
                             </div>
                         </div>
                     </div>
@@ -1339,10 +1340,13 @@
                     let statusBadge = '';
                     if (isBest) {
                         statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black">🏆 НАЙВИГІДНІШИЙ</span>`;
+                    } else if (s.reach_badge) {
+                        const badgeColor = s.reach_status === 'ok' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : (s.reach_status === 'soft_cap' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30');
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded ${badgeColor} text-[10px] font-bold">${s.reach_badge}</span>`;
                     } else if (canReach) {
-                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px]">✅ Досяжно</span>`;
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border-blue-500/30 text-[10px]">✅ Досяжно</span>`;
                     } else {
-                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px]" title="Не вистачить шкали голоду за 1 сесію таблетки">❌ Ліміт голоду</span>`;
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border-rose-500/30 text-[10px]" title="Не вистачить шкали голоду за 1 сесію таблетки">❌ Ліміт голоду</span>`;
                     }
 
                     const rowBg = isSelected 
@@ -1411,12 +1415,21 @@
             const grid = document.getElementById('calcGearSlotsGrid');
             if (grid) {
                 if (!strat.shopping_items || strat.shopping_items.length === 0) {
-                    grid.innerHTML = `
-                        <div class="col-span-full p-4 rounded-xl bg-darkbg/60 border border-emerald-500/30 text-center space-y-1">
-                            <div class="text-emerald-400 font-bold text-sm">🛡 Використовується поточний надітий шмот бійця</div>
-                            <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 ₴)</div>
-                        </div>
-                    `;
+                    if (strat.is_naked) {
+                        grid.innerHTML = `
+                            <div class="col-span-full p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-center space-y-1">
+                                <div class="text-amber-400 font-bold text-sm">⚠️ Боєць не має надітої зброї (Голий)</div>
+                                <div class="text-gray-300 text-xs">Для бою необхідно одягнути зброю в грі або обрати комплект із покупкою (Золота середина чи Т4).</div>
+                            </div>
+                        `;
+                    } else {
+                        grid.innerHTML = `
+                            <div class="col-span-full p-4 rounded-xl bg-darkbg/60 border border-emerald-500/30 text-center space-y-1">
+                                <div class="text-emerald-400 font-bold text-sm">🛡 Використовується поточний надітий шмот бійця</div>
+                                <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 ₴)</div>
+                            </div>
+                        `;
+                    }
                 } else {
                     grid.innerHTML = strat.shopping_items.map(item => {
                         const slotIcons = {
@@ -1428,41 +1441,48 @@
                             gloves: '🧤',
                         };
                         const icon = slotIcons[item.slot] || '📦';
+                        const isAlreadyEquipped = (item.qty_needed === 0);
 
                         let ecoBadgeClass = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-                        if (item.eco_status === 'overkill') {
+                        if (isAlreadyEquipped) {
+                            ecoBadgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                        } else if (item.eco_status === 'overkill') {
                             ecoBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
                         } else if (item.eco_status === 'upgrade_needed') {
                             ecoBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
                         }
 
+                        const actionBtn = isAlreadyEquipped
+                            ? `<div class="mt-1 w-full py-1.5 rounded-lg bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 font-bold text-center text-[10px] flex items-center justify-center gap-1.5"><i class="fa-solid fa-check text-[9px]"></i><span>Вже надіто на тобі</span></div>`
+                            : `<a href="${item.url}" target="_blank" class="mt-1 w-full py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 hover:border-blue-400 text-blue-200 hover:text-white font-bold text-center text-[10px] transition-all flex items-center justify-center gap-1.5">
+                                <span>Купити на WarEra</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                               </a>`;
+
                         return `
-                            <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between gap-2 hover:border-gray-500 transition-all">
+                            <div class="glass-panel p-3 rounded-xl border ${isAlreadyEquipped ? 'border-emerald-500/40 bg-emerald-950/15' : 'border-bordercolor'} flex flex-col justify-between gap-2 hover:border-gray-500 transition-all">
                                 <div>
                                     <div class="flex items-start justify-between gap-2">
                                         <div class="font-bold text-white text-xs flex items-center gap-1.5">
                                             <span>${icon}</span>
                                             <span class="truncate">${item.name}</span>
                                         </div>
-                                        <span class="text-amber-400 font-mono font-bold text-xs shrink-0">${item.qty_needed} шт</span>
+                                        <span class="${isAlreadyEquipped ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'} font-mono text-xs shrink-0">${isAlreadyEquipped ? 'Вже надіто' : `${item.qty_needed} шт`}</span>
                                     </div>
                                     <div class="text-[10px] text-gray-400 mt-1 flex items-center justify-between font-mono">
                                         <span>Ціна на ринку:</span>
                                         <span class="text-gray-200">${item.price} ₴ / шт</span>
                                     </div>
                                     <div class="text-[10px] text-gray-400 flex items-center justify-between font-mono font-bold border-t border-bordercolor/40 pt-1 mt-1">
-                                        <span>Сума (${item.qty_needed} шт):</span>
-                                        <span class="text-emerald-400">${item.total_price} ₴</span>
+                                        <span>До оплати (${item.qty_needed} шт):</span>
+                                        <span class="${isAlreadyEquipped ? 'text-gray-400 font-normal' : 'text-emerald-400 font-bold'}">${item.total_price} ₴</span>
                                     </div>
                                     <!-- Eco Durability Note -->
                                     <div class="mt-2 text-[10px] p-1.5 rounded-lg border ${ecoBadgeClass} font-sans leading-tight">
                                         ${item.eco_note}
                                     </div>
                                 </div>
-                                <a href="${item.url}" target="_blank" class="mt-1 w-full py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 hover:border-blue-400 text-blue-200 hover:text-white font-bold text-center text-[10px] transition-all flex items-center justify-center gap-1.5">
-                                    <span>Купити на WarEra</span>
-                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                                </a>
+                                ${actionBtn}
                             </div>
                         `;
                     }).join('');

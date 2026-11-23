@@ -244,6 +244,10 @@ class CombatDamageCalculator:
         equipped_armor = float(player_member.get("equipped_armor") or skills.get("armor", {}).get("equipment", 0))
         equipped_dodge = float(player_member.get("equipped_dodge") or skills.get("dodge", {}).get("equipment", 0))
 
+        has_equipped_weapon = equipped_weapon_atk > 0
+        has_equipped_armor = (equipped_armor > 0 or equipped_dodge > 0)
+        is_player_naked = (not has_equipped_weapon) and (not has_equipped_armor)
+
         # Helper: get price and item details from cache or fallback
         def get_item_quote(code: str) -> Dict[str, Any]:
             meta = EQUIPMENT_METADATA.get(code, {})
@@ -320,6 +324,11 @@ class CombatDamageCalculator:
         def get_best_ammo_for_tier(tier_num: float) -> str:
             if selected_ammo in AMMO_SPECS:
                 return selected_ammo
+            # Smart sweet spot: if target >= 2.5M, use standard blue ammo to compress food without buying T5 gear
+            if abs(tier_num - 4.2) < 0.05:
+                if deficit_damage >= 2_500_000:
+                    return "ammo"
+                return "lightAmmo"
             # Auto-selection logic:
             if deficit_damage >= 7_000_000 or tier_num >= 6:
                 return "heavyAmmo" # 🟣 Heavy for 7M-10M or Jet
@@ -331,13 +340,42 @@ class CombatDamageCalculator:
         strategies_config = [
             {
                 "key": "current_gear",
-                "label": "🛡 Поточний шмот (Економ)",
+                "label": "🛡 Поточний шмот (Економ)" if has_equipped_weapon else "🛡 Поточний шмот (Без зброї)",
                 "tier_name": "Поточний",
                 "tier_num": 0,
                 "is_current": True,
                 "sim_dmg": curr_avg_dmg,
                 "sim_hp_cost": curr_hp_cost,
                 "eff_dodge": curr_dodge_pct,
+            },
+            {
+                "key": "smart_sweet_spot",
+                "label": "⭐ Золота середина (Макс. окупність)",
+                "tier_name": "Золота середина",
+                "tier_num": 4.2,
+                "is_current": False,
+                "slots_def": {
+                    "name": "Золота середина",
+                    "weapon_code": "sniper" if deficit_damage <= 4_500_000 else "tank",
+                    "weapon_name": "Снайперка IV" if deficit_damage <= 4_500_000 else "Танк V",
+                    "weapon_atk": 120.0 if deficit_damage <= 4_500_000 else 155.0,
+                    "weapon_crit_chance": 18.0 if deficit_damage <= 4_500_000 else 30.0,
+                    "helmet_code": "helmet4",
+                    "helmet_name": "Шолом IV",
+                    "helmet_crit_dmg": 80.0,
+                    "chest_code": "chest4",
+                    "chest_name": "Броня IV",
+                    "chest_armor": 26.0,
+                    "pants_code": "pants4",
+                    "pants_name": "Штани IV",
+                    "pants_armor": 26.0,
+                    "boots_code": "boots4",
+                    "boots_name": "Чоботи IV (Ухил)",
+                    "boots_dodge": 24.0,
+                    "gloves_code": "gloves4",
+                    "gloves_name": "Рукавиці IV",
+                    "gloves_precision": 23.0,
+                },
             },
             {
                 "key": "t3_rare",
@@ -398,9 +436,23 @@ class CombatDamageCalculator:
             ammo_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
 
             if strat.get("is_current"):
-                sim_dmg = strat["sim_dmg"]
-                sim_hp_cost = strat["sim_hp_cost"]
-                eff_dodge = strat["eff_dodge"]
+                if has_equipped_weapon:
+                    # Simulate real equipped stats
+                    sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
+                        w_atk=equipped_weapon_atk,
+                        w_crit_ch=float(skills.get("criticalChance", {}).get("weapon", 0)),
+                        h_crit_dmg=float(skills.get("criticalDamages", {}).get("equipment", 0)),
+                        c_armor=equipped_armor / 2.0,
+                        p_armor=equipped_armor / 2.0,
+                        b_dodge=equipped_dodge,
+                        g_prec=float(skills.get("precision", {}).get("equipment", 0)),
+                        ammo_bonus_pct=ammo_spec["bonus_pct"],
+                    )
+                else:
+                    # Naked / no weapon equipped
+                    sim_dmg = 0.0
+                    sim_hp_cost = 6.5
+                    eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
             else:
                 s_def = strat["slots_def"]
                 sim_dmg, sim_hp_cost, eff_dodge = simulate_tier_combat(
@@ -433,10 +485,31 @@ class CombatDamageCalculator:
                     food_units_needed = math.ceil(hp_deficit / hp_per_food_unit) if hp_per_food_unit > 0 else 0
 
                 food_cost = round(food_units_needed * f_price, 2)
+                hunger_usage_pct = round((food_units_needed / available_hunger) * 100.0, 1) if available_hunger > 0 else 100.0
 
                 # Hunger capacity check
-                can_reach = food_units_needed <= available_hunger
-                hunger_usage_pct = round((food_units_needed / available_hunger) * 100.0, 1) if available_hunger > 0 else 100.0
+                if strat.get("is_current") and not has_equipped_weapon:
+                    can_reach = False
+                    reach_status = "no_weapon"
+                    reach_badge = "⚠️ Без зброї"
+                    reach_note = "На бійцеві немає зброї! Для бою потрібно екіпірувати або придбати зброю."
+                elif food_units_needed <= available_hunger:
+                    can_reach = True
+                    reach_status = "ok"
+                    reach_badge = "✅ Досяжно"
+                    reach_note = "Повністю вміщається в поточну сесію таблетки"
+                elif food_units_needed <= (available_hunger + 2.0):
+                    # Soft cap: exceeds slightly, reachable with a brief wait
+                    can_reach = True
+                    reach_status = "soft_cap"
+                    extra_h = round((food_units_needed - available_hunger) / max(0.4, hunger_regen), 1)
+                    reach_badge = f"⏳ +{extra_h}г регену"
+                    reach_note = f"Потребує +{extra_h}г регену голоду, але зберігає золото!"
+                else:
+                    can_reach = False
+                    reach_status = "exceeded"
+                    reach_badge = f"❌ Ліміт голоду ({hunger_usage_pct}%)"
+                    reach_note = "Перевищує ліміт голоду за сесію"
 
                 # 1. Weapon durability burn (1 weapon per 100 hits, no dodge protection)
                 weapons_burned = max(1, math.ceil(hits_needed / 100.0)) if hits_needed > 0 else 1
@@ -468,7 +541,6 @@ class CombatDamageCalculator:
                     for slot_name, item_code, qty_needed, tier_stat_val in slots_to_quote:
                         quote = get_item_quote(item_code)
                         unit_p = quote["price"]
-                        total_item_p = round(unit_p * qty_needed, 2)
 
                         # Determine overkill / upgrade advice compared to player's current gear
                         player_equipped_val = 0.0
@@ -483,18 +555,27 @@ class CombatDamageCalculator:
                         elif slot_name == "gloves":
                             player_equipped_val = float(skills.get("precision", {}).get("equipment", 0))
 
-                        if player_equipped_val >= (tier_stat_val * 1.25):
-                            eco_status = "overkill"
-                            eco_note = f"💎 На тобі стоїть вищий грейд! Можна взяти {quote['name']} за {unit_p} ₴ і зберегти міцність дорогого шмоту."
-                        elif player_equipped_val < (tier_stat_val * 0.85):
-                            eco_status = "upgrade_needed"
-                            eco_note = f"⚠️ Потрібен апгрейд на {quote['name']} для закриття цілі."
+                        # Smart deduction: If slot is already covered by equipped gear (>= 85% of tier benchmark),
+                        # the first item is already in hand! Only buy replacements if durability runs out.
+                        if player_equipped_val >= (tier_stat_val * 0.85):
+                            qty_to_buy = max(0, qty_needed - 1)
+                            if qty_to_buy == 0:
+                                total_item_p = 0.0
+                                eco_status = "already_equipped"
+                                eco_note = f"✅ Вже надіто на тобі ({quote['name']}). Докупка не потрібна (0 ₴)!"
+                            else:
+                                total_item_p = round(unit_p * qty_to_buy, 2)
+                                eco_status = "wear_replacement"
+                                eco_note = f"🛡 1-й на тобі, докупити +{qty_to_buy} шт на зміну при зносі."
                         else:
-                            eco_status = "optimal"
-                            eco_note = f"✅ Твоє поточне спорядження оптимально відповідає цій цілі."
+                            qty_to_buy = qty_needed
+                            total_item_p = round(unit_p * qty_to_buy, 2)
+                            eco_status = "upgrade_needed"
+                            eco_note = f"⚠️ Потрібно купити {quote['name']} ({qty_to_buy} шт) для закриття цілі."
 
                         item_entry = dict(quote)
-                        item_entry["qty_needed"] = qty_needed
+                        item_entry["qty_needed"] = qty_to_buy
+                        item_entry["qty_required_total"] = qty_needed
                         item_entry["total_price"] = total_item_p
                         item_entry["eco_status"] = eco_status
                         item_entry["eco_note"] = eco_note
@@ -502,6 +583,7 @@ class CombatDamageCalculator:
                         gear_cost += total_item_p
 
                 grand_total = round(gear_cost + ammo_cost + food_cost + pill_cost, 2)
+                cost_per_m_dmg = round((grand_total / max(1.0, deficit_damage)) * 1_000_000, 1) if deficit_damage > 0 else 0.0
 
                 opt_record = {
                     "strategy_key": f"{strat['key']}_{f_key}_{ammo_key}",
@@ -529,6 +611,11 @@ class CombatDamageCalculator:
                     "available_hunger": round(available_hunger, 1),
                     "hunger_usage_pct": hunger_usage_pct,
                     "can_reach_in_session": can_reach,
+                    "reach_badge": reach_badge,
+                    "reach_status": reach_status,
+                    "reach_note": reach_note,
+                    "cost_per_m_dmg": cost_per_m_dmg,
+                    "is_naked": is_player_naked if strat.get("is_current") else False,
                     "food_unit_price": f_price,
                     "food_cost": food_cost,
                     "weapons_burned": weapons_burned,
@@ -553,8 +640,12 @@ class CombatDamageCalculator:
             for o in evaluated_options:
                 o["savings_vs_best"] = round(o["grand_total_cost"] - cheapest_total, 2)
         else:
-            evaluated_options.sort(key=lambda x: x["grand_total_cost"])
-            if evaluated_options:
+            # If none can fully reach in 1 session, pick the one that gets closest to reaching (lowest hunger usage overflow)
+            valid_non_naked = [o for o in evaluated_options if not o.get("is_naked")]
+            if valid_non_naked:
+                valid_non_naked.sort(key=lambda x: (x["hunger_usage_pct"], x["grand_total_cost"]))
+                valid_non_naked[0]["is_best_value"] = True
+            elif evaluated_options:
                 evaluated_options[0]["is_best_value"] = True
 
         return {
