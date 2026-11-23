@@ -25,13 +25,16 @@ CACHE_FILE_NAME = "market_cheapest_cache.json"
 TARGET_QUALITIES = ["rare", "epic", "legendary", "mythic"]
 
 # Key combat consumables in WarEra
-CONSUMABLE_KEYS = ["cookedFish", "fish", "steak", "bread", "cocain"]
+CONSUMABLE_KEYS = ["cookedFish", "fish", "steak", "bread", "cocain", "scrap", "case1", "case2"]
 DEFAULT_CONSUMABLE_PRICES = {
     "cookedFish": 7.74,
     "fish": 3.93,
     "steak": 3.03,
     "bread": 1.40,
     "cocain": 34.80,
+    "scrap": 0.26,
+    "case1": 3.89,
+    "case2": 27.19,
 }
 
 

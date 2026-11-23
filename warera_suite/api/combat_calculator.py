@@ -253,9 +253,9 @@ class CombatDamageCalculator:
         loot_chance_pct = float(player_member.get("loot_chance") or (loot_skill_total if loot_skill_total > 0 else (5.0 + 2.0 * loot_skill_lvl)))
         loot_chance_ratio = loot_chance_pct / 100.0
 
-        scrap_price = float(consumable_prices.get("scrap", 0.253))
-        case1_price = float(consumable_prices.get("case1", 3.88))
-        case2_price = float(consumable_prices.get("case2", 25.44))
+        scrap_price = float(consumable_prices.get("scrap", 0.26))
+        case1_price = float(consumable_prices.get("case1", 3.89))
+        case2_price = float(consumable_prices.get("case2", 27.19))
         bounty_rate = float(player_member.get("bounty_rate") or consumable_prices.get("lootPer1k", 0.20))
 
         # Current player combat parameters from analyzer
