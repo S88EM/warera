@@ -1129,6 +1129,10 @@
         let activeSelectedStrat = null;
         let calcTargetDebounce = null;
         let calcBonusDebounce = null;
+        let activeCalcPrestige = 0;
+        let activeCalcRankBonus = 0;
+        let calcPrestigeDebounce = null;
+        let calcRankBonusDebounce = null;
 
         function getPillBadgeClass(status) {
             if (status === 'ACTIVE') return 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
@@ -1213,6 +1217,33 @@
             fetchCalculatorPlan();
         }
 
+        function onCalcPrestigeInput(val) {
+            const parsed = parseInt(val, 10);
+            activeCalcPrestige = isNaN(parsed) ? 0 : Math.max(0, parsed);
+            const badge = document.getElementById('calcPrestigeBadge');
+            if (badge) badge.innerText = `⭐ Престиж: ${activeCalcPrestige}`;
+
+            clearTimeout(calcPrestigeDebounce);
+            calcPrestigeDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function onCalcRankBonusInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            activeCalcRankBonus = isNaN(parsed) ? 0 : Math.max(0, parsed);
+            const rankEl = document.getElementById('calcUserRank');
+            if (rankEl && activeCalcMember) {
+                rankEl.innerText = `Ранг ${activeCalcMember.military_rank || 0} (+${activeCalcRankBonus}%)`;
+            }
+
+            clearTimeout(calcRankBonusDebounce);
+            calcRankBonusDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
         function openTargetCalculator(username) {
             if (!clanData || !clanData.members) return;
             const m = clanData.members.find(x => x.username.toLowerCase() === (username || '').toLowerCase());
@@ -1226,6 +1257,8 @@
             activeCalcAmmo = 'auto';
             activeCalcFood = 'auto';
             activeCalcBonus = (typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84;
+            activeCalcPrestige = m.prestige || (m.leveling && m.leveling.prestige) || 0;
+            activeCalcRankBonus = (typeof m.rank_bonus_pct === 'number') ? m.rank_bonus_pct : (m.skills?.attack?.militaryRankPercent || 0);
 
             // Populate header details safely
             const nameEl = document.getElementById('calcUserName');
@@ -1233,7 +1266,9 @@
             const lvlEl = document.getElementById('calcUserLevel');
             if (lvlEl) lvlEl.innerText = `Lv.${m.level}`;
             const rankEl = document.getElementById('calcUserRank');
-            if (rankEl) rankEl.innerText = `Ранг ${m.military_rank}`;
+            if (rankEl) rankEl.innerText = `Ранг ${m.military_rank || 0} (+${activeCalcRankBonus}%)`;
+            const prestigeBadge = document.getElementById('calcPrestigeBadge');
+            if (prestigeBadge) prestigeBadge.innerText = `⭐ Престиж: ${activeCalcPrestige}`;
             const avatarImg = document.getElementById('calcUserAvatar');
             if (avatarImg) avatarImg.src = m.avatar_url || 'https://media.warera.io/images/itemsv2/sniper.png';
 
@@ -1257,6 +1292,13 @@
             const bonusInput = document.getElementById('calcBonusInput');
             if (bonusInput) bonusInput.value = activeCalcBonus;
             updateBonusPresetButtonsUI();
+
+            // Prestige and Rank inputs
+            const prestigeInput = document.getElementById('calcPrestigeInput');
+            if (prestigeInput) prestigeInput.value = activeCalcPrestige;
+
+            const rankBonusInput = document.getElementById('calcRankBonusInput');
+            if (rankBonusInput) rankBonusInput.value = activeCalcRankBonus;
 
             // Reset ammo and food buttons
             updateAmmoSelectorUI();
@@ -1344,7 +1386,7 @@
 
             try {
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
-                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}`;
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}&prestige=${activeCalcPrestige}&rank_bonus=${activeCalcRankBonus}`;
 
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1873,6 +1915,7 @@
                             <span id="calcUserName" class="font-bold text-white text-base sm:text-lg">Боєць</span>
                             <span id="calcUserLevel" class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.0</span>
                             <span id="calcUserRank" class="text-xs text-gray-400 font-mono">Ранг 0</span>
+                            <span id="calcPrestigeBadge" class="text-xs px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono">⭐ Престиж 0</span>
                         </div>
                         <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
                             <span id="calcPillBadge" class="px-1.5 py-0.2 rounded text-[10px] border">💊 Таблетка</span>
@@ -1892,40 +1935,70 @@
             <div class="p-5 overflow-y-auto space-y-5 text-xs text-gray-300">
                 <!-- 1. Target Controls -->
                 <div class="bg-cardbg/60 p-4 rounded-xl border border-bordercolor/80 space-y-3">
-                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
                         <!-- Target Damage Input (Millions) -->
-                        <div class="flex-1">
+                        <div class="col-span-1 sm:col-span-2 lg:col-span-1">
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎯 Бажаний урон (у млн):</label>
+                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎯 Бажаний урон:</label>
                                 <span id="calcTargetHint" class="text-[11px] font-mono text-emerald-400 font-bold">= 4 000 000 дамагу</span>
                             </div>
                             <div class="relative">
-                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-base font-bold focus:outline-none focus:border-blue-400" placeholder="4" oninput="onCalcTargetInput(this.value)">
+                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-3 py-2.5 text-white font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="4" oninput="onCalcTargetInput(this.value)">
                                 <span class="absolute right-3 top-2.5 text-gray-400 font-mono text-xs font-bold">M дамагу</span>
                             </div>
                         </div>
 
                         <!-- Battle Bonus Input (%) -->
-                        <div class="w-full md:w-auto">
-                            <label class="block text-gray-400 text-[11px] font-bold uppercase mb-1">⚔️ Бонус битви (%):</label>
-                            <div class="flex items-center gap-2">
-                                <div class="relative w-24">
-                                    <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-amber-500/60 rounded-xl px-3 py-2.5 text-center text-amber-400 font-mono text-base font-bold focus:outline-none focus:border-amber-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
-                                    <span class="absolute right-2.5 top-2.5 text-amber-400 font-mono text-xs font-bold">%</span>
-                                </div>
-                                <div class="flex items-center gap-1">
-                                    <button type="button" id="bonusPresetBtn_50" onclick="setCalcBonus(50)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Базовий організований бій (+50%)">50%</button>
-                                    <button type="button" id="bonusPresetBtn_65" onclick="setCalcBonus(65)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Бій з фортом (+65%)">65%</button>
-                                    <button type="button" id="bonusPresetBtn_84" onclick="setCalcBonus(84)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Повний штурм форту/бази (+84%)">84%</button>
-                                    <button type="button" id="bonusPresetBtn_100" onclick="setCalcBonus(100)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Максимальний баф (+100%)">100%</button>
-                                </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-gray-400 text-[11px] font-bold uppercase">⚔️ Бонус битви (%):</label>
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-amber-500/60 rounded-xl px-3 py-2.5 text-center text-amber-400 font-mono text-sm font-bold focus:outline-none focus:border-amber-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
+                                <span class="absolute right-2.5 top-2.5 text-amber-400 font-mono text-xs font-bold">%</span>
                             </div>
                         </div>
 
+                        <!-- Military Rank Bonus Input (%) - UNBOUNDED -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎖 Ранг бонус (%):</label>
+                                <span class="text-[10px] text-gray-500 font-mono">без ліміту</span>
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-indigo-500/60 rounded-xl px-3 py-2.5 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-indigo-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Військовий ранг (без обмежень, наприклад 52.5% чи 75%)">
+                                <span class="absolute right-2.5 top-2.5 text-indigo-400 font-mono text-xs font-bold">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Prestige Input -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-gray-400 text-[11px] font-bold uppercase">⭐ Престиж (+SP):</label>
+                                <span class="text-[10px] text-gray-500 font-mono">+1 SP / рвн</span>
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-purple-500/60 rounded-xl px-3 py-2.5 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-purple-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Очки престижу додають додаткові очки навичок">
+                                <span class="absolute right-2.5 top-2.5 text-purple-400 font-mono text-xs font-bold">SP</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Presets & Save Button row -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-bordercolor/40">
+                        <!-- Battle presets -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-gray-400 text-[10px]">Пресет битви:</span>
+                            <button type="button" id="bonusPresetBtn_50" onclick="setCalcBonus(50)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Базовий організований бій (+50%)">50%</button>
+                            <button type="button" id="bonusPresetBtn_65" onclick="setCalcBonus(65)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Бій з фортом (+65%)">65%</button>
+                            <button type="button" id="bonusPresetBtn_84" onclick="setCalcBonus(84)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Повний штурм форту/бази (+84%)">84%</button>
+                            <button type="button" id="bonusPresetBtn_100" onclick="setCalcBonus(100)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Максимальний баф (+100%)">100%</button>
+                        </div>
+
                         <!-- Save Target Button -->
-                        <div class="w-full md:w-auto">
-                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="w-full md:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-floppy-disk"></i> Зберегти ціль
+                        <div>
+                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-floppy-disk"></i> <span>Зберегти ціль</span>
                             </button>
                         </div>
                     </div>

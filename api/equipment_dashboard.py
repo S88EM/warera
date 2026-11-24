@@ -200,15 +200,41 @@ async def handle_calculator(request: web.Request) -> web.Response:
         else:
             custom_food_key = None
 
-        calc = CombatDamageCalculator(market_app=_app_instance)
-        calc_result = calc.calculate_all_strategies(
+        # Optional custom prestige and unbounded rank bonus
+        prestige_param = request.query.get("prestige")
+        custom_prestige = int(prestige_param) if prestige_param is not None and prestige_param.isdigit() else None
+
+        rank_param = request.query.get("rank_bonus")
+        try:
+            custom_rank_bonus = float(rank_param) if rank_param is not None and rank_param != "" else None
+        except ValueError:
+            custom_rank_bonus = None
+
+        from gear_optimizer import GearOptimizer
+        optimizer = GearOptimizer(market_app=_app_instance)
+        opt_result = optimizer.optimize_set_for_target(
             target_member,
             target_damage=target_dmg,
             selected_ammo=selected_ammo,
-            custom_food_key=custom_food_key,
+            selected_food=custom_food_key or "auto",
             battle_bonus=battle_bonus,
+            custom_rank_bonus=custom_rank_bonus,
+            custom_prestige=custom_prestige,
             live_consumables=live_consumables if isinstance(live_consumables, dict) else None,
         )
+
+        if opt_result.get("status") == "ok":
+            calc_result = opt_result
+        else:
+            calc = CombatDamageCalculator(market_app=_app_instance)
+            calc_result = calc.calculate_all_strategies(
+                target_member,
+                target_damage=target_dmg,
+                selected_ammo=selected_ammo,
+                custom_food_key=custom_food_key,
+                battle_bonus=battle_bonus,
+                live_consumables=live_consumables if isinstance(live_consumables, dict) else None,
+            )
         return web.json_response({
             "status": "ok",
             "result": calc_result,
