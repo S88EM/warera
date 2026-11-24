@@ -1124,13 +1124,92 @@
         let activeCalcData = null;
         let activeCalcTarget = 4000000;
         let activeCalcAmmo = 'auto';
+        let activeCalcBonus = 84;
         let activeSelectedStrat = null;
+        let calcTargetDebounce = null;
+        let calcBonusDebounce = null;
 
         function getPillBadgeClass(status) {
             if (status === 'ACTIVE') return 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
             if (status === 'READY') return 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
             if (status === 'COOLDOWN') return 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
             return 'bg-gray-800 text-gray-400 border-gray-700';
+        }
+
+        function updateCalcTargetHint(rawDmg) {
+            const hint = document.getElementById('calcTargetHint');
+            if (hint) {
+                if (!rawDmg || isNaN(rawDmg) || rawDmg <= 0) {
+                    hint.innerText = '= введіть число (напр. 3.4)';
+                    hint.className = 'text-[11px] font-mono text-amber-400 font-bold';
+                } else {
+                    hint.innerText = `= ${formatNumber(rawDmg)} дамагу (${formatMillions(rawDmg)})`;
+                    hint.className = 'text-[11px] font-mono text-emerald-400 font-bold';
+                }
+            }
+        }
+
+        function onCalcTargetInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            if (isNaN(parsed) || parsed <= 0) {
+                updateCalcTargetHint(0);
+                return;
+            }
+            const targetVal = Math.round(parsed * 1000000);
+            updateCalcTargetHint(targetVal);
+
+            clearTimeout(calcTargetDebounce);
+            calcTargetDebounce = setTimeout(() => {
+                activeCalcTarget = targetVal;
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function setCalcTarget(valInMillions) {
+            const cleanStr = String(valInMillions).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            const numM = isNaN(parsed) ? 1 : Math.max(0.1, parsed);
+            activeCalcTarget = Math.round(numM * 1000000);
+            const input = document.getElementById('calcTargetInput');
+            if (input) input.value = numM;
+            updateCalcTargetHint(activeCalcTarget);
+            fetchCalculatorPlan();
+        }
+
+        function updateBonusPresetButtonsUI() {
+            [50, 65, 84, 100].forEach(p => {
+                const btn = document.getElementById(`bonusPresetBtn_${p}`);
+                if (!btn) return;
+                if (Math.abs(activeCalcBonus - p) < 0.1) {
+                    btn.className = 'px-2 py-2 rounded-xl bg-amber-600 text-white font-mono text-[11px] border border-amber-400 font-bold shadow';
+                } else {
+                    btn.className = 'px-2 py-2 rounded-xl bg-gray-800 text-gray-300 font-mono text-[11px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        function onCalcBonusInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            if (isNaN(parsed) || parsed < 0) return;
+            activeCalcBonus = parsed;
+            updateBonusPresetButtonsUI();
+
+            clearTimeout(calcBonusDebounce);
+            calcBonusDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function setCalcBonus(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            activeCalcBonus = isNaN(parsed) ? 50 : Math.max(0, parsed);
+            const input = document.getElementById('calcBonusInput');
+            if (input) input.value = activeCalcBonus;
+            updateBonusPresetButtonsUI();
+            fetchCalculatorPlan();
         }
 
         function openTargetCalculator(username) {
@@ -1144,6 +1223,7 @@
             activeCalcMember = m;
             activeCalcTarget = Number(m.target_damage) || 4000000;
             activeCalcAmmo = 'auto';
+            activeCalcBonus = (typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84;
 
             // Populate header details safely
             const nameEl = document.getElementById('calcUserName');
@@ -1166,9 +1246,15 @@
             const healthBadge = document.getElementById('calcHealthBadge');
             if (healthBadge) healthBadge.innerText = `❤️ HP: ${Math.round(m.health_curr || 0)}/${Math.round(m.health_max || 0)}`;
 
-            // Target input
+            // Target input (in Millions)
             const input = document.getElementById('calcTargetInput');
-            if (input) input.value = activeCalcTarget;
+            if (input) input.value = activeCalcTarget ? (activeCalcTarget / 1000000) : 4;
+            updateCalcTargetHint(activeCalcTarget);
+
+            // Battle bonus input
+            const bonusInput = document.getElementById('calcBonusInput');
+            if (bonusInput) bonusInput.value = activeCalcBonus;
+            updateBonusPresetButtonsUI();
 
             // Reset ammo buttons
             updateAmmoSelectorUI();
@@ -1184,13 +1270,6 @@
         function closeTargetCalculator() {
             const modal = document.getElementById('targetCalcModal');
             if (modal) modal.classList.add('hidden');
-        }
-
-        function setCalcTarget(val) {
-            activeCalcTarget = Number(val);
-            const input = document.getElementById('calcTargetInput');
-            if (input) input.value = activeCalcTarget;
-            fetchCalculatorPlan();
         }
 
         function setCalcAmmo(ammoKey) {
@@ -1238,7 +1317,7 @@
 
             try {
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
-                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}`;
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&bonus=${activeCalcBonus}`;
 
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1313,7 +1392,7 @@
                                         <span class="px-2 py-0.5 rounded-full ${stratToShow.is_best_value ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : 'bg-blue-500/20 text-blue-300 border border-blue-500/50'} text-[10px] font-black uppercase tracking-wide">
                                             ${stratToShow.is_best_value ? 'НАЙВИГІДНІШИЙ ВАРІАНТ' : 'ОБРАНИЙ ВАРІАНТ'}
                                         </span>
-                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b></span>
+                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b> <span class="text-amber-400 font-mono font-bold">(+${t.battle_bonus ?? activeCalcBonus}% баф)</span></span>
                                     </div>
                                     <h3 class="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2 flex-wrap">
                                         <span>${stratToShow.label}</span>
@@ -1797,16 +1876,39 @@
             <div class="p-5 overflow-y-auto space-y-5 text-xs text-gray-300">
                 <!-- 1. Target Controls -->
                 <div class="bg-cardbg/60 p-4 rounded-xl border border-bordercolor/80 space-y-3">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                        <!-- Target Damage Input (Millions) -->
                         <div class="flex-1">
-                            <label class="block text-gray-400 text-[11px] font-bold uppercase mb-1">🎯 Бажаний урон за сьогодні:</label>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎯 Бажаний урон (у млн):</label>
+                                <span id="calcTargetHint" class="text-[11px] font-mono text-emerald-400 font-bold">= 4 000 000 дамагу</span>
+                            </div>
                             <div class="relative">
-                                <input type="number" id="calcTargetInput" step="250000" min="250000" max="50000000" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-base font-bold focus:outline-none focus:border-blue-400" placeholder="4000000" onchange="setCalcTarget(this.value)">
-                                <span class="absolute right-3 top-2.5 text-gray-400 font-mono text-xs">дамагу</span>
+                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-4 py-2.5 text-white font-mono text-base font-bold focus:outline-none focus:border-blue-400" placeholder="4" oninput="onCalcTargetInput(this.value)">
+                                <span class="absolute right-3 top-2.5 text-gray-400 font-mono text-xs font-bold">M дамагу</span>
                             </div>
                         </div>
-                        <div class="flex flex-col sm:flex-row gap-2 sm:items-end">
-                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+
+                        <!-- Battle Bonus Input (%) -->
+                        <div class="w-full md:w-auto">
+                            <label class="block text-gray-400 text-[11px] font-bold uppercase mb-1">⚔️ Бонус битви (%):</label>
+                            <div class="flex items-center gap-2">
+                                <div class="relative w-24">
+                                    <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-amber-500/60 rounded-xl px-3 py-2.5 text-center text-amber-400 font-mono text-base font-bold focus:outline-none focus:border-amber-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
+                                    <span class="absolute right-2.5 top-2.5 text-amber-400 font-mono text-xs font-bold">%</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button type="button" id="bonusPresetBtn_50" onclick="setCalcBonus(50)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Базовий організований бій (+50%)">50%</button>
+                                    <button type="button" id="bonusPresetBtn_65" onclick="setCalcBonus(65)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Бій з фортом (+65%)">65%</button>
+                                    <button type="button" id="bonusPresetBtn_84" onclick="setCalcBonus(84)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Повний штурм форту/бази (+84%)">84%</button>
+                                    <button type="button" id="bonusPresetBtn_100" onclick="setCalcBonus(100)" class="px-2 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Максимальний баф (+100%)">100%</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save Target Button -->
+                        <div class="w-full md:w-auto">
+                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="w-full md:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-floppy-disk"></i> Зберегти ціль
                             </button>
                         </div>
@@ -1814,25 +1916,26 @@
 
                     <!-- Presets & Ammo selector -->
                     <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-bordercolor/40">
-                        <!-- Quick presets -->
+                        <!-- Quick presets in Millions -->
                         <div class="flex flex-wrap items-center gap-1.5">
                             <span class="text-gray-400 text-[10px]">Швидкий вибір:</span>
-                            <button onclick="setCalcTarget(500000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">500k</button>
-                            <button onclick="setCalcTarget(1000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">1M</button>
-                            <button onclick="setCalcTarget(2500000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">2.5M</button>
-                            <button onclick="setCalcTarget(4000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">4M</button>
-                            <button onclick="setCalcTarget(6000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">6M</button>
-                            <button onclick="setCalcTarget(10000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">10M</button>
-                            <button onclick="setCalcTarget(20000000)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
+                            <button type="button" onclick="setCalcTarget(0.5)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">0.5M (500k)</button>
+                            <button type="button" onclick="setCalcTarget(1)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">1M</button>
+                            <button type="button" onclick="setCalcTarget(2)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">2M</button>
+                            <button type="button" onclick="setCalcTarget(3.4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">3.4M</button>
+                            <button type="button" onclick="setCalcTarget(4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">4M</button>
+                            <button type="button" onclick="setCalcTarget(6)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">6M</button>
+                            <button type="button" onclick="setCalcTarget(10)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">10M</button>
+                            <button type="button" onclick="setCalcTarget(20)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
                         </div>
 
                         <!-- Ammo Selector -->
                         <div class="flex items-center gap-1.5" id="calcAmmoSelector">
                             <span class="text-gray-400 text-[10px]">💥 Патрони:</span>
-                            <button onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
-                            <button onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
-                            <button onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
-                            <button onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
+                            <button type="button" onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
+                            <button type="button" onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
+                            <button type="button" onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
+                            <button type="button" onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
                         </div>
                     </div>
 

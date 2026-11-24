@@ -192,6 +192,7 @@ class CombatDamageCalculator:
         target_damage: float = 2_500_000.0,
         selected_ammo: str = "auto",
         custom_food_key: Optional[str] = None,
+        battle_bonus: float = 50.0,
     ) -> Dict[str, Any]:
         """
         Calculates all viable combat strategies (Current, T3, T4, Hybrid, T5, T6)
@@ -201,7 +202,10 @@ class CombatDamageCalculator:
         3. Ammo type and consumption (1 ammo per hit).
         4. Food units vs character hunger capacity per session.
         5. Live market prices.
+        6. Dynamic battle bonus multiplier (e.g. +50%, +84%, +100%).
         """
+        battle_bonus_val = max(0.0, float(battle_bonus if battle_bonus is not None else 50.0))
+        battle_mult = 1.0 + (battle_bonus_val / 100.0)
         market_cache = load_market_cheapest_cache()
         cached_items = market_cache.get("items", {})
         consumable_prices = market_cache.get("consumables", {})
@@ -396,11 +400,11 @@ class CombatDamageCalculator:
             pill_mult = 1.60
             sim_atk = (base_atk + eff_w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
 
-            # 5. Expected Damage per hit (Hit: 100% + crit, Miss: 50% damage) + Clan Battle Bonus (+50%)
+            # 5. Expected Damage per hit (Hit: 100% + crit, Miss: 50% damage) + Dynamic Battle Bonus
             hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
             miss_dmg = sim_atk * 0.5
             avg_base_dmg = eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg
-            avg_dmg = avg_base_dmg * 1.50
+            avg_dmg = avg_base_dmg * battle_mult
 
             return (
                 round(avg_dmg, 1),
@@ -598,7 +602,7 @@ class CombatDamageCalculator:
                         sim_atk = (base_atk + equipped_weapon_atk + atk_overflow + p_atk_bonus) * rank_mult * ammo_mult * pill_mult
                         hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
                         miss_dmg = sim_atk * 0.5
-                        sim_dmg = round((eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * 1.50, 1)
+                        sim_dmg = round((eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * battle_mult, 1)
                     else:
                         sim_dmg = 0.0
                         sim_hp_cost = 6.5
@@ -1165,8 +1169,10 @@ class CombatDamageCalculator:
                 "deficit_damage": round(deficit_damage, 0),
                 "session_hours": round(session_hours, 2),
                 "selected_ammo": selected_ammo,
+                "battle_bonus": battle_bonus_val,
+                "battle_multiplier": round(battle_mult, 3),
             },
             "strategies": evaluated_options,
-            "best_strategy": feasible_opts[0] if feasible_opts else evaluated_options[0],
+            "best_strategy": next((o for o in evaluated_options if o.get("is_best_value")), None) or (feasible_opts[0] if feasible_opts else evaluated_options[0]),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }

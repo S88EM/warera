@@ -144,6 +144,12 @@ async def handle_calculator(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         target_dmg = 5_000_000.0
 
+    try:
+        raw_bonus = request.query.get("bonus") or request.query.get("battle_bonus") or "50"
+        battle_bonus = float(str(raw_bonus).replace(",", "."))
+    except (ValueError, TypeError):
+        battle_bonus = 50.0
+
     user_nick = request.query.get("nick")
     use_pill = request.query.get("pill", "1").lower() in ("1", "true", "yes")
     use_fish = request.query.get("fish", "1").lower() in ("1", "true", "yes")
@@ -171,6 +177,7 @@ async def handle_calculator(request: web.Request) -> web.Response:
             target_member,
             target_damage=target_dmg,
             selected_ammo=selected_ammo,
+            battle_bonus=battle_bonus,
         )
         return web.json_response({
             "status": "ok",
