@@ -77,7 +77,8 @@ class WarEraClanAnalyzer:
         return None
 
     async def get_owner_user(self) -> Optional[Dict[str, Any]]:
-        return await self.resolve_user_by_name("Luc1fer")
+        owner_nick = getattr(config, "DEFAULT_CLAN_OWNER", "Luc1fer")
+        return await self.resolve_user_by_name(owner_nick)
 
     def _format_relative_time(self, iso_str: Optional[str]) -> str:
         if not iso_str:
@@ -107,11 +108,40 @@ class WarEraClanAnalyzer:
         except Exception:
             return iso_str[:10]
 
+    async def _resolve_mu(self, mu_id_or_user: Optional[str]) -> tuple[Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """Resolves MU ID, MU data, and optional target_user from an MU ID, nickname, or config defaults."""
+        mu_id = None
+        mu_data = None
+        target_user = None
+
+        if mu_id_or_user:
+            test_mu = await self._call_trpc("mu.getById", {"muId": mu_id_or_user})
+            if test_mu and isinstance(test_mu, dict) and test_mu.get("name"):
+                mu_id = mu_id_or_user
+                mu_data = test_mu
+            else:
+                target_user = await self.resolve_user_by_name(mu_id_or_user)
+                if target_user and target_user.get("mu"):
+                    mu_id = target_user["mu"]
+
+        if not mu_id:
+            owner = await self.get_owner_user()
+            if owner and owner.get("mu"):
+                mu_id = owner["mu"]
+
+        if not mu_id:
+            mu_id = getattr(config, "DEFAULT_MU_ID", "69af3162a583a3b5f9941e71")
+
+        if not mu_data:
+            mu_data = await self._call_trpc("mu.getById", {"muId": mu_id})
+
+        return mu_id, mu_data, target_user
+
     async def analyze_clan(self, mu_id_or_user: Optional[str] = None) -> Dict[str, Any]:
         """
         Analyzes a clan / military unit (MU) and all its members.
         mu_id_or_user can be:
-        - None: auto-detects from API key owner or 'Luc1fer'
+        - None: auto-detects from DEFAULT_CLAN_OWNER or DEFAULT_MU_ID
         - 24-hex MU ID (e.g. '69af3162a583a3b5f9941e71')
         - Player nickname or user ID (resolves user.mu)
         """
@@ -125,37 +155,7 @@ class WarEraClanAnalyzer:
         if cache_key in _CLAN_CACHE and (now - _CLAN_CACHE_TIME.get(cache_key, 0)) < 20.0:
             return _CLAN_CACHE[cache_key]
 
-        mu_id = None
-        mu_data = None
-        target_user = None
-
-        if mu_id_or_user:
-            # Check if it's already an MU ID
-            test_mu = await self._call_trpc("mu.getById", {"muId": mu_id_or_user})
-            if test_mu and isinstance(test_mu, dict) and test_mu.get("name"):
-                mu_id = mu_id_or_user
-                mu_data = test_mu
-            else:
-                target_user = await self.resolve_user_by_name(mu_id_or_user)
-                if target_user and target_user.get("mu"):
-                    mu_id = target_user["mu"]
-        
-        if not mu_id:
-            # Fallback to key owner or 'Luc1fer'
-            owner = await self.get_owner_user()
-            if owner and owner.get("mu"):
-                mu_id = owner["mu"]
-            else:
-                luc = await self.resolve_user_by_name("Luc1fer")
-                if luc and luc.get("mu"):
-                    mu_id = luc["mu"]
-
-        if not mu_id:
-            # Final fallback to Black Mace MU ID
-            mu_id = "69af3162a583a3b5f9941e71"
-
-        if not mu_data:
-            mu_data = await self._call_trpc("mu.getById", {"muId": mu_id})
+        mu_id, mu_data, target_user = await self._resolve_mu(mu_id_or_user)
 
         if not mu_data or not isinstance(mu_data, dict):
             # Fallback to stale cache if API failed

@@ -71,6 +71,15 @@ async def cors_and_headers_middleware(request: web.Request, handler):
     if request.method == "OPTIONS":
         resp = web.Response(status=204)
     else:
+        required_token = getattr(config, "DASHBOARD_API_TOKEN", "")
+        if request.method == "POST" and required_token and not is_client_ingress(request):
+            auth_header = request.headers.get("Authorization", "")
+            bearer = auth_header[7:].strip() if auth_header.startswith("Bearer ") else ""
+            provided = request.headers.get("X-Dashboard-Token", "").strip() or bearer
+            if provided != required_token:
+                resp = web.json_response({"status": "error", "message": "Unauthorized"}, status=401)
+                resp.headers["Access-Control-Allow-Origin"] = "*"
+                return resp
         try:
             resp = await handler(request)
         except web.HTTPException as ex:
@@ -81,21 +90,25 @@ async def cors_and_headers_middleware(request: web.Request, handler):
 
     resp.headers["Access-Control-Allow-Origin"] = "*"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-User-API-Key"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-User-API-Key, X-Dashboard-Token, Authorization"
     return resp
 
 
 async def handle_clan(request: web.Request) -> web.Response:
     from clan_analyzer import WarEraClanAnalyzer
+    from warera_client import get_warera_client
     mu_id = request.query.get("mu") or request.query.get("nick")
     user_key = request.headers.get("X-User-API-Key") or request.query.get("apiKey")
-    analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer()
+    analyzer = WarEraClanAnalyzer(api_key=user_key) if user_key else WarEraClanAnalyzer(client=get_warera_client())
     try:
         data = await analyzer.analyze_clan(mu_id)
         return web.json_response(data)
     except Exception as e:
         logger.error(f"Error in handle_clan: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
+    finally:
+        if user_key:
+            await analyzer.close()
 
 
 async def handle_clan_targets_get(request: web.Request) -> web.Response:
@@ -182,11 +195,11 @@ async def handle_calculator(request: web.Request) -> web.Response:
     gear_tier = request.query.get("gear", "epic").lower()
 
     try:
-        from warera_client import WarEraClient
+        from warera_client import get_warera_client
         from market_cache import update_cached_consumables
 
-        client = WarEraClient()
-        clan_analyzer = WarEraClanAnalyzer()
+        client = get_warera_client()
+        clan_analyzer = WarEraClanAnalyzer(client=client)
 
         # Concurrently fetch clan telemetry and live market commodity prices (cases, ammo, food, pill)
         clan_task = clan_analyzer.analyze_clan()

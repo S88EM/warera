@@ -89,3 +89,10 @@ DISCORD_WEBHOOK_URL: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
 SNIPER_MAX_DAMAGE: int = int(os.getenv("SNIPER_MAX_DAMAGE", "75000"))
 
 SNIPER_BOT_PASSWORD: str = os.getenv("SNIPER_BOT_PASSWORD", "")
+
+# Clan defaults
+DEFAULT_CLAN_OWNER: str = os.getenv("DEFAULT_CLAN_OWNER", "Luc1fer")
+DEFAULT_MU_ID: str = os.getenv("DEFAULT_MU_ID", "69af3162a583a3b5f9941e71")
+
+# Optional Web Dashboard API token for mutating POST endpoints outside Home Assistant Ingress
+DASHBOARD_API_TOKEN: str = os.getenv("DASHBOARD_API_TOKEN", "").strip()

@@ -6,32 +6,23 @@ import httpx
 import config
 from equipment_data import QUALITY_TIERS, ALL_QUALITIES, normalize_quality_key, EQUIPMENT_METADATA
 from subscribers_db import SubscribersDB
+from telegram_base import BaseTelegramBot
 
 logger = logging.getLogger("WarEraTelegramBot")
 
-class TelegramBotController:
+class TelegramBotController(BaseTelegramBot):
     """
     Handles interactive Telegram Bot commands and callback queries for WarEra Scanner and Battle Sniper.
     Allows up to hundreds of users to independently receive private 1-on-1 alerts (Market deals & Battle Sniping)
     and configure their notification preferences without any shared groups.
     """
     def __init__(self, scanner_app):
+        super().__init__(token=config.TELEGRAM_BOT_TOKEN)
         self.scanner = scanner_app
-        self.token = config.TELEGRAM_BOT_TOKEN
         self.allowed_chat_ids = set(config.TELEGRAM_CHAT_IDS)
         self.subscribers_db = SubscribersDB()
         self.offset = 0
         self.is_running = False
-        self._http_client: Optional[httpx.AsyncClient] = None
-
-    async def get_client(self) -> httpx.AsyncClient:
-        if self._http_client is None or self._http_client.is_closed:
-            self._http_client = httpx.AsyncClient(timeout=35.0)
-        return self._http_client
-
-    async def close(self):
-        if self._http_client and not self._http_client.is_closed:
-            await self._http_client.aclose()
 
     def _is_admin(self, user_id: Any, chat_id: Any = None) -> bool:
         """Checks if user has administrative rights to change scanner global parameters."""
@@ -349,53 +340,6 @@ class TelegramBotController:
                     pass
 
         return deleted_count
-
-    async def send_message(self, chat_id: str, text: str, reply_markup: Optional[dict] = None) -> Optional[int]:
-        client = await self.get_client()
-        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
-        try:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                return resp.json().get("result", {}).get("message_id")
-        except Exception as e:
-            logger.error(f"Error sending Telegram message to {chat_id}: {e}")
-        return None
-
-    async def edit_message(self, chat_id: str, message_id: int, text: str, reply_markup: Optional[dict] = None):
-        client = await self.get_client()
-        url = f"https://api.telegram.org/bot{self.token}/editMessageText"
-        payload = {
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
-        try:
-            await client.post(url, json=payload)
-        except Exception as e:
-            logger.error(f"Error editing Telegram message {message_id}: {e}")
-
-    async def answer_callback(self, callback_query_id: str, text: Optional[str] = None):
-        client = await self.get_client()
-        url = f"https://api.telegram.org/bot{self.token}/answerCallbackQuery"
-        payload = {"callback_query_id": callback_query_id}
-        if text:
-            payload["text"] = text
-        try:
-            await client.post(url, json=payload)
-        except Exception as e:
-            logger.error(f"Error answering callback query: {e}")
 
     def _get_db_stats_text(self) -> str:
         cycles = getattr(self.scanner, "cycle_count", 0)

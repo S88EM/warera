@@ -65,26 +65,26 @@ class TaskOrchestrator:
         if self.sniper_worker:
             try:
                 self.sniper_worker.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error stopping sniper_worker: {e}")
 
         if self.clan_tracker:
             try:
                 self.clan_tracker.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error stopping clan_tracker: {e}")
 
         if self.market_bot:
             try:
                 self.market_bot.stop_polling()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error stopping market_bot: {e}")
 
         if self.sniper_bot:
             try:
                 self.sniper_bot.stop_polling()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error stopping sniper_bot: {e}")
 
         for t in self.tasks:
             if not t.done():
@@ -127,10 +127,19 @@ class TaskOrchestrator:
 
         # 3. Market Scanner Task
         if self.enable_market and self.market_app:
-            # Market scanner starts its own DB sync and internal loop
-            market_coro = self.market_app.start(start_web=False)
+            # Market scanner starts its own DB sync and internal loop; bots are orchestrated here
+            market_coro = self.market_app.start(start_web=False, start_telegram_bot=False)
             self.tasks.append(asyncio.create_task(market_coro, name="market_scanner"))
             console.print("[green]✓ Сервіс сканування ринку спорядження активовано.[/green]")
+
+        # 3b. Private Market Telegram Bot (for owner)
+        if self.enable_market_bot and self.market_app and getattr(self.market_app, "tg_bot", None):
+            try:
+                self.market_bot = self.market_app.tg_bot
+                self.tasks.append(asyncio.create_task(self.market_bot.start_polling(), name="market_bot"))
+                console.print("[green]✓ Приватний ринковий Telegram-бот активовано.[/green]")
+            except Exception as e:
+                console.print(f"[yellow]⚠️ Не вдалося запустити Market Telegram Bot: {e}[/yellow]")
 
         # 4. Battle Sniper Worker (Purple Drop Monitoring)
         if self.enable_sniper:

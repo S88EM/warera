@@ -7,10 +7,13 @@ Resolves persistent storage paths for:
 - Calibrations & telemetry: pill_tracking_*.json
 """
 
+import logging
 import os
 import shutil
 from pathlib import Path
 from typing import Optional, List
+
+logger = logging.getLogger("WarEraDataManager")
 
 
 def get_data_dir() -> Path:
@@ -79,7 +82,7 @@ def get_data_file(filename: str, seed_bundled: bool = True) -> Path:
                     data_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(candidate, target_path)
                     break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to seed {candidate} -> {target_path}: {e}")
 
     return target_path

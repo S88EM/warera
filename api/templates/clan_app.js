@@ -1,0 +1,1721 @@
+        // In-game Item Icons (Case, Elite Case, Scrap)
+        const ICON_CASE_REGULAR = "data:image/png;base64,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";
+        const ICON_CASE_ELITE = "data:image/png;base64,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";
+        const ICON_SCRAP = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAUUklEQVR4nO1ZCXBdxZU93e+9v0r6i5avr6/N2vUlW5KF5EWy5d3CQAIGEZiwQ5whxFAZQqVqkopRJiGZzExRQAhTVAIBhyVW2JwQDHiRbHkBW7Yk29otWZZkydqXv76tp97Tgg0EB1I1NTWV+6vr39fdt1/f7nNv970P+Af93ya6dNnKkwUly6q1h+LiYgH/D4kA4C57/iJe66sRnSuY+ycme0xF7pKi+xhj833+Jvn5Qb6ILh/w84gBUC57/iJe66uROlfo3XffbdDqV61c8WB2RtZvH3/8cfIl5K9OlZWVxoqKCv5zmnTlY5OzylzJ2c9qvCstLc6VnP3GfAeN1+rm+GddKelrZmUyt8cmZ35X154xkrt48bU7X9p56dsPbh8HYJjfhS+UT8n6zsIk/hrt2LGDBmVlSqH8c9qzt6pKW62/mxjo3ASzFhFC2Nevu6F88eK8uGAoJPwNO/6liK7bfC1bV7nlJe2h6isosGPHFXi/gtwp2U3egtKnHtr+PXbs6BH1gW89GABg/FIT/OKX74CiqqokSToWz17diOmn4VZd/QletR3V+pC5NU5wx0pZmRkP26Mi5NHRURIOh81fMJ3PNWL+qhpSSqWw+HkDcygupmiIYECdXFVVxdXU1Ch1dXXaZC0ZGRmKQk2/s5pNuVPTM2/39bT/vLq6WtQQZHen3up2uf7V4XAuio+Llew2G21uOo2Qz/9Nr9fLxORkY9eePUhOTrbExsb6tJcVFxdrhT7//PP6yxsaGvRFvRre6DUry08KHPfO0UN1O4q3bRMann9e+iurow2YXl6xcandZtvpdEQqKqMWm90GShiaTreGhodG7rs0OVjvjHCsXJSR+XpCfLzksEUKcTFOCAKPtrb2iRde+I0z2p1+o9sd93o4ONPc2Xqm9PMmpk081+s1fBWD0bZOdbizylWOz+SY4hsfaK8pLi5earLY9nvcLpssS0hMTEJIlpnPH2TRDjuNjXagb+AiPtxXe8Fpt+1OSV30HbvDoVotJt4THwuL2Yy+vn7seuPtB1JT05bHxcU84Ez12J9/6rnrFmdnWDdUVKg2pxO7392ttJ0b5ALjE38C/MN/iwLzfWZ9cEaGEV1dYZs76zXeFHGbHPY3Tc1crCovKm1cWrjYcuDg4fCZ1k7jqpUlKC25BkPDo5AkGU6HDW5XrHJxYJBr7+zE4NAlpGekIzc7CxFWC2RJQm9vL063tCMpJRUX+y6A48hfCouKtqSlJiElKREzvgDOtrSg7+IlTExMHJ+emT5zVRuorKw0BINBDduyXmEw6IoQgFek8EMAtjtsSXXdA6NPpCaObkhwu9dwgiClpiQJkjwrYjIbMTk9A0mSuLSUZNXtjlMPHznGt7W2QZZkxMXGwWIxITomBsFQo+ifmabjY2P8hg3rtmxYt1qOcdpVq8WIjs5uxMbGkphop8zztOQvez4sudpJTEMKmyJG83MLbtRs1hVQQXtViCcAyBxvcE9OzZw6dLjvWpNR6Lp24zohJytLjrRaYLWYQAnVi6KoON8/QEOizFdWbsKqsuXo6+1FZ2cHhi4NA4QgwRVnON/dzSd4PJBUVW5sPMO3d3QbWtrOGaKddkPRkmyak5NuHujvH2rpaM/lr+ZGa48eM0rhkGHBjTY06EY8Pdj2/VmldhQfaHhnfWC0+73e0W5MTtpKQmFxb3paWrHDHiUnJybwwWBIh5HbHQ+rxYJQOIzIyAisW7sapSVFaDnbio+On0IoGITJbMHMzDTccCMclviOrh50nesB5XhERVrVFaWFXN3B+ku7du3aEggE2q7qhSo2bpIYyEsHP3z/Pm0HampqxMvbHa70X7mjI30RkVEOf8Cvnj3d8O2UFG98fELMn1xxrmsyM9OUJI+bUxQFBoOAeHcCOJ6HQaBwuxwwGg3w+4NoONmMd/fsRUdHN6xWC1xxMRBFGdbIKFgsFsz4/CwqMoIluuMuPv30szfKcrCBMUY/2YEqcKgB0tLSIrq7u6fmqwXeQBVV+eQc0K7UDQ2SLT77CXBsb7Ir+p81XDJVBS/wKCxe4WhsOHqrLGfc5Pf59/sD/oxwOKRqnojneQQCQRiNJsS5nEhw2cFRgqmpaVisVmzZvAE3XMcj0eNBY/MZvP3Wbn1XBHcCeEpYUmICnRgbGdYmv3nzZuPIyIj6iQ3UQElcnmhQ+fCTczVEg5AoSU2iKHZoFd0OB5uHECcqv5ga6NjPZH/Oxb4LhxVF3m0yWyaiY2KyCopKv5eVk9mSmpaWNDQ4RP785/fowUNHEQyFYTYbMTE5js7ObjSfbkdf3yAMBgMsFjMYCNxuNw4dPoaXXnoFk5OTCIeCGB6+BG0HtTI1NaNdALFnz56wP6gcIhUV4OvqwFKyPasZ4doutF0YnHOd81fXzyO93ZVZfN2lzoZ3gfhYcNLKkmty/6vkmqJ0p9OJSyPjkCQRMzMz6Ghrx8XBQZSUFOPeu2+HLInoPtcLUZahqAqYosJo5HU7aevoRl1dPfx+n65YVGQk7HYbomPjWEpKKouKMA/s3PmHOwsKsg8PDU+d4uvqqhhQoxCGXxKZ/RTAO5croF1tyezl5TKFinmgQSIgrxIQW1yy4/YVpcVPFS3OhN1mVzieg9VqJYFAgCpKLFxxsaivP4LGU8141WjC1hsr4fVmorunX7uq4FD9URyorYPZYgHPC8jLz9cVazlzFtMzfsTExaH3fC9hDFLFqrKkTZvWPrhr12t1ubkFAknNTVxNFVYVhFpt5mFhCvdkT3v/zXM2oWRkZBi7urq0a8KsU7+M4hYtcw33mMZyi6Y91d97kL7yxvtvZWZmFERGWBARGamtoErAVHd8HN9wqhkffFiL8YlxFBYW4Jat1+FcVw9qDx5Gb+8FqAxwx7v0w00zXspRRJhN8sTUpDYWP3xpBK0trSw2NpYlJnpGw1K400BpKs9URhmIEAlAZEZCmTwb99ZAxQ5Q+4euqSJn7M5THx/9ltfrNbS0tIhXBDRZoeVjPuH6W+/a9gsAG9OyFx8z8nxsUUFeY2FBwSpXfBz1+wJSfLxLKC4uxMGD9Thy5Cg6Ozp1jINQNTUlRU1O8vAej1v3QKIoIjo6WnY47PzExCRURUZaarKmCBkcvCS3d3bFjU9MvWa2JT7C97YP1AKoTc/ynCCSWN3ddfFr8/cdVIPYKm1GQql+DuTl5aGlpWXBE3E8WgBT9mBnXb07a9lJyhu+391yKN3myXu19b3jP286daq86pYbS5NT0+6xRVrl4eEh3iAIKFzixfkL/drJrOTlebmCJUuoIPByMBjiBUFAVlaG1HXuvLBvf+2bXd3nRYHnb4mOdhK3x8NlZmXyipQiN7d2PHJpPPwIycxMKVSpsooocjOAEcZxt55rH9CzEDt27CC1R45Jiqq8XL9v771aRNYyew7oRhGftaySBx1VCFYwhTVxlE0wItxAjdw7XFiOCajKipH+fuvNW5bFjE74vm028Ozmm75G8rzZGB0fQ23tYezde6CvoCD/fbfb84C2Az6/H2fOtqKlpe31psbjt2dnZydQwTqQnJQEu90Og0Fzs2709ffh2MenH6eMkxIJYdd1dQ3VmUzmMTDcdrnBUo5SqOzT+NfayVDHR+/JChfNGK4f6jpWZ5TpEFPVu/qb6870th+u5Ql9KMbjPvbGG29852TL+bcujU2F9u7bN3To8LHQ/gP1kiKGKzsHhlfu/P3Oh80cMj8+/nHr/v0H++rqPy5rajx+r3ZwGo1OWVLkpaIk/nF4ZCTc3NR0qL/v4tJz53tKu9pOVi9gOTPX80G6N7Hycnxr/6vXb7iwvKLi7StCyrmoKz6rrG3RomUunc9e+UFc9koNfojPXPHvWtF4j3fVuoScVX+ZGy8SEYtWLSyD4FmywEd5M7QwGUBMTNrynuT8NQ/PjrVyiyurrEbjs7OzIx0pRSvmReKzyzqJ15uWzJiYKkMpJAo7Co6L6Wgd2DOnhOJwOJKtTucN/efOPauFi/qttKqKQ02N6s4u28E4sotXEaswFBBZPa5yxE4YTPo2EYQoUacYqHZrbKLUMKIw+S6ZSb83wABG2T2g6suQmROUrlAV1HECH6EqsqDKxMh4hDgo4wzcMsrURplihDJyt4HQ10BkJsrkFmTmeLZm5Xo+0l7o9SY6M3MSxmYX+Wrhph7fIiG77IaEnHLtVopE73KnO2uVLq+Rxmt1Op9TfiI+Z/VWnc8u+7VWoK1izuqt7pzy4xqfvLjc4c6+XL58dF4+4Ur5ZxOyyp7SeJKRkRHF8wFB5fCEIpPXVFFq7ekZHpnDOUtMTDQjMRH9x44FF+auQaiuTnZnVexmnLidKAY/ofgZA/ujEg43U6PwT1o3NSy9yhmNSwjILUzFDxknWolieCasBu/Q2o3U/Pu/R97Emf7wmXjAar3CUKknZdGEhzc9re/Qp9Mql0mzKwbQQmRuYbBPjnCTLuOc+0GXN31leb0+Jy9+a3ZewgKEsvJmITR3maNrNlWylRXrXvqsAvMQWn1DQu7aOQhtcrpz1nwCgZw1Y1qd3i937Yn4nLWzEMhd+6xWoENo7davIp/grZiFkNfrTpY4LpUypZAx7ihUNm/E7K/GAwtGvHbOiNVYhXAFhOG4StiVRszIJCMo4ZjSJBEySlVUUUbe1CFC2FaVokZgLObLyhMiM4Xwt9KWlm39naf7D4KR63lOju5oHXjv8nSLFg9wlF6ZFxrWkgFVFBS38xKm+ttq68DY1xhY/FDrfk1+pVY0XqvT2rQ+gkwmNZmBjv3NWgHF7VrdV5Hvbz94mhD2TeTkua7PzU/QVhyL8he5cvI9bfMI1yC0esPmxrK162e/D2zb9pnvA4nedaWevA2vaHxlRqXRk7fh0Hybxmt1c/wryXkby3Q45G94VCvQPE/exrKvIu/J2/CIDqHFi5OXykwqByFnVZEOg1dubj87WF1VBVpTc0V6+zLsV6v21FWrLRER6VIokEcoXU8InmYqc4JgOyHkJzoEGPsxGH2GUDrOoDzMGA5SnmtksnyT/nLCv6UypZBSsprj+aflsOwEUbcTdU6esh9TRp+hRn5ckeWHVZUdpIRrZEy+iTCicgL3zgJU8pd43leY+tPW04OHFi5znxcPaCvStSfsSFtdExkVfUvAPwVFVmCJiND/w6GAHpgzMAT9fhhNZvCCgGAgoN/1jSajXq+R2WrVQ8ZgwAez2QxCeT3YMVtmvU/A79PjZ+3VswG/VY8ZtLHAmD4WveW28tOZOXFnAqFgkSxJL+Qt9mgGplZp8YC+SsRwxZcSQ6SuCEfIWMDvE8FYwGDk1aDfJwb90yIvcEwSwyJTVDEyMooRAjEUCIgUTJWlkBTwzYgcRxSOp4p/ZlqkgLRhy+3qdVUPiTZ7jC4fDgfFcDAgWiwWlp5dIG6941Fx0/V3qkajUdJlCFMAVeEFo8hv+9Y38l9++W0cOPARomyWWMYUfYI1WjwAUG/h0immsp2tzadm44E5PbSEANWUY4RQQikYDKmZS1BwTTkWZRQYXImLYDIa4PP5DD2dZ9Db1YimE4fo+OgwCNG6a4ljjrv1vh8gN38pAr5pQ37Rcrz41A8wNDhgUBQZy0vXY/0Ndxomhy+guLQcGbkF9IVnfgRKeWy982EUlmzkqG/Gp2Zlpqpmk1khIGowHNazwQu+OD7e6En0LMQD86QSwGgygVEO09M+LF5ahkd+9Cts/vo3kZGTr4WUABVgsztQvGwVqu7Zjvsf+TlstgiIOtTCSEnLRkHperz5uyfw5A9vgjUiCukZuWCKBqMInDpRjxef/Bf85MFlqN//NlJScyAwH1Zt+ga8S1ai5r8fVSilhEZYI6ksM6KqKjWZjAvnq5aVkBUFoWBI/fT3AS2W1YJwnqNaDhMRthhwHActmyhrG6zqiTYNqpC0OgmIiXMjOHFel9FCxii7C2JgGlMTFxFWLfD5/PCkZCDknwAIB0UOo7vnHPLXPIDSipvQeOw9SKEAipatg2CgKF59E0edTjt8/iACgRAIGHh65e2CEEiAhrlPkUr0VKH2OUswGDE2MoSPav+EieE+hIIz0DLUWhSupUWCgRlc6GjCvjd/BcEQAUp4fQEYI2BMAQUHppsaYBCMCE6PQxQlvS15UR7ufLAak8Pn8fpzj8EY6UZsfJJy6uCbCIVDd/GCwEvNjR2C5kEEg6BHRPNUXV2NNRs3CyDErkMI0GLIBTKZTBDFMAL+ABJT0pHuLcG/fa8SOflFcLnTEQyHYBQMaD21D9YoF+559NdoPnkYF4dGQTkjAv5xGIxWRDo9sI1NwmqJwMCFDsQnpyMq1o3JiWHcdt9jkIOT+PVP7oBELLDFJCIYCHLjI5fk3c9W/ydfs2ufUF/fCLvDrLtBgV84q/TUysDAwG8FgTusVQwPD6tA3MIWKaruZmGxRuH0qSOwmI2ItAi497EX0dN+Eu+88h947InXkPpRGY4e2I3ad1/EhfYjsLiKdSO+0NOB9rMNuP62RxAOByErElpO7MWjP9uFUDCAE0c+gLcoFxfPD+Ohx3cBvBWvPv84Th59D9ff8QM+u3hzHDGZ+Mc8SbZfUk6VOMoJBpOhqfnkxcK5hNdnUinwVhnQUiNGZ276DaGG+ylkySDwggZDMTgOW1QEspZUIDDairHRYeQs3YT2E7sxNumHpPLgOBOsDhfAVGhJX4czGiUlZRCDozhzYi9GhkdRsul+TPU1IBgWEZ+aD9k/omf0Ar5pnDxxRI5OKuJvvHXbc3d9d/1+srgg5oiiYgVAFUIYJ0tKU3vr+IICWl7I4/F88n1gQYHNvzGZrfeHQ0HNRgQt7wlCIcsKQv5xKKIPBlMUwuEQBKrCGBED3mDRDVsSw/o/z/N6CiXomwKTfbq81ebWM3pyeAoggp5OVMUZSLKifx20R8erRIikM5NjZxmk/s8s8D8I/7v0P6JWgtKSdqsdAAAAAElFTkSuQmCC";
+
+        let clanData = null;
+        let currentFilter = 'ALL';
+        let sortField = 'damage_fish';
+        let sortAsc = false;
+        let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
+        let customBattleBonus = parseFloat(localStorage.getItem('warera_battle_bonus') || '84');
+
+        function updateClanSalvoStats() {
+            if (!clanData || !clanData.members) return;
+            const s = clanData.summary;
+
+            // Realistic Available Salvo until 02:00:
+            // - ACTIVE: actual in-hands + remaining regen until current pill ends
+            // - READY: full 8h pill salvo
+            // - COOLDOWN: full pill salvo ONLY if debuff expires before 02:00 (evening session); if after 02:00, 0
+            const dynamicClanSalvo = clanData.members.reduce((acc, m) => {
+                if (m.build_type === 'ECO') return acc;
+                if (m.pill_status === 'ACTIVE') {
+                    return acc + getCustomInstantFishSalvo(m) + getCustomRegenFishSalvo(m);
+                }
+                if (m.pill_status === 'READY') {
+                    return acc + getCustomFishSalvo(m);
+                }
+                if (m.pill_status === 'COOLDOWN') {
+                    return acc + (m.can_drink_before_reset ? getCustomFishSalvo(m) : 0);
+                }
+                return acc;
+            }, 0);
+            const elSalvo = document.getElementById('statClanSalvo');
+            if (elSalvo) elSalvo.innerText = `~${formatMillions(dynamicClanSalvo || s.clan_pill_available_salvo || 0)}`;
+
+            const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+            const elInstant = document.getElementById('statInstantSalvo');
+            if (elInstant) elInstant.innerText = `~${formatMillions(dynamicInstantSalvo || s.clan_pill_instant_fish_salvo || s.clan_pill_instant_salvo || 0)}`;
+
+            const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
+            const elRegen = document.getElementById('statRegenSalvo');
+            if (elRegen) elRegen.innerText = `~${formatMillions(dynamicRegenSalvo || s.clan_pill_regen_fish_salvo || s.clan_pill_regen_salvo || 0)}`;
+
+            const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
+            const readyCount = readyMembers.length;
+            const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+            const elReady = document.getElementById('statReadySalvo');
+            if (elReady) elReady.innerText = `~${formatMillions(dynamicReadySalvo || s.clan_pill_ready_salvo || 0)}`;
+            const elReadyCount = document.getElementById('statReadyCount');
+            if (elReadyCount) elReadyCount.innerText = readyCount;
+        }
+
+        function updateCustomBattleBonus(val) {
+            const num = parseFloat(val);
+            customBattleBonus = isNaN(num) ? 0 : Math.max(0, num);
+            localStorage.setItem('warera_battle_bonus', customBattleBonus.toString());
+            updateClanSalvoStats();
+            renderMembersTable();
+        }
+
+        function setBattleBonus(val) {
+            const bInput = document.getElementById('battleBonusInput');
+            if (bInput) bInput.value = val;
+            updateCustomBattleBonus(val);
+        }
+
+        function getCustomFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_fish_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomSteakSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_full_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomInstantFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_instant_fish_hits || m.pill_instant_hits || 0) * unbuffedHit * customMult);
+        }
+
+        function getCustomRegenFishSalvo(m) {
+            const unbuffedHit = m.unbuffed_hit_dmg || (m.avg_dmg_per_hit ? Math.round(m.avg_dmg_per_hit / 1.50) : 0);
+            const customMult = 1.0 + (customBattleBonus / 100.0);
+            return Math.round((m.pill_regen_fish_hits || m.pill_regen_hits || 0) * unbuffedHit * customMult);
+        }
+
+        async function loadClanData(isManual = false) {
+            const icon = document.getElementById('refreshIcon');
+            if (icon) icon.classList.add('fa-spin');
+
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const muParam = urlParams.get('mu') || '';
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const cleanEndpoint = `api/clan${muParam ? `?mu=${encodeURIComponent(muParam)}` : ''}`;
+                const apiUrl = basePath ? `${basePath}/${cleanEndpoint}` : `/${cleanEndpoint}`;
+
+                const resp = await fetch(apiUrl);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                const contentType = resp.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const textSample = await resp.text();
+                    throw new Error(`Сервер повернув HTML замість JSON. Перевірте оновлення бекенду.`);
+                }
+
+                const data = await resp.json();
+
+                if (data.status !== 'ok') {
+                    throw new Error(data.message || 'Не вдалося завантажити дані підрозділу');
+                }
+
+                clanData = data;
+                renderClanHeader();
+                renderMembersTable();
+                if (isManual) showToast('Дані клану оновлено!');
+            } catch (err) {
+                console.error('Failed to load clan data:', err);
+                showToast(`Помилка: ${err.message}`, false);
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        }
+
+        function renderClanHeader() {
+            if (!clanData) return;
+            const mu = clanData.mu;
+            const s = clanData.summary;
+
+            document.getElementById('clanName').innerText = mu.name || 'Black Mace';
+            document.getElementById('headerClanTitle').innerText = `${mu.name || 'Black Mace'} · Штаб`;
+            if (mu.avatar_url) {
+                document.getElementById('clanAvatar').src = mu.avatar_url;
+            }
+            document.getElementById('clanTierBadge').innerText = (mu.weekly_tier || 'Platinum').toUpperCase();
+            document.getElementById('clanRankBadge').innerText = `Ранг #${mu.weekly_rank || '--'}`;
+            document.getElementById('clanUpgrades').innerHTML = `<i class="fa-solid fa-landmark text-indigo-400 mr-1"></i>Штаб: ${mu.headquarters_level} ур. · Казарми: ${mu.dormitories_level} ур.`;
+            document.getElementById('clanWealth').innerHTML = `<i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: ${formatNumber(Math.round(mu.wealth))} Coins`;
+
+            // Salvo Highlight (Calculated with active custom battle bonus)
+            updateClanSalvoStats();
+
+            const todayClanM = formatMillions(s.clan_today_damage || 0);
+            document.getElementById('statClanToday').innerText = `+${todayClanM}`;
+            if (s.clan_yesterday_damage !== null && s.clan_yesterday_damage !== undefined) {
+                document.getElementById('statClanYesterday').innerText = formatMillions(s.clan_yesterday_damage);
+            } else {
+                document.getElementById('statClanYesterday').innerText = 'з 02:00';
+            }
+
+            // KPI Cards
+            document.getElementById('statWarCount').innerText = s.war_count;
+            document.getElementById('statWarSub').innerText = `${Math.round((s.war_count / s.total_members) * 100)}% складу клану (≥70% вар)`;
+
+            document.getElementById('statPillActive').innerText = `${s.pill_active_count} бійців`;
+            document.getElementById('statPillSub').innerText = `${s.pill_ready_count} можуть пити таблетку`;
+
+            document.getElementById('statEcoCount').innerText = `${s.eco_count} / ${s.hybrid_count}`;
+            document.getElementById('statEcoSub').innerText = `${s.eco_count} еко-акаунтів · ${s.hybrid_count} гібрид`;
+
+            const onlineCount = s.total_members - s.afk_count;
+            document.getElementById('statOnlineCount').innerText = `${onlineCount} / ${s.total_members}`;
+            document.getElementById('statAfkSub').innerText = `${s.afk_count} інактив (>24 год)`;
+
+            // Counts for filter pills
+            document.getElementById('cntAll').innerText = s.total_members;
+            document.getElementById('cntWar').innerText = s.war_count;
+            document.getElementById('cntPillActive').innerText = s.pill_active_count;
+            document.getElementById('cntPillReady').innerText = s.pill_ready_count;
+            document.getElementById('cntPillCooldown').innerText = s.pill_cooldown_count;
+            document.getElementById('cntHybrid').innerText = s.hybrid_count;
+            document.getElementById('cntEco').innerText = s.eco_count;
+            document.getElementById('cntAfk').innerText = s.afk_count;
+        }
+
+        function setFilter(f) {
+            currentFilter = f;
+            ['ALL', 'WAR', 'PILL_ACTIVE', 'PILL_READY', 'PILL_COOLDOWN', 'HYBRID', 'ECO', 'AFK'].forEach(id => {
+                const el = document.getElementById(`filter${id}`);
+                if (!el) return;
+                if (id === f) {
+                    el.className = 'tab-btn px-3 py-1.5 rounded-lg active transition-colors shadow-lg';
+                } else {
+                    el.className = 'tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors';
+                }
+            });
+            renderMembersTable();
+        }
+
+        function sortRoster(field) {
+            if (sortField === field) {
+                sortAsc = !sortAsc;
+            } else {
+                sortField = field;
+                sortAsc = (field === 'name' || field === 'role');
+            }
+            updateSortControls();
+            renderMembersTable();
+        }
+
+        function changeSort(field) {
+            sortField = field;
+            sortAsc = (field === 'name' || field === 'role');
+            updateSortControls();
+            renderMembersTable();
+        }
+
+        function toggleSortOrder() {
+            sortAsc = !sortAsc;
+            updateSortControls();
+            renderMembersTable();
+        }
+
+        function updateSortControls() {
+            const icon = document.getElementById('sortOrderIcon');
+            if (icon) {
+                icon.className = sortAsc ? 'fa-solid fa-arrow-up-short-wide text-xs' : 'fa-solid fa-arrow-down-wide-short text-xs';
+            }
+            const select = document.getElementById('sortSelect');
+            if (select && select.value !== sortField) {
+                select.value = sortField;
+            }
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            localStorage.setItem('warera_clan_view', mode);
+            updateViewModeUI();
+        }
+
+        function updateViewModeUI() {
+            const tableSec = document.getElementById('clanTableSection');
+            const cardsSec = document.getElementById('clanCardsSection');
+            const cardsBtn = document.getElementById('viewCardsBtn');
+            const tableBtn = document.getElementById('viewTableBtn');
+
+            if (tableSec && cardsSec) {
+                if (currentViewMode === 'cards') {
+                    tableSec.classList.add('hidden');
+                    cardsSec.classList.remove('hidden');
+                } else {
+                    tableSec.classList.remove('hidden');
+                    cardsSec.classList.add('hidden');
+                }
+            }
+
+            if (cardsBtn && tableBtn) {
+                if (currentViewMode === 'cards') {
+                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
+                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                } else {
+                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
+                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                }
+            }
+        }
+
+        function renderTableRow(m) {
+            const fishSalvo = getCustomFishSalvo(m);
+            const steakSalvo = getCustomSteakSalvo(m);
+            let onlineDot = 'bg-emerald-400';
+            if (m.hours_offline >= 24) {
+                onlineDot = 'bg-rose-500';
+            } else if (m.hours_offline >= 3) {
+                onlineDot = 'bg-amber-400';
+            }
+
+            let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
+            if (m.pill_status === 'ACTIVE') {
+                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            } else if (m.pill_status === 'READY') {
+                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            } else if (m.pill_status === 'COOLDOWN') {
+                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            }
+
+            let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
+            if (m.build_type === 'ECO') {
+                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
+            } else if (m.build_type === 'HYBRID') {
+                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
+            }
+
+            let roleColor = 'text-gray-400';
+            if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
+            if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
+            if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
+
+            return `
+                <tr class="hover:bg-hoverbg/50 transition-colors group">
+                    <!-- Боєць (Sticky column) -->
+                    <td class="p-3 whitespace-nowrap sticky left-0 bg-[#111622] group-hover:bg-[#1a2234] z-10 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.4)]">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
+                                ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                    <span>${m.username}</span>
+                                    <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
+                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                        <span>🎯</span>
+                                        <span class="text-[10px] hidden xl:inline">Ціль</span>
+                                    </button>
+                                </div>
+                                <div class="text-[10px] text-gray-400 flex items-center gap-1.5">
+                                    <span>Ранг ${m.military_rank}</span>
+                                    ${m.prestige ? `<span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">+⭐${m.prestige}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Роль у клані -->
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="${roleColor} text-xs">${m.role_label}</span>
+                    </td>
+
+                    <!-- Білд -->
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${buildBadgeClass}">
+                            ${m.build_label}
+                        </span>
+                    </td>
+
+                    <!-- Таблетка -->
+                    <td class="p-3 whitespace-nowrap">
+                        <div>
+                            <span class="px-2 py-0.5 rounded text-[11px] border ${pillBadgeClass}" title="${m.pill_tip}">
+                                ${m.pill_label}
+                            </span>
+                        </div>
+                        ${m.build_type === 'ECO' ? `
+                            <div class="text-[10px] text-gray-500 mt-1">економічний білд</div>
+                        ` : `
+                            <div class="text-[10px] text-gray-300 font-medium flex items-center gap-1 mt-1">
+                                <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
+                                <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
+                                ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                                    <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не б'є, виключений з залпу">🚫 після 02:00</span>
+                                ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                                    <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
+                                ` : '')}
+                            </div>
+                            ${m.pill_status === 'ACTIVE' ? `
+                                <div class="text-[10px] font-bold mt-0.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} (${m.pill_instant_fish_hits || m.pill_instant_hits} уд.) | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))} (${m.pill_regen_fish_hits || m.pill_regen_hits} уд.)">
+                                    ${(m.pill_remaining_hours <= 0.2) ? `
+                                        <span class="text-amber-400 font-extrabold flex items-center gap-1">⏳ Баф закінчується</span>
+                                    ` : `
+                                        <span class="text-rose-400 font-bold" title="В руках прямо зараз">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
+                                        <span class="text-gray-500 font-normal">|</span>
+                                        <span class="text-amber-400 font-medium" title="Дозріє регеном">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
+                                    `}
+                                </div>
+                            ` : ''}
+                        `}
+                    </td>
+
+                    <!-- Дамаг сьогодні (з 02:00) -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
+                            ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
+                        </div>
+                        ${m.target_damage ? `
+                            <div data-user="${encodeURIComponent(m.username)}" class="mt-2 flex flex-col items-end cursor-pointer group p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль або переглянути розрахунок спорядження">
+                                <div class="flex items-center gap-1.5 mb-1 text-xs">
+                                    <span class="text-gray-400 group-hover:text-blue-300 font-medium transition-colors">🎯 Ціль:</span>
+                                    <span class="font-extrabold font-mono text-emerald-400 group-hover:text-emerald-300 transition-colors">${formatMillions(m.target_damage)}</span>
+                                    <span class="text-[11px] font-mono text-gray-400 group-hover:text-white transition-colors">(${m.target_progress_pct}%)</span>
+                                </div>
+                                <div class="w-24 bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
+                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                </div>
+                                ${m.saved_strategy_label ? `
+                                    <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
+                                        <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
+                                        <span class="truncate max-w-[120px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : `
+                            <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
+                                <span class="group-hover:scale-110 transition-transform">🎯</span>
+                                <span>Ціль</span>
+                            </button>
+                        `}
+                    </td>
+
+                    <!-- Дамаг вчора -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-xs ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'}" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку 02:00'}">
+                            ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                        </div>
+                        <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                    </td>
+
+                    <!-- Залп за таблетку (Риба / Стейк) -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        ${m.build_type === 'ECO' ? `
+                            <div class="text-gray-500 font-mono text-xs">—</div>
+                            <div class="text-[10px] text-gray-500">еко-тил</div>
+                        ` : `
+                            <div class="flex flex-col items-end font-mono">
+                                <!-- 1. Риба (перша, більша) -->
+                                <div class="text-xs sm:text-sm font-bold text-sky-400 flex items-center justify-end gap-1.5" title="Залп на смаженій рибі з бафом битви +${customBattleBonus}% (${m.pill_fish_hits} уд.)">
+                                    <span>🐟</span>
+                                    <span>~${formatMillions(fishSalvo)}</span>
+                                </div>
+                                <!-- 2. Стейк (другий, менший) -->
+                                <div class="text-[11px] sm:text-xs font-semibold text-rose-300/80 flex items-center justify-end gap-1.5" title="Залп на стейках з бафом битви +${customBattleBonus}% (${m.pill_full_hits} уд.)">
+                                    <span>🥩</span>
+                                    <span>~${formatMillions(steakSalvo)}</span>
+                                </div>
+                            </div>
+                        `}
+                    </td>
+
+                    <!-- Дамаг тижня -->
+                    <td class="p-3 whitespace-nowrap text-right">
+                        <div class="font-bold text-gray-200 text-xs">${formatMillions(m.weekly_damage)}</div>
+                        <div class="text-[10px] text-gray-400">всього: ${formatMillions(m.total_damage)}</div>
+                    </td>
+
+                    <!-- Онлайн -->
+                    <td class="p-3 whitespace-nowrap">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full ${onlineDot} shrink-0"></span>
+                            <span class="text-xs ${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-300'}">${m.last_seen_label}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function renderMemberCard(m) {
+            const fishSalvo = getCustomFishSalvo(m);
+            const steakSalvo = getCustomSteakSalvo(m);
+            let onlineDot = 'bg-emerald-400';
+            if (m.hours_offline >= 24) {
+                onlineDot = 'bg-rose-500';
+            } else if (m.hours_offline >= 3) {
+                onlineDot = 'bg-amber-400';
+            }
+
+            let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
+            if (m.pill_status === 'ACTIVE') {
+                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            } else if (m.pill_status === 'READY') {
+                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            } else if (m.pill_status === 'COOLDOWN') {
+                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            }
+
+            let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
+            if (m.build_type === 'ECO') {
+                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
+            } else if (m.build_type === 'HYBRID') {
+                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
+            }
+
+            let roleColor = 'text-gray-400';
+            if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
+            if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
+            if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
+
+            return `
+                <div class="glass-panel rounded-2xl border border-bordercolor/80 p-3.5 shadow-lg flex flex-col gap-2.5 hover:border-gray-600 transition-all">
+                    <!-- Row 1: Avatar, Name, Level, Role, Pill status -->
+                    <div class="flex items-start justify-between gap-2.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="relative shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center">
+                                    ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                                </div>
+                                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${onlineDot} border-2 border-cardbg" title="${m.last_seen_label}"></span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
+                                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
+                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
+                                        <span>🎯</span>
+                                        <span class="text-[10px]">Ціль</span>
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
+                                    <span class="${roleColor} font-medium">${m.role_label}</span>
+                                    <span>•</span>
+                                    <span class="text-[10px]">Ранг ${m.military_rank}</span>
+                                    ${m.prestige ? `<span>•</span><span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">⭐${m.prestige}</span>` : ''}
+                                    <span>•</span>
+                                    <span class="${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-400'}">${m.last_seen_label}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pill Status -->
+                        <div class="shrink-0 text-right">
+                            <span class="px-2 py-0.5 rounded text-[10px] border inline-block ${pillBadgeClass}" title="${m.pill_tip}">
+                                ${m.pill_label}
+                            </span>
+                            ${m.build_type !== 'ECO' && m.pill_time_label && m.pill_time_label !== '—' ? `
+                                <div class="text-[10px] text-gray-300 font-medium flex items-center justify-end gap-1 mt-1">
+                                    <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
+                                    <span>${m.pill_time_label}</span>
+                                    ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                                        <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не п'є, виключений з залпу">🚫 після 02:00</span>
+                                    ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                                        <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
+                                    ` : '')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Build & Salvo summary -->
+                    <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-darkbg/50 border border-bordercolor/50 text-xs">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-medium border ${buildBadgeClass}">
+                            ${m.build_label}
+                        </span>
+                        ${m.build_type === 'ECO' ? `
+                            <span class="text-[11px] text-gray-500">економічний тил</span>
+                        ` : (m.pill_status === 'ACTIVE' ? `
+                            <div class="text-[11px] font-bold flex items-center gap-1.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))}">
+                                <span class="text-rose-400 font-bold">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
+                                <span class="text-gray-500">·</span>
+                                <span class="text-amber-400 font-medium">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
+                            </div>
+                        ` : (m.pill_status === 'READY' ? `
+                            <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
+                        ` : (m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
+                            <span class="text-[11px] text-rose-400/90 font-medium">🚫 Відстрілявся (дебаф)</span>
+                        ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
+                            <span class="text-[11px] text-emerald-400/90 font-bold" title="Зможе випити таблетку ввечері">⏳ Вечір: ~${formatMillions(getCustomFishSalvo(m))}</span>
+                        ` : `
+                            <span class="text-[11px] text-rose-300/80 font-medium">⏳ Дебаф</span>
+                        `))))}
+                    </div>
+
+                    <!-- Row 3: 4 Key Metrics Grid -->
+                    <div class="grid grid-cols-4 gap-1 bg-darkbg/80 rounded-xl p-2 border border-bordercolor/60 text-center">
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Сьогодні</div>
+                            <div class="text-xs font-bold ${m.today_damage > 0 ? 'text-emerald-400 font-black' : 'text-gray-400'} mt-1 truncate" title="Точно: ${formatNumber(m.today_damage)}">
+                                ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
+                            </div>
+                            ${m.target_damage ? `
+                                <div data-user="${encodeURIComponent(m.username)}" class="mt-1.5 flex flex-col items-center cursor-pointer p-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль">
+                                    <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-400 mb-1">
+                                        <span>🎯 ${m.target_progress_pct}%</span>
+                                        <span class="text-gray-400 font-normal">з</span>
+                                        <span>${formatMillions(m.target_damage)}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
+                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                    </div>
+                                    ${m.saved_strategy_label ? `
+                                        <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
+                                            <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
+                                            <span class="truncate max-w-[100px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
+                                    <span>🎯 Ціль</span>
+                                </button>
+                            `}
+                        </div>
+
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Вчора</div>
+                            <div class="text-xs font-bold ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'} mt-1 truncate" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку'}">
+                                ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                        </div>
+
+                        <div class="px-1 border-r border-bordercolor/40">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90 text-center" title="Залп за таблетку (8г) з бафом битви +${customBattleBonus}%">
+                                <span>Залп 8г</span>
+                            </div>
+                            <div class="font-mono mt-0.5 text-center">
+                                <div class="text-xs font-bold text-sky-400 truncate" title="Залп на смаженій рибі (+${customBattleBonus}%)">
+                                    ${m.build_type === 'ECO' ? '—' : `🐟 ~${formatMillions(fishSalvo)}`}
+                                </div>
+                                <div class="text-[10px] text-rose-300/80 font-semibold truncate" title="Залп на стейках (+${customBattleBonus}%)">
+                                    ${m.build_type === 'ECO' ? 'еко-тил' : `🥩 ~${formatMillions(steakSalvo)}`}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="px-1">
+                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Тиждень</div>
+                            <div class="text-xs font-bold text-gray-300 mt-1 truncate" title="Всього: ${formatMillions(m.total_damage)}">
+                                ${formatMillions(m.weekly_damage)}
+                            </div>
+                            <div class="text-[9px] text-gray-500 mt-0.5">всього</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMembersTable() {
+            const tbody = document.getElementById('clanTableBody');
+            const cardsContainer = document.getElementById('clanCardsSection');
+            if (!tbody || !clanData) return;
+
+            let list = [...clanData.members];
+
+            // Filter
+            if (currentFilter === 'WAR') {
+                list = list.filter(m => m.build_type === 'WAR');
+            } else if (currentFilter === 'ECO') {
+                list = list.filter(m => m.build_type === 'ECO');
+            } else if (currentFilter === 'HYBRID') {
+                list = list.filter(m => m.build_type === 'HYBRID');
+            } else if (currentFilter === 'PILL_ACTIVE') {
+                list = list.filter(m => m.pill_status === 'ACTIVE');
+            } else if (currentFilter === 'PILL_READY') {
+                list = list.filter(m => m.pill_status === 'READY');
+            } else if (currentFilter === 'PILL_COOLDOWN') {
+                list = list.filter(m => m.pill_status === 'COOLDOWN');
+            } else if (currentFilter === 'AFK') {
+                list = list.filter(m => m.is_afk);
+            }
+
+            // Search query
+            const q = (document.getElementById('memberSearchInput').value || '').trim().toLowerCase();
+            if (q) {
+                list = list.filter(m => m.username.toLowerCase().includes(q));
+            }
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
+                if (cardsContainer) {
+                    cardsContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">Не знайдено бійців за вказаними критеріями</div>`;
+                }
+                return;
+            }
+
+            // Sort
+            list.sort((a, b) => {
+                let vA, vB;
+                if (sortField === 'name') { vA = a.username; vB = b.username; }
+                else if (sortField === 'role') { vA = a.clan_role; vB = b.clan_role; }
+                else if (sortField === 'build') { vA = a.war_ratio; vB = b.war_ratio; }
+                else if (sortField === 'pill') { vA = a.pill_status; vB = b.pill_status; }
+                else if (sortField === 'today') { vA = a.today_damage || 0; vB = b.today_damage || 0; }
+                else if (sortField === 'yesterday') { vA = a.yesterday_damage || 0; vB = b.yesterday_damage || 0; }
+                else if (sortField === 'weekly') { vA = a.weekly_damage; vB = b.weekly_damage; }
+                else if (sortField === 'online') { vA = a.hours_offline; vB = b.hours_offline; }
+                else if (sortField === 'damage_fish') { vA = getCustomFishSalvo(a); vB = getCustomFishSalvo(b); }
+                else if (sortField === 'damage') { vA = getCustomSteakSalvo(a); vB = getCustomSteakSalvo(b); }
+                else { vA = getCustomFishSalvo(a); vB = getCustomFishSalvo(b); }
+
+                if (vA < vB) return sortAsc ? -1 : 1;
+                if (vA > vB) return sortAsc ? 1 : -1;
+                return 0;
+            });
+
+            // Populate Table
+            tbody.innerHTML = list.map(m => renderTableRow(m)).join('');
+
+            // Populate Cards
+            if (cardsContainer) {
+                cardsContainer.innerHTML = list.map(m => renderMemberCard(m)).join('');
+            }
+
+            updateViewModeUI();
+            updateSortControls();
+        }
+
+        function copyDiscordReport() {
+            if (!clanData) return;
+            const mu = clanData.mu;
+            const s = clanData.summary;
+
+            const minM = (s.clan_daily_salvo_min / 1000000).toFixed(1);
+            const maxM = (s.clan_daily_salvo_max / 1000000).toFixed(1);
+
+            let text = `⚔️ **WarEra Clan Intel Report — ${mu.name}**\n`;
+            text += `👥 Склад: ${s.total_members} (⚔️ Вар: ${s.war_count} | 🚜 Еко: ${s.eco_count} | ⚖️ Гібрид: ${s.hybrid_count})\n`;
+            text += `💊 Бойова готовність: ${s.pill_active_count} під бафом (+60%) | ${s.pill_ready_count} готові пити | ${s.pill_cooldown_count} під дебафом\n`;
+            const clanFishSalvo = clanData.members.reduce((acc, m) => {
+                if (m.build_type === 'ECO') return acc;
+                if (m.pill_status === 'ACTIVE') return acc + getCustomInstantFishSalvo(m) + getCustomRegenFishSalvo(m);
+                if (m.pill_status === 'READY') return acc + getCustomFishSalvo(m);
+                if (m.pill_status === 'COOLDOWN') return acc + (m.can_drink_before_reset ? getCustomFishSalvo(m) : 0);
+                return acc;
+            }, 0);
+            text += `💥 **Залп клану до 02:00 (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
+            const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+            const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
+            text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
+            const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
+            const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+            text += `💊 **Можуть пити зараз (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
+            const eveningMembers = clanData.members.filter(m => m.pill_status === 'COOLDOWN' && m.can_drink_before_reset);
+            if (eveningMembers.length > 0) {
+                const eveningSalvo = eveningMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
+                text += `⏳ **Зможуть пити ввечері до 02:00 (${eveningMembers.length} бійців): ~${formatMillions(eveningSalvo)} дамагу**\n`;
+            }
+            text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
+            if (s.clan_yesterday_damage) {
+                text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;
+            }
+            text += `\n`;
+            
+            text += `📋 **Топ бійців (Залп 🐟 Риба / 🥩 Стейк | Факт сьогодні):**\n`;
+            const warMembers = clanData.members.filter(m => m.build_type !== 'ECO').slice(0, 10);
+            warMembers.forEach((m, idx) => {
+                const fishDmg = formatMillions(getCustomFishSalvo(m));
+                const steakDmg = formatMillions(getCustomSteakSalvo(m));
+                const todayDmg = m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0';
+                text += `${idx + 1}. **${m.username}** — 🐟 ~${fishDmg} / 🥩 ~${steakDmg} | Факт: ${todayDmg} (${m.pill_time_label})\n`;
+            });
+
+            if (s.afk_count > 0) {
+                text += `\n⚠️ **Інактив (>24 год):**\n`;
+                clanData.members.filter(m => m.is_afk).forEach(m => {
+                    text += `• ${m.username} (офлайн ${m.last_seen_label})\n`;
+                });
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Бойовий звіт скопійовано! Вставте у чат Telegram/Discord.');
+            }).catch(() => {
+                showToast('Не вдалося скопіювати звіт', false);
+            });
+        }
+
+        // Auto load on start
+        window.addEventListener('DOMContentLoaded', () => {
+            const bInput = document.getElementById('battleBonusInput');
+            if (bInput) bInput.value = customBattleBonus;
+            loadClanData(false);
+        });
+
+        window.addEventListener('resize', () => {
+            if (!localStorage.getItem('warera_clan_view')) {
+                const autoMode = window.innerWidth < 768 ? 'cards' : 'table';
+                if (autoMode !== currentViewMode) {
+                    setViewMode(autoMode);
+                }
+            }
+        });
+
+        // ================= TARGET DAMAGE & GEAR CALCULATOR MODAL LOGIC =================
+        let activeCalcMember = null;
+        let activeCalcData = null;
+        let activeCalcTarget = 4000000;
+        let activeCalcAmmo = 'auto';
+        let activeCalcFood = 'auto';
+        let activeCalcWeapon = 'auto';
+        let activeCalcBonus = 84;
+        let activeSelectedStrat = null;
+        let activeIsBuildLocked = false;
+        let calcTargetDebounce = null;
+        let calcBonusDebounce = null;
+        let activeCalcPrestige = 0;
+        let activeCalcRankBonus = 0;
+        let calcPrestigeDebounce = null;
+        let calcRankBonusDebounce = null;
+
+        function getPillBadgeClass(status) {
+            if (status === 'ACTIVE') return 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            if (status === 'READY') return 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            if (status === 'COOLDOWN') return 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
+            return 'bg-gray-800 text-gray-400 border-gray-700';
+        }
+
+        function updateCalcTargetHint(rawDmg) {
+            const hint = document.getElementById('calcTargetHint');
+            if (hint) {
+                if (!rawDmg || isNaN(rawDmg) || rawDmg <= 0) {
+                    hint.innerText = '= введіть число (напр. 3.4)';
+                    hint.className = 'text-[11px] font-mono text-amber-400 font-bold';
+                } else {
+                    hint.innerText = `= ${formatNumber(rawDmg)} дамагу (${formatMillions(rawDmg)})`;
+                    hint.className = 'text-[11px] font-mono text-emerald-400 font-bold';
+                }
+            }
+        }
+
+        function onCalcTargetInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            if (isNaN(parsed) || parsed <= 0) {
+                updateCalcTargetHint(0);
+                return;
+            }
+            const targetVal = Math.round(parsed * 1000000);
+            updateCalcTargetHint(targetVal);
+
+            clearTimeout(calcTargetDebounce);
+            calcTargetDebounce = setTimeout(() => {
+                activeCalcTarget = targetVal;
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function setCalcTarget(valInMillions) {
+            const cleanStr = String(valInMillions).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            const numM = isNaN(parsed) ? 1 : Math.max(0.1, parsed);
+            activeCalcTarget = Math.round(numM * 1000000);
+            const input = document.getElementById('calcTargetInput');
+            if (input) input.value = numM;
+            updateCalcTargetHint(activeCalcTarget);
+            fetchCalculatorPlan();
+        }
+
+        function updateBonusPresetButtonsUI() {
+            [50, 65, 84, 100].forEach(p => {
+                const btn = document.getElementById(`bonusPresetBtn_${p}`);
+                if (!btn) return;
+                if (Math.abs(activeCalcBonus - p) < 0.1) {
+                    btn.className = 'px-2 py-2 rounded-xl bg-amber-600 text-white font-mono text-[11px] border border-amber-400 font-bold shadow';
+                } else {
+                    btn.className = 'px-2 py-2 rounded-xl bg-gray-800 text-gray-300 font-mono text-[11px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        function onCalcBonusInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            if (isNaN(parsed) || parsed < 0) return;
+            activeCalcBonus = parsed;
+            updateBonusPresetButtonsUI();
+
+            clearTimeout(calcBonusDebounce);
+            calcBonusDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function setCalcBonus(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            activeCalcBonus = isNaN(parsed) ? 50 : Math.max(0, parsed);
+            const input = document.getElementById('calcBonusInput');
+            if (input) input.value = activeCalcBonus;
+            updateBonusPresetButtonsUI();
+            fetchCalculatorPlan();
+        }
+
+        function onCalcPrestigeInput(val) {
+            const parsed = parseInt(val, 10);
+            activeCalcPrestige = isNaN(parsed) ? 0 : Math.max(0, parsed);
+            const badge = document.getElementById('calcPrestigeBadge');
+            if (badge) badge.innerText = `⭐ Престиж: ${activeCalcPrestige}`;
+            const prestigeAutoLabel = document.getElementById('calcPrestigeAutoLabel');
+            if (prestigeAutoLabel && activeCalcMember) {
+                const diff = activeCalcPrestige !== (activeCalcMember.prestige || 0);
+                prestigeAutoLabel.innerText = diff ? `⚠️ симуляція` : `✓ з гри: ${activeCalcMember.prestige || 0}`;
+                prestigeAutoLabel.className = diff ? `text-[10px] text-amber-400 font-mono font-semibold` : `text-[10px] text-purple-400 font-mono font-semibold`;
+            }
+
+            clearTimeout(calcPrestigeDebounce);
+            calcPrestigeDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function onCalcRankBonusInput(val) {
+            const cleanStr = String(val).replace(',', '.').trim();
+            const parsed = parseFloat(cleanStr);
+            activeCalcRankBonus = isNaN(parsed) ? 0 : Math.max(0, parsed);
+            const rankEl = document.getElementById('calcUserRank');
+            if (rankEl && activeCalcMember) {
+                rankEl.innerText = `Ранг ${activeCalcMember.military_rank || 0} (+${activeCalcRankBonus}%)`;
+            }
+            const rankAutoLabel = document.getElementById('calcRankAutoLabel');
+            if (rankAutoLabel && activeCalcMember) {
+                const diff = Math.abs(activeCalcRankBonus - (activeCalcMember.rank_bonus_pct || 0)) > 0.01;
+                rankAutoLabel.innerText = diff ? `⚠️ симуляція` : `✓ з гри: +${activeCalcMember.rank_bonus_pct || 0}%`;
+                rankAutoLabel.className = diff ? `text-[10px] text-amber-400 font-mono font-semibold` : `text-[10px] text-emerald-400 font-mono font-semibold`;
+            }
+
+            clearTimeout(calcRankBonusDebounce);
+            calcRankBonusDebounce = setTimeout(() => {
+                fetchCalculatorPlan();
+            }, 350);
+        }
+
+        function openTargetCalculator(username) {
+            if (!clanData || !clanData.members) return;
+            const m = clanData.members.find(x => x.username.toLowerCase() === (username || '').toLowerCase());
+            if (!m) {
+                showToast('Бійця не знайдено', false);
+                return;
+            }
+
+            activeCalcMember = m;
+            activeCalcTarget = Number(m.target_damage) || 4000000;
+            activeCalcAmmo = m.target_ammo || 'auto';
+            activeCalcFood = m.target_food || (m.target_use_fish ? 'cookedFish' : 'auto');
+            activeCalcWeapon = m.target_weapon || 'auto';
+            activeCalcBonus = (typeof m.target_battle_bonus === 'number') ? m.target_battle_bonus : ((typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84);
+            activeCalcPrestige = (typeof m.target_prestige === 'number') ? m.target_prestige : (m.prestige || (m.leveling && m.leveling.prestige) || 0);
+            activeCalcRankBonus = (typeof m.target_rank_bonus === 'number') ? m.target_rank_bonus : ((typeof m.rank_bonus_pct === 'number') ? m.rank_bonus_pct : (m.skills?.attack?.militaryRankPercent || 0));
+            activeIsBuildLocked = !!m.is_build_locked;
+            activeSelectedStrat = m.saved_build || null;
+
+            // Populate header details safely
+            const nameEl = document.getElementById('calcUserName');
+            if (nameEl) nameEl.innerText = m.username;
+            const lvlEl = document.getElementById('calcUserLevel');
+            if (lvlEl) lvlEl.innerText = `Lv.${m.level}`;
+            const rankEl = document.getElementById('calcUserRank');
+            if (rankEl) rankEl.innerText = `Ранг ${m.military_rank || 0} (+${activeCalcRankBonus}%)`;
+            const prestigeBadge = document.getElementById('calcPrestigeBadge');
+            if (prestigeBadge) prestigeBadge.innerText = `⭐ Престиж: ${activeCalcPrestige}`;
+            const avatarImg = document.getElementById('calcUserAvatar');
+            if (avatarImg) avatarImg.src = m.avatar_url || 'https://media.warera.io/images/itemsv2/sniper.png';
+
+            // Badges
+            const pillBadge = document.getElementById('calcPillBadge');
+            if (pillBadge) {
+                pillBadge.innerText = m.pill_label || '💊 Таблетка';
+                pillBadge.className = `px-2 py-0.5 rounded text-[10px] border ${getPillBadgeClass(m.pill_status)}`;
+            }
+            const hungerBadge = document.getElementById('calcHungerBadge');
+            if (hungerBadge) hungerBadge.innerText = `🥪 Голод: ${m.hunger_curr || 0}/${m.hunger_max || 0}`;
+            const healthBadge = document.getElementById('calcHealthBadge');
+            if (healthBadge) healthBadge.innerText = `❤️ HP: ${Math.round(m.health_curr || 0)}/${Math.round(m.health_max || 0)}`;
+
+            // Target input (in Millions)
+            const input = document.getElementById('calcTargetInput');
+            if (input) input.value = activeCalcTarget ? (activeCalcTarget / 1000000) : 4;
+            updateCalcTargetHint(activeCalcTarget);
+
+            // Battle bonus input
+            const bonusInput = document.getElementById('calcBonusInput');
+            if (bonusInput) bonusInput.value = activeCalcBonus;
+            updateBonusPresetButtonsUI();
+
+            // Prestige and Rank inputs
+            const prestigeInput = document.getElementById('calcPrestigeInput');
+            if (prestigeInput) prestigeInput.value = activeCalcPrestige;
+
+            const rankBonusInput = document.getElementById('calcRankBonusInput');
+            if (rankBonusInput) rankBonusInput.value = activeCalcRankBonus;
+
+            const rankAutoLabel = document.getElementById('calcRankAutoLabel');
+            if (rankAutoLabel) {
+                rankAutoLabel.innerText = `✓ з гри: +${activeCalcRankBonus}%`;
+                rankAutoLabel.className = 'text-[10px] text-emerald-400 font-mono font-semibold';
+            }
+
+            const prestigeAutoLabel = document.getElementById('calcPrestigeAutoLabel');
+            if (prestigeAutoLabel) {
+                prestigeAutoLabel.innerText = `✓ з гри: ${activeCalcPrestige}`;
+                prestigeAutoLabel.className = 'text-[10px] text-purple-400 font-mono font-semibold';
+            }
+
+            // Reset ammo, food, and weapon buttons
+            updateAmmoSelectorUI();
+            updateFoodSelectorUI();
+            updateWeaponSelectorUI();
+
+            // Show modal
+            const modal = document.getElementById('targetCalcModal');
+            if (modal) modal.classList.remove('hidden');
+
+            // Fetch live plan
+            fetchCalculatorPlan();
+        }
+
+        function closeTargetCalculator() {
+            const modal = document.getElementById('targetCalcModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function setCalcAmmo(ammoKey) {
+            activeCalcAmmo = ammoKey;
+            activeIsBuildLocked = false;
+            updateAmmoSelectorUI();
+            fetchCalculatorPlan(true);
+        }
+
+        function updateAmmoSelectorUI() {
+            ['auto', 'lightAmmo', 'ammo', 'heavyAmmo'].forEach(k => {
+                const btn = document.getElementById(`ammoBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcAmmo) {
+                    btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        function setCalcFood(foodKey) {
+            activeCalcFood = foodKey;
+            activeIsBuildLocked = false;
+            updateFoodSelectorUI();
+            fetchCalculatorPlan(true);
+        }
+
+        function updateFoodSelectorUI() {
+            ['auto', 'steak', 'cookedFish'].forEach(k => {
+                const btn = document.getElementById(`foodBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcFood) {
+                    if (k === 'steak') {
+                        btn.className = 'px-2 py-1 rounded-lg bg-rose-600 text-white font-mono text-[10px] border border-rose-400 font-bold shadow-md';
+                    } else if (k === 'cookedFish') {
+                        btn.className = 'px-2 py-1 rounded-lg bg-sky-600 text-white font-mono text-[10px] border border-sky-400 font-bold shadow-md';
+                    } else {
+                        btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                    }
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        function setCalcWeapon(weaponKey) {
+            activeCalcWeapon = weaponKey;
+            activeIsBuildLocked = false;
+            updateWeaponSelectorUI();
+            fetchCalculatorPlan(true);
+        }
+
+        function updateWeaponSelectorUI() {
+            ['auto', 'sniper', 'tank', 'rifle'].forEach(k => {
+                const btn = document.getElementById(`weaponBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcWeapon) {
+                    btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        async function fetchCalculatorPlan(forceUnlock = false) {
+            if (!activeCalcMember) return;
+            const stratBody = document.getElementById('calcStrategiesBody');
+            const banner = document.getElementById('calcStatusBanner');
+            const optimalCard = document.getElementById('calcOptimalCard');
+            const slotsGrid = document.getElementById('calcGearSlotsGrid');
+
+            if (optimalCard) {
+                optimalCard.innerHTML = `
+                    <div class="glass-panel p-6 rounded-2xl border border-blue-500/30 text-center space-y-2 bg-darkbg/60">
+                        <div class="text-blue-400 text-sm font-bold flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <span>Підбираємо найвигідніший бойовий комплект під ціль...</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400">Аналізуємо ціни ринку, знос зброї, ухилення та ліміт голоду...</div>
+                    </div>
+                `;
+            }
+            if (stratBody) {
+                stratBody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-blue-500 mr-2"></i> Завантаження варіантів...</td></tr>`;
+            }
+            if (banner) {
+                banner.innerHTML = `<span class="text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Оцінка зносу та дефіциту...</span>`;
+            }
+
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const lockQuery = forceUnlock ? '&unlock=1' : (activeIsBuildLocked ? '&locked=1' : '');
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}&prestige=${activeCalcPrestige}&rank_bonus=${activeCalcRankBonus}&weapon=${activeCalcWeapon}${lockQuery}`;
+
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                if (data.status !== 'ok' || !data.result) {
+                    throw new Error(data.message || 'Не вдалося прорахувати план');
+                }
+
+                activeCalcData = data.result;
+                activeIsBuildLocked = !!activeCalcData.is_build_locked;
+                activeSelectedStrat = activeCalcData.best_strategy;
+                renderCalculatorUI(activeCalcData);
+            } catch (err) {
+                console.error('Calculator fetch error:', err);
+                if (optimalCard) {
+                    optimalCard.innerHTML = `
+                        <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-center text-rose-300 text-xs">
+                            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Помилка: ${err.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderCalculatorUI(result) {
+            const p = result.player;
+            const t = result.target;
+            const best = result.best_strategy;
+            if (!activeSelectedStrat) activeSelectedStrat = best;
+
+            // Updated time
+            const timeSpan = document.getElementById('calcUpdatedTime');
+            if (timeSpan && result.updated_at) {
+                const dt = new Date(result.updated_at);
+                timeSpan.innerText = `🟢 ціни ринку оновлено: ${dt.toLocaleTimeString()}`;
+            }
+
+            // Status Banner
+            const banner = document.getElementById('calcStatusBanner');
+            if (banner) {
+                const deficitStr = t.deficit_damage > 0 ? `Залишилося: <b class="text-white font-mono">+${formatNumber(t.deficit_damage)}</b>` : `<b class="text-emerald-400 font-mono">Ціль уже виконана!</b>`;
+                const pillTimeStr = p.has_active_pill ? `⏳ Таблетка діє ще: <b class="text-amber-400 font-mono">${p.pill_remaining_hours} год</b>` : `💊 Нова таблетка: <b class="text-blue-400 font-mono">8.0 год</b>`;
+                const lockedBadge = activeIsBuildLocked ? `<span class="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-600/50 text-purple-300 font-semibold text-[10px]"><i class="fa-solid fa-lock text-[9px] mr-1"></i>Білд закріплено</span>` : '';
+                banner.innerHTML = `
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span>Сьогодні набито: <b class="text-emerald-400 font-mono">+${formatNumber(p.today_damage)}</b></span>
+                        <span class="text-gray-500">|</span>
+                        <span>${deficitStr}</span>
+                        ${lockedBadge ? `<span class="text-gray-500">|</span> ${lockedBadge}` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span>${pillTimeStr}</span>
+                        <span class="text-gray-500">|</span>
+                        <span>Доступний голод: <b class="text-sky-400 font-mono">${(p && p.available_hunger !== undefined) ? p.available_hunger : (best && best.available_hunger !== undefined ? best.available_hunger : 0)} од.</b></span>
+                    </div>
+                `;
+            }
+
+            // Render Hero Card (Only the best profitable strategy!)
+            const optimalCard = document.getElementById('calcOptimalCard');
+            if (optimalCard && best) {
+                const isSelectedBest = !activeSelectedStrat || activeSelectedStrat.strategy_key === best.strategy_key;
+                const stratToShow = isSelectedBest ? best : activeSelectedStrat;
+                const isSaved = !!(stratToShow.is_saved_build || (activeIsBuildLocked && activeSelectedStrat && (activeSelectedStrat.strategy_key === stratToShow.strategy_key || activeSelectedStrat.label === stratToShow.label)));
+
+                let stratBadge = '';
+                let lockActionBtn = '';
+                if (isSaved) {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-500/60 text-[10px] font-black uppercase tracking-wide flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-lock text-purple-400"></i> ЗБЕРЕЖЕНИЙ БІЛД
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="unlockCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gray-800 hover:bg-rose-950/70 text-gray-300 hover:text-rose-200 border border-bordercolor hover:border-rose-500/50 text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95" title="Скинути збережений білд і повернутися до авто-підбору">
+                            <i class="fa-solid fa-unlock text-[9px]"></i> <span>Скинути</span>
+                        </button>
+                    `;
+                } else if (stratToShow.is_best_value) {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black uppercase tracking-wide">
+                        🏆 НАЙВИГІДНІШИЙ ВАРІАНТ
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="saveCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm shadow-purple-500/20 transition-all active:scale-95" title="Зберегти цей білд, щоб він не мінявся після ударів">
+                            <i class="fa-solid fa-bookmark text-[9px]"></i> <span>Зберегти цей білд</span>
+                        </button>
+                    `;
+                } else {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/50 text-[10px] font-black uppercase tracking-wide">
+                        ⚙️ ОБРАНИЙ ВАРІАНТ
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="saveCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm shadow-purple-500/20 transition-all active:scale-95" title="Зберегти цей білд, щоб він не мінявся після ударів">
+                            <i class="fa-solid fa-bookmark text-[9px]"></i> <span>Зберегти цей білд</span>
+                        </button>
+                    `;
+                }
+
+                const cp = result.consumable_prices || {};
+                const case1Price = cp.case1 ? Number(cp.case1).toFixed(2) : '3.89';
+                const case2Price = cp.case2 ? Number(cp.case2).toFixed(2) : '26.92';
+
+                optimalCard.innerHTML = `
+                    <div class="glass-panel p-4 sm:p-5 rounded-2xl border-2 ${isSaved ? 'border-purple-500/60 bg-gradient-to-r from-purple-950/40 via-[#0e131f] to-indigo-950/30' : (stratToShow.is_best_value ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#0e131f] to-blue-950/30' : 'border-blue-500/60 bg-[#0e131f]')} shadow-xl space-y-3.5">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-bordercolor/60 pb-3">
+                            <div class="flex items-start sm:items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl ${isSaved ? 'bg-purple-500/15 border-2 border-purple-500/50 text-purple-400' : (stratToShow.is_best_value ? 'bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-400' : 'bg-blue-500/15 border-2 border-blue-500/40 text-blue-400')} flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                                    ${isSaved ? '🛡️' : (stratToShow.is_best_value ? '🏆' : '⚙️')}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        ${stratBadge}
+                                        ${lockActionBtn}
+                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b> <span class="text-amber-400 font-mono font-bold">(+${t.battle_bonus ?? activeCalcBonus}% баф)</span></span>
+                                    </div>
+                                    <h3 class="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2 flex-wrap">
+                                        <span>${stratToShow.label}</span>
+                                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-700/40">
+                                            ${stratToShow.food_icon} ${stratToShow.food_name}
+                                        </span>
+                                    </h3>
+                                </div>
+                            </div>
+                            <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
+                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">${(isSaved && p.today_damage > 0) ? 'Сумарний бюджет залишку:' : 'Сумарний бюджет:'}</div>
+                                <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
+                                ${stratToShow.initial_grand_total && p.today_damage > 0 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} ₴</div>` : ''}
+                                <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                    ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} ₴
+                                </div>
+                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} ₴ / 1M урону</div>
+                                ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} ₴ дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
+                            </div>
+                        </div>
+
+                        <!-- 6 Stat Badges -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
+                                <div class="font-bold text-white mt-1">${stratToShow.ammo_badge}</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${formatNumber(stratToShow.ammo_units_needed)} пострілів ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-500">(з ${formatNumber(stratToShow.initial_hits)})</span>` : ''}</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🎯 Удари</div>
+                                <div class="font-bold text-white mt-1 font-mono">${formatNumber(stratToShow.hits_needed)} уд.</div>
+                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5">~${formatNumber(stratToShow.avg_dmg_per_hit)}/удар ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-400">(${formatNumber(stratToShow.initial_hits - stratToShow.hits_needed)} влучень)</span>` : ''}</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="1 зброя = 100 ударів без ухилення">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🔫 Зброя</div>
+                                <div class="font-bold text-amber-400 mt-1 font-mono">${stratToShow.weapons_burned} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${(isSaved && p.today_damage > 0) ? `на залишок (${formatNumber(stratToShow.hits_needed)} уд.)` : '100 уд/ган'}</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="Броня захищена ухиленням ${stratToShow.eff_dodge}%">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🦺 Броня</div>
+                                <div class="font-bold text-indigo-300 mt-1 font-mono">${stratToShow.armor_sets_burned} компл.</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">ухил. ${stratToShow.eff_dodge}%</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
+                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
+                                </div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                            </div>
+                        </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
+                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
+                                </div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                            </div>
+                        </div>
+
+                        <!-- 2 Economics & Loot Badges (Athena & Intel Builder engine: Cases & Scrap) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-bordercolor/40">
+                            <!-- Expected Cases Drop -->
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Очікуваний дроп кейсів (жива ціна біржі: Кейс ~${case1Price} ₴, Елітний ~${case2Price} ₴)">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
+                                        <img src="${ICON_CASE_REGULAR}" class="w-full h-full object-contain filter drop-shadow" alt="Кейс">
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Очікуваний дроп кейсів</div>
+                                        <div class="text-white font-mono font-bold text-xs flex items-center gap-1.5 flex-wrap">
+                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case1Price} ₴">
+                                                <span>${stratToShow.expected_case1 || 0}</span>
+                                                <span class="text-emerald-400 text-[10px] font-medium">Кейс</span>
+                                            </span>
+                                            <span class="text-gray-400 font-normal">+</span>
+                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case2Price} ₴">
+                                                <img src="${ICON_CASE_ELITE}" class="w-3.5 h-3.5 object-contain inline-block" alt="Елітний">
+                                                <span>${stratToShow.expected_case2 || 0}</span>
+                                                <span class="text-indigo-300 text-[10px] font-medium">Елітний</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.total_cases_value || 0)} ₴</div>
+                            </div>
+
+                            <!-- Scrap Recovery -->
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Відновлення 1/3 металу при повному зносі спорядження (~0.26 ₴/од.)">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
+                                        <img src="${ICON_SCRAP}" class="w-full h-full object-contain filter drop-shadow" alt="Брухт">
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Брухт (1/3 зносу)</div>
+                                        <div class="text-white font-mono font-bold text-xs">${formatNumber(stratToShow.total_scrap || 0)} <span class="text-gray-400 text-[10px] font-medium">од.</span></div>
+                                    </div>
+                                </div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.scrap_value || 0)} ₴</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Populate alternative strategies table in collapsed details
+            const tbody = document.getElementById('calcStrategiesBody');
+            if (tbody) {
+                tbody.innerHTML = result.strategies.map((s, idx) => {
+                    const isSelected = activeSelectedStrat && activeSelectedStrat.strategy_key === s.strategy_key;
+                    const isBest = s.is_best_value;
+                    const canReach = s.can_reach_in_session;
+
+                    let statusBadge = '';
+                    if (s.is_saved_build) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-500/60 text-[10px] font-black flex items-center justify-center gap-1"><i class="fa-solid fa-lock text-[9px] text-purple-400"></i> ЗБЕРЕЖЕНИЙ</span>`;
+                    } else if (isBest) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black">🏆 НАЙВИГІДНІШИЙ</span>`;
+                    } else if (s.reach_badge) {
+                        const badgeColor = s.reach_status === 'ok' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : (s.reach_status === 'soft_cap' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30');
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded ${badgeColor} text-[10px] font-bold">${s.reach_badge}</span>`;
+                    } else if (canReach) {
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border-blue-500/30 text-[10px]">✅ Досяжно</span>`;
+                    } else {
+                        statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border-rose-500/30 text-[10px]" title="Не вистачить шкали голоду за 1 сесію таблетки">❌ Ліміт голоду</span>`;
+                    }
+
+                    const rowBg = isSelected 
+                        ? 'bg-blue-600/20 border-l-4 border-l-blue-400 border-bordercolor/80' 
+                        : (isBest ? 'bg-emerald-950/20 hover:bg-emerald-950/40' : 'hover:bg-cardbg/80');
+
+                    return `
+                        <tr class="${rowBg} cursor-pointer transition-all" onclick="selectStrategyRow('${s.strategy_key}')">
+                            <td class="p-2.5 font-sans">
+                                <div class="font-bold text-white text-xs flex items-center gap-1.5">
+                                    <span>${s.label}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                    <span>${s.food_icon} ${s.food_name}</span>
+                                    <span>•</span>
+                                    <span>${formatNumber(s.avg_dmg_per_hit || s.avg_damage_per_hit || s.sim_dmg || 0)} дамагу/удар</span>
+                                </div>
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <span class="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] border border-bordercolor text-gray-300 font-bold" title="${s.ammo_name} (${s.ammo_price} ₴/шт)">
+                                    ${s.ammo_badge}
+                                </span>
+                            </td>
+                            <td class="p-2.5 text-center font-bold text-gray-200">
+                                ${formatNumber(s.hits_needed)}
+                            </td>
+                            <td class="p-2.5 text-center" title="1 пушка = 100 ударів без ухилення">
+                                <span class="text-amber-400 font-bold">${s.weapons_burned} шт</span>
+                            </td>
+                            <td class="p-2.5 text-center" title="Захищено ухиленням ${s.eff_dodge}%">
+                                <span class="text-indigo-300 font-bold">${s.armor_sets_burned} компл.</span>
+                            </td>
+                            <td class="p-2.5 text-center">
+                                <div class="font-bold ${canReach ? 'text-sky-300' : 'text-rose-400'}">${s.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-500 font-mono">${s.hunger_usage_pct}% ліміту</div>
+                            </td>
+                            <td class="p-2.5 text-right font-black text-xs ${isBest ? 'text-emerald-400 text-sm' : 'text-gray-200'}">
+                                <div>${formatNumber(s.grand_total_cost)} ₴</div>
+                                <div class="text-[9px] font-mono font-semibold ${s.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                    ${s.net_profit >= 0 ? 'Профіт +' : 'Мінус '}${formatNumber(s.net_profit)} ₴
+                                </div>
+                                ${s.savings_vs_best > 0 ? `<div class="text-[9px] text-gray-500 font-normal">+${formatNumber(s.savings_vs_best)} ₴</div>` : ''}
+                            </td>
+                            <td class="p-2.5 text-center font-sans">
+                                ${statusBadge}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            renderShoppingList(activeSelectedStrat || best);
+        }
+
+        function selectStrategyRow(stratKey) {
+            if (!activeCalcData || !activeCalcData.strategies) return;
+            const strat = activeCalcData.strategies.find(s => s.strategy_key === stratKey);
+            if (!strat) return;
+            activeSelectedStrat = strat;
+            renderCalculatorUI(activeCalcData);
+        }
+
+        function renderShoppingList(strat) {
+            if (!strat) return;
+
+            document.getElementById('calcSelectedStratLabel').innerText = `${strat.label} (${strat.food_name})`;
+            const netBadge = `<span class="text-xs font-mono font-bold ml-2 ${strat.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">(${strat.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(strat.net_profit)} ₴)</span>`;
+            document.getElementById('calcSelectedGrandTotal').innerHTML = `${formatNumber(strat.grand_total_cost)} ₴ ${netBadge}`;
+
+            const grid = document.getElementById('calcGearSlotsGrid');
+            if (grid) {
+                const slots = strat.build_slots || [];
+                if (slots.length === 0) {
+                    if (strat.is_naked) {
+                        grid.innerHTML = `
+                            <div class="col-span-full p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-center space-y-1">
+                                <div class="text-amber-400 font-bold text-sm">⚠️ Боєць не має надітої зброї (Голий)</div>
+                                <div class="text-gray-300 text-xs">Для бою необхідно одягнути зброю в грі або обрати комплект із покупкою (Золота середина чи Т4).</div>
+                            </div>
+                        `;
+                    } else {
+                        grid.innerHTML = `
+                            <div class="col-span-full p-4 rounded-xl bg-darkbg/60 border border-emerald-500/30 text-center space-y-1">
+                                <div class="text-emerald-400 font-bold text-sm">🛡 Використовується поточний надітий шмот бійця</div>
+                                <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 ₴)</div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    grid.innerHTML = slots.map(item => {
+                        const isEquipped = item.already_equipped;
+                        const rarity = (item.rarity || 'epic').toLowerCase();
+
+                        // Rarity styling matching WarEra Wiki Builder
+                        let cardBorder = 'border-bordercolor';
+                        let cardBg = 'bg-cardbg/80';
+                        let cardGlow = '';
+                        let tierPill = '';
+
+                        const isConsumable = item.is_consumable || item.slot === 'ammo' || item.slot === 'food';
+
+                        if (isConsumable) {
+                            tierPill = ''; // No tier pill for ammo & food!
+                            if (item.slot === 'ammo') {
+                                if (item.item_code === 'lightAmmo') {
+                                    cardBorder = 'border-emerald-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#0a2016] via-[#07160f] to-[#040c08]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.25)]';
+                                } else if (item.item_code === 'heavyAmmo') {
+                                    cardBorder = 'border-purple-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.25)]';
+                                } else {
+                                    // standard blue ammo
+                                    cardBorder = 'border-blue-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.25)]';
+                                }
+                            } else {
+                                // Food styling: User requested Steak = Blue background, Fish = Purple background!
+                                if (item.item_code === 'cookedFish' || item.item_code === 'fish') {
+                                    cardBorder = 'border-purple-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.25)]';
+                                } else {
+                                    // steak
+                                    cardBorder = 'border-blue-500/70';
+                                    cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
+                                    cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.25)]';
+                                }
+                            }
+                        } else if (rarity === 'mythic' || item.tier === 6) {
+                            cardBorder = 'border-rose-500/60';
+                            cardBg = 'bg-gradient-to-b from-[#260a12] via-[#1a070c] to-[#0e0407]';
+                            cardGlow = 'shadow-[0_4px_16px_rgba(244,63,94,0.18)]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">Т6 Міфік</span>';
+                        } else if (rarity === 'legendary' || item.tier === 5) {
+                            cardBorder = 'border-amber-500/60';
+                            cardBg = 'bg-gradient-to-b from-[#261b07] via-[#1a1205] to-[#0e0a03]';
+                            cardGlow = 'shadow-[0_4px_16px_rgba(245,158,11,0.18)]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">Т5 Легенда</span>';
+                        } else if (rarity === 'epic' || item.tier === 4) {
+                            cardBorder = 'border-purple-500/60';
+                            cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
+                            cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.18)]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold">Т4 Епік</span>';
+                        } else if (rarity === 'rare' || item.tier === 3) {
+                            cardBorder = 'border-blue-500/60';
+                            cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
+                            cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.18)]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold">Т3 Синій</span>';
+                        } else if (rarity === 'uncommon' || item.tier === 2) {
+                            cardBorder = 'border-emerald-500/60';
+                            cardBg = 'bg-gradient-to-b from-[#0a2016] via-[#07160f] to-[#040c08]';
+                            cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.18)]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">Зелений</span>';
+                        }
+
+                        // Bottom action / status pill
+                        let bottomHtml = '';
+                        if (isEquipped) {
+                            bottomHtml = `
+                                <div class="mt-2 py-1 px-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] text-center flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-check text-emerald-400 text-[9px]"></i>
+                                    <span>Вже на тобі (0 ₴)</span>
+                                </div>
+                            `;
+                        } else if (item.item_code === 'knife' && strat.is_naked) {
+                            bottomHtml = `
+                                <a href="https://app.warera.io/market/equipments" target="_blank" class="mt-2 py-1 px-1.5 rounded-lg bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:text-white hover:bg-rose-900/80 font-bold text-[10px] text-center flex items-center justify-center gap-1 transition-all">
+                                    <i class="fa-solid fa-cart-shopping text-[9px]"></i>
+                                    <span>Купити зброю</span>
+                                </a>
+                            `;
+                        } else {
+                            const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)} ₴` : `${item.unit_price} ₴`;
+                            bottomHtml = `
+                                <a href="${item.url}" target="_blank" class="mt-2 py-1 px-1.5 rounded-lg bg-gradient-to-r from-blue-600/30 to-blue-500/20 hover:from-blue-600 hover:to-blue-500 border border-blue-500/40 hover:border-blue-400 text-white font-bold text-[10px] flex items-center justify-between transition-all group shadow-sm active:scale-95" title="Купити ${item.name} на ринку WarEra">
+                                    <span class="font-mono text-emerald-300 group-hover:text-white font-bold">${buyPriceLabel}</span>
+                                    <span class="text-[9px] text-gray-300 group-hover:text-white flex items-center gap-0.5">${item.qty_needed} шт <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i></span>
+                                </a>
+                            `;
+                        }
+
+                        const fallbackSrc = item.slot === 'food' 
+                            ? 'https://media.warera.io/images/itemsv2/steak.png' 
+                            : (item.slot === 'ammo' 
+                                ? 'https://media.warera.io/images/itemsv2/lightAmmo.png' 
+                                : 'https://media.warera.io/images/itemsv2/sniper.png');
+
+                        return `
+                            <div class="glass-panel p-2.5 sm:p-3 rounded-2xl border-2 ${cardBorder} ${cardBg} ${cardGlow} flex flex-col justify-between hover:border-gray-400 transition-all group relative overflow-hidden">
+                                <!-- Top slot label + tier pill -->
+                                <div class="flex items-center justify-between gap-1 text-[10px]">
+                                    <span class="text-gray-400 font-bold flex items-center gap-1">
+                                        <span>${item.icon || '📦'}</span>
+                                        <span>${item.slot_title || item.slot}</span>
+                                    </span>
+                                    ${tierPill}
+                                </div>
+
+                                <!-- Center: Item Image & Name -->
+                                <div class="py-1.5 text-center">
+                                    <div class="h-14 sm:h-16 flex items-center justify-center">
+                                        <img src="${item.image_url}" class="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform" onerror="this.onerror=null; this.src='${fallbackSrc}';">
+                                    </div>
+                                    <div class="font-extrabold text-white text-xs sm:text-[13px] truncate mt-1" title="${item.name}">${item.name}</div>
+                                    
+                                    <!-- Target stat roll recommendation -->
+                                    <div class="mt-1 px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[10px] font-mono text-sky-300 font-semibold truncate" title="Рекомендований стат ролу для покупки на ринку">
+                                        ${item.target_stats || '—'}
+                                    </div>
+                                </div>
+
+                                <!-- Footer: Price / Already equipped action -->
+                                <div>
+                                    ${bottomHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Consumables Breakdown
+            const consGrid = document.getElementById('calcConsumablesGrid');
+            if (consGrid) {
+                consGrid.innerHTML = `
+                    <!-- Ammo Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
+                            <div class="text-xs font-bold text-white mt-0.5">${strat.ammo_badge}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${formatNumber(strat.ammo_units_needed)} пострілів @ ${strat.ammo_price} ₴</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-amber-400 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${formatNumber(strat.ammo_cost)} ₴
+                        </div>
+                    </div>
+
+                    <!-- Food Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">${strat.food_icon} Їжа</div>
+                            <div class="text-xs font-bold text-white mt-0.5">${strat.food_name}</div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.food_units_needed} шт @ ${strat.food_unit_price} ₴</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-sky-400 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${formatNumber(strat.food_cost)} ₴
+                        </div>
+                    </div>
+
+                    <!-- Pill Box -->
+                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
+                        <div>
+                            <div class="text-[10px] uppercase font-bold text-gray-400">💊 Таблетка (Cocain)</div>
+                            <div class="text-xs font-bold ${strat.pill_cost > 0 ? 'text-white' : 'text-emerald-400'} mt-0.5">
+                                ${strat.pill_cost > 0 ? 'Потрібно докупити' : 'Вже активна на бійці'}
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.pill_cost > 0 ? '1 шт на 8 годин (+60%)' : 'Діє до кінця сесії (0 ₴)'}</div>
+                        </div>
+                        <div class="text-right font-mono font-bold text-xs text-rose-300 mt-2 border-t border-bordercolor/40 pt-1">
+                            ${strat.pill_cost > 0 ? `${strat.pill_cost} ₴` : '0.00 ₴'}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function saveCurrentTarget(andClose = true) {
+            if (!activeCalcMember) return;
+            const btn = document.getElementById('btnSaveTarget');
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Збереження...`;
+
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const postUrl = `${basePath ? `${basePath}/` : '/'}api/clan/targets`;
+
+                // Prepare saved_build payload
+                const stratToSave = activeSelectedStrat || (activeCalcData && activeCalcData.best_strategy);
+                let savedBuildPayload = null;
+                if (stratToSave) {
+                    savedBuildPayload = Object.assign({}, stratToSave);
+                    if (!savedBuildPayload.initial_target_damage) {
+                        savedBuildPayload.initial_target_damage = activeCalcTarget;
+                        savedBuildPayload.initial_grand_total = stratToSave.grand_total_cost;
+                        savedBuildPayload.initial_hits = stratToSave.hits_needed;
+                    }
+                }
+
+                const resp = await fetch(postUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: activeCalcMember.username,
+                        user_id: activeCalcMember.user_id || '',
+                        target_damage: activeCalcTarget,
+                        gear_tier: stratToSave ? (stratToSave.tier_name || `t${stratToSave.tier_num || 5}`) : 'epic',
+                        use_pill: true,
+                        use_fish: stratToSave ? stratToSave.food_key === 'cookedFish' : true,
+                        battle_bonus: activeCalcBonus,
+                        weapon: activeCalcWeapon,
+                        food: activeCalcFood,
+                        ammo: activeCalcAmmo,
+                        prestige: activeCalcPrestige,
+                        rank_bonus: activeCalcRankBonus,
+                        saved_strategy_key: stratToSave ? stratToSave.strategy_key : null,
+                        saved_strategy_label: stratToSave ? stratToSave.label : null,
+                        saved_build: savedBuildPayload,
+                        is_build_locked: true,
+                    })
+                });
+
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                if (data.status !== 'ok') throw new Error(data.message || 'Помилка збереження');
+
+                // Update local memory in clanData so table progress bar renders immediately!
+                activeCalcMember.target_damage = activeCalcTarget;
+                activeCalcMember.target_battle_bonus = activeCalcBonus;
+                activeCalcMember.target_weapon = activeCalcWeapon;
+                activeCalcMember.target_food = activeCalcFood;
+                activeCalcMember.target_ammo = activeCalcAmmo;
+                activeCalcMember.target_prestige = activeCalcPrestige;
+                activeCalcMember.target_rank_bonus = activeCalcRankBonus;
+                activeCalcMember.saved_strategy_key = stratToSave ? stratToSave.strategy_key : null;
+                activeCalcMember.saved_strategy_label = stratToSave ? stratToSave.label : null;
+                activeCalcMember.saved_build = savedBuildPayload;
+                activeCalcMember.is_build_locked = true;
+                activeIsBuildLocked = true;
+
+                const todayVal = Number(activeCalcMember.today_damage || 0);
+                activeCalcMember.target_progress_pct = Math.round(Math.min(100.0, (todayVal / activeCalcTarget) * 100.0) * 10) / 10;
+
+                renderMembersTable();
+                const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
+                showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+
+                if (andClose) {
+                    closeTargetCalculator();
+                } else if (activeCalcData) {
+                    if (stratToSave) stratToSave.is_saved_build = true;
+                    renderCalculatorUI(activeCalcData);
+                }
+            } catch (err) {
+                console.error('Save target error:', err);
+                showToast(`Помилка: ${err.message}`, false);
+            } finally {
+                if (btn) btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Зберегти ціль`;
+            }
+        }
+
+        async function saveCurrentBuild() {
+            await saveCurrentTarget(false);
+        }
+
+        async function unlockCurrentBuild() {
+            if (!activeCalcMember) return;
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const postUrl = `${basePath ? `${basePath}/` : '/'}api/clan/targets`;
+
+                const resp = await fetch(postUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: activeCalcMember.username,
+                        clear_build: true,
+                    })
+                });
+
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                if (data.status !== 'ok') throw new Error(data.message || 'Помилка скидання');
+
+                activeCalcMember.is_build_locked = false;
+                activeCalcMember.saved_build = null;
+                activeCalcMember.saved_strategy_key = null;
+                activeCalcMember.saved_strategy_label = null;
+                activeIsBuildLocked = false;
+                activeSelectedStrat = null;
+
+                renderMembersTable();
+                showToast(`Закріплення білду скинуто. Увімкнено авто-підбір.`);
+                await fetchCalculatorPlan(true);
+            } catch (err) {
+                console.error('Unlock build error:', err);
+                showToast(`Помилка: ${err.message}`, false);
+            }
+        }
+    

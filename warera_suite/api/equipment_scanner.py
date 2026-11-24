@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import signal
 import sys
 from datetime import datetime
@@ -254,8 +255,8 @@ class EquipmentScannerApp:
                     if new_tx > 0:
                         now_str = datetime.now().strftime("%H:%M:%S")
                         console.print(f"[dim][{now_str}] 🔄 [Авто-оновлення бази історії]: додано {new_tx} нових угод.[/dim]")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.getLogger("WarEraEquipmentScanner").warning(f"Background DB sync failed: {e}")
 
     async def run_scan_cycle(self, cycle_num: int) -> int:
         now_str = datetime.now().strftime("%H:%M:%S")
@@ -332,7 +333,7 @@ class EquipmentScannerApp:
         console.print(status_msg)
         return found
 
-    async def start(self, start_web: bool = True):
+    async def start(self, start_web: bool = True, start_telegram_bot: bool = True):
         self.event_loop = asyncio.get_running_loop()
 
         # Start Web Dashboard (Ingress & local browser)
@@ -389,7 +390,7 @@ class EquipmentScannerApp:
 
         # Start Telegram bot controller (Private Market Bot for owner if enabled)
         tg_task = None
-        if self.tg_bot:
+        if start_telegram_bot and self.tg_bot:
             tg_task = asyncio.create_task(self.tg_bot.start_polling())
             console.print("[green]✓ Приватний ринковий Telegram-бот активовано (тільки для власника).[/green]\n")
 

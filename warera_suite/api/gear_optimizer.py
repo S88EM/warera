@@ -36,6 +36,16 @@ try:
         get_item_icon,
         RARITY_CONFIG,
     )
+    from combat_constants import (
+        FOOD_SPECS,
+        AMMO_SPECS,
+        SCRAP_RECOVERY_BY_TIER,
+        DEFAULT_MARKET_PRICES,
+        WEAPON_TIERS,
+        TIER_NAMES,
+        merge_live_consumables,
+        extract_player_combat_profile,
+    )
 except ImportError:
     from api.market_cache import load_market_cheapest_cache
     from api.equipment_data import (
@@ -45,86 +55,18 @@ except ImportError:
         get_item_icon,
         RARITY_CONFIG,
     )
+    from api.combat_constants import (
+        FOOD_SPECS,
+        AMMO_SPECS,
+        SCRAP_RECOVERY_BY_TIER,
+        DEFAULT_MARKET_PRICES,
+        WEAPON_TIERS,
+        TIER_NAMES,
+        merge_live_consumables,
+        extract_player_combat_profile,
+    )
 
 logger = logging.getLogger("WarEraGearOptimizer")
-
-# Consumable food specs: % of character max HP healed per 1 hunger unit
-FOOD_SPECS = {
-    "cookedFish": {"name": "Смажена риба", "hp_pct": 0.20, "default_price": 7.85, "icon": "🐟", "food_multiplier": 3},
-    "steak": {"name": "Стейк", "hp_pct": 0.15, "default_price": 3.05, "icon": "🥩", "food_multiplier": 2},
-    "fish": {"name": "Сира риба", "hp_pct": 0.12, "default_price": 3.95, "icon": "🎣", "food_multiplier": 1.5},
-    "bread": {"name": "Хліб", "hp_pct": 0.10, "default_price": 1.45, "icon": "🍞", "food_multiplier": 1},
-}
-
-# Ammo specs: bonus attack %
-AMMO_SPECS = {
-    "lightAmmo": {
-        "name": "Зелені (Легкі)",
-        "code": "lightAmmo",
-        "icon": "🟢",
-        "badge": "🟢 Зелені (+10%)",
-        "bonus_pct": 10.0,
-        "default_price": 0.20,
-    },
-    "ammo": {
-        "name": "Сині (Стандартні)",
-        "code": "ammo",
-        "icon": "🔵",
-        "badge": "🔵 Сині (+20%)",
-        "bonus_pct": 20.0,
-        "default_price": 0.84,
-    },
-    "heavyAmmo": {
-        "name": "Фіолетові (Важкі)",
-        "code": "heavyAmmo",
-        "icon": "🟣",
-        "badge": "🟣 Фіолетові (+40%)",
-        "bonus_pct": 40.0,
-        "default_price": 3.08,
-    },
-}
-
-# Scrap recovery when broken (craft requirement / 3)
-SCRAP_RECOVERY_BY_TIER = {
-    0: 0,
-    1: 2,    # Grey (craft: 6)
-    2: 6,    # Green (craft: 18)
-    3: 18,   # Blue (craft: 54)
-    4: 54,   # Purple (craft: 162)
-    5: 162,  # Gold (craft: 486)
-    6: 486,  # Red (craft: 1458)
-}
-
-# Default market prices fallback
-DEFAULT_MARKET_PRICES = {
-    "knife": 2.0, "helmet1": 2.0, "chest1": 2.0, "pants1": 2.0, "boots1": 2.0, "gloves1": 2.0,
-    "gun": 7.0, "helmet2": 7.0, "chest2": 7.0, "pants2": 7.0, "boots2": 7.0, "gloves2": 7.0,
-    "rifle": 13.6, "helmet3": 13.6, "chest3": 13.6, "pants3": 13.6, "boots3": 13.6, "gloves3": 13.6,
-    "sniper": 42.0, "helmet4": 47.2, "chest4": 43.0, "pants4": 43.9, "boots4": 40.9, "gloves4": 42.4,
-    "tank": 144.0, "helmet5": 122.0, "chest5": 122.0, "pants5": 122.5, "boots5": 160.0, "gloves5": 155.0,
-    "jet": 490.0, "helmet6": 480.0, "chest6": 480.0, "pants6": 480.0, "boots6": 480.0, "gloves6": 480.0,
-}
-
-# Weapon tiers mapping
-WEAPON_TIERS = {
-    0: None,
-    1: "knife",
-    2: "gun",
-    3: "rifle",
-    4: "sniper",
-    5: "tank",
-    6: "jet",
-}
-
-TIER_NAMES = {
-    0: "Без спорядження",
-    1: "Т1 Звичайний (Сірий)",
-    2: "Т2 Незвичайний (Зелений)",
-    3: "Т3 Поліпшений (Синій)",
-    4: "Т4 Елітний (Фіолетовий)",
-    5: "Т5 Легендарний (Золотий)",
-    6: "Т6 Міфічний (Червоний)",
-}
 
 
 class GearOptimizer:
@@ -156,16 +98,10 @@ class GearOptimizer:
         # Load market prices
         market_cache = load_market_cheapest_cache()
         cached_items = market_cache.get("items", {})
-        consumable_prices = dict(market_cache.get("consumables", {}))
-
-        if live_consumables and isinstance(live_consumables, dict):
-            for k, v in live_consumables.items():
-                try:
-                    vf = float(v)
-                    if vf > 0:
-                        consumable_prices[k] = round(vf, 3)
-                except (ValueError, TypeError):
-                    pass
+        consumable_prices = merge_live_consumables(
+            dict(market_cache.get("consumables", {})),
+            live_consumables,
+        )
 
         # Helper to get live or default item price
         def get_item_price(code: str) -> float:
@@ -180,43 +116,30 @@ class GearOptimizer:
             return float(DEFAULT_MARKET_PRICES.get(code, 20.0))
 
         # Player profile parameters
-        uname = player_member.get("username", "Боєць")
-        lvl = int(player_member.get("level", 1))
-
-        # Prestige handling: extra skill points (+1 per prestige level)
-        if custom_prestige is not None:
-            prestige_val = max(0, int(custom_prestige))
-        else:
-            prestige_val = int(
-                player_member.get("prestige")
-                or player_member.get("leveling", {}).get("prestige", 0)
-            )
-
-        total_skill_points = lvl * 4 + prestige_val
-
-        # Military rank bonus handling: UNBOUNDED (no 37.5% restriction)
-        skills = player_member.get("skills") or {}
-        if custom_rank_bonus is not None:
-            rank_bonus_pct = max(0.0, float(custom_rank_bonus))
-        else:
-            rank_bonus_pct = float(
-                player_member.get("rank_bonus_pct")
-                or skills.get("attack", {}).get("militaryRankPercent", 0.0)
-            )
-        rank_mult = 1.0 + (rank_bonus_pct / 100.0)
+        profile = extract_player_combat_profile(
+            player_member,
+            custom_rank_bonus=custom_rank_bonus,
+            custom_prestige=custom_prestige,
+        )
+        uname = profile["username"]
+        lvl = profile["level"]
+        skills = profile["skills"]
+        prestige_val = profile["prestige"]
+        total_skill_points = profile["total_skill_points"]
+        rank_bonus_pct = profile["rank_bonus_pct"]
+        rank_mult = profile["rank_mult"]
 
         # Dynamic battle bonus
         battle_bonus_val = max(0.0, float(battle_bonus if battle_bonus is not None else 84.0))
         battle_mult = 1.0 + (battle_bonus_val / 100.0)
 
         # Health & Hunger pools
-        health_max = float(player_member.get("health_max") or skills.get("health", {}).get("total", 150))
-        health_curr = float(player_member.get("health_curr") or skills.get("health", {}).get("currentBarValue", health_max))
-        health_regen = float(player_member.get("health_regen") or skills.get("health", {}).get("hourlyBarRegen", 15.0))
-
-        hunger_max = float(player_member.get("hunger_max") or skills.get("hunger", {}).get("total", 7))
-        hunger_curr = float(player_member.get("hunger_curr") or skills.get("hunger", {}).get("currentBarValue", hunger_max))
-        hunger_regen = float(player_member.get("hunger_regen") or skills.get("hunger", {}).get("hourlyBarRegen", 0.7))
+        health_max = profile["health_max"]
+        health_curr = profile["health_curr"]
+        health_regen = profile["health_regen"]
+        hunger_max = profile["hunger_max"]
+        hunger_curr = profile["hunger_curr"]
+        hunger_regen = profile["hunger_regen"]
 
         # Base character stats from skills (pure clean baseline without equipped gear)
         base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
@@ -501,31 +424,8 @@ class GearOptimizer:
         valid_solutions.sort(key=lambda s: (s["total_purchase_cost"], s["actual_hits"]))
         best_sol = valid_solutions[0]
 
-        # Select diverse representative strategies for comparison table (so user sees different tiers & options)
-        diverse_solutions = [best_sol]
-        seen_keys = set()
-        seen_keys.add((best_sol["w_tier"], best_sol["food_key"], best_sol["ammo_key"]))
-
-        # 1. Prioritize adding the best configuration for each DIFFERENT weapon tier
-        for sol in valid_solutions[1:]:
-            w_tier = sol["w_tier"]
-            if not any(s["w_tier"] == w_tier for s in diverse_solutions):
-                diverse_solutions.append(sol)
-                seen_keys.add((w_tier, sol["food_key"], sol["ammo_key"]))
-
-        # 2. Add alternative food/ammo variations
-        for sol in valid_solutions[1:]:
-            tier_key = (sol["w_tier"], sol["food_key"], sol["ammo_key"])
-            if tier_key not in seen_keys and len(diverse_solutions) < 8:
-                diverse_solutions.append(sol)
-                seen_keys.add(tier_key)
-
-        # 3. Fill up to 6 solutions if needed
-        for sol in valid_solutions[1:]:
-            if sol not in diverse_solutions:
-                diverse_solutions.append(sol)
-            if len(diverse_solutions) >= 6:
-                break
+        # Select diverse representative strategies for comparison table
+        diverse_solutions = self._select_diverse_solutions(valid_solutions)
 
         # Refine Minimum Roll Requirements for best solution
         refined_slots = self._format_and_refine_slots(best_sol, deficit_damage)
@@ -619,6 +519,33 @@ class GearOptimizer:
             "consumable_prices": consumable_prices,
             "updated_at": market_cache.get("updated_at") or "",
         }
+
+    @staticmethod
+    def _select_diverse_solutions(valid_solutions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Selects diverse representative strategies across weapon tiers, food, and ammo."""
+        best_sol = valid_solutions[0]
+        diverse_solutions = [best_sol]
+        seen_keys = {(best_sol["w_tier"], best_sol["food_key"], best_sol["ammo_key"])}
+
+        for sol in valid_solutions[1:]:
+            w_tier = sol["w_tier"]
+            if not any(s["w_tier"] == w_tier for s in diverse_solutions):
+                diverse_solutions.append(sol)
+                seen_keys.add((w_tier, sol["food_key"], sol["ammo_key"]))
+
+        for sol in valid_solutions[1:]:
+            tier_key = (sol["w_tier"], sol["food_key"], sol["ammo_key"])
+            if tier_key not in seen_keys and len(diverse_solutions) < 8:
+                diverse_solutions.append(sol)
+                seen_keys.add(tier_key)
+
+        for sol in valid_solutions[1:]:
+            if sol not in diverse_solutions:
+                diverse_solutions.append(sol)
+            if len(diverse_solutions) >= 6:
+                break
+
+        return diverse_solutions
 
     def _format_and_refine_slots(self, sol: Dict[str, Any], deficit_damage: float) -> Dict[str, Any]:
         """
@@ -864,6 +791,7 @@ class GearOptimizer:
             "food_planned": sol["food_units_needed"],
             "food_price": sol["food_unit_price"],
             "food_unit_price": sol["food_unit_price"],
+            "available_hunger": round(available_hunger, 1),
             "hunger_units_needed": sol["food_units_needed"],
             "hunger_usage_pct": hunger_usage_pct,
             # Slots
@@ -1033,6 +961,7 @@ class GearOptimizer:
             "food_cost": food_cost,
             "food_price": food_unit_price,
             "food_unit_price": food_unit_price,
+            "available_hunger": round(available_hunger, 1),
             "hunger_units_needed": food_units_needed,
             "hunger_usage_pct": hunger_usage_pct,
             "grand_total": total_purchase_cost,

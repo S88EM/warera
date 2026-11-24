@@ -9,6 +9,7 @@ Handles:
 
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
@@ -25,12 +26,13 @@ class ClanHistoryDB:
         self._init_db()
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=15.0)
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self):
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
+            conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS clan_damage_snapshots (
                     user_id TEXT NOT NULL,
@@ -101,7 +103,7 @@ class ClanHistoryDB:
         target_date = game_date or self.get_game_date()
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             for m in members:
                 uid = str(m.get("user_id") or m.get("_id") or "")
                 if not uid:
@@ -148,7 +150,7 @@ class ClanHistoryDB:
         target_date = game_date or self.get_game_date()
         yesterday_date = self.get_yesterday_game_date(target_date)
 
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             # Current day base
             cur_today = conn.execute(
                 "SELECT base_total_damage, latest_total_damage FROM clan_damage_snapshots WHERE user_id = ? AND game_date = ?",
@@ -193,7 +195,7 @@ class ClanHistoryDB:
         target_date = game_date or self.get_game_date()
         yesterday_date = self.get_yesterday_game_date(target_date)
 
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             today_rows = {
                 r["user_id"]: r for r in conn.execute(
                     "SELECT user_id, base_total_damage, latest_total_damage FROM clan_damage_snapshots WHERE game_date = ?",

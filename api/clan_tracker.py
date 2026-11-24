@@ -27,7 +27,8 @@ class ClanTrackerService:
         while self.running:
             try:
                 from clan_analyzer import WarEraClanAnalyzer
-                analyzer = WarEraClanAnalyzer()
+                from warera_client import get_warera_client
+                analyzer = WarEraClanAnalyzer(client=get_warera_client())
                 await analyzer.analyze_clan()
                 logger.info("Clan damage snapshot successfully recorded.")
             except Exception as e:

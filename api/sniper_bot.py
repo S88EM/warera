@@ -27,6 +27,7 @@ if sys.platform == "win32":
 import config
 from battle_analyzer import get_shared_battle_analyzer
 from subscribers_db import SubscribersDB
+from telegram_base import BaseTelegramBot
 
 import bot_keyboards
 import bot_formatter
@@ -35,24 +36,14 @@ import bot_handlers
 logger = logging.getLogger("WarEraSniperBot")
 
 
-class SniperBotController:
+class SniperBotController(BaseTelegramBot):
     def __init__(self, token: Optional[str] = None, password: Optional[str] = None):
-        self.token = (token or getattr(config, "TELEGRAM_SNIPER_BOT_TOKEN", None) or os.getenv("TELEGRAM_SNIPER_BOT_TOKEN", "")).strip()
-        self.base_url = f"https://api.telegram.org/bot{self.token}"
+        resolved_token = (token or getattr(config, "TELEGRAM_SNIPER_BOT_TOKEN", None) or os.getenv("TELEGRAM_SNIPER_BOT_TOKEN", "")).strip()
+        super().__init__(token=resolved_token)
         self.password = (password or getattr(config, "SNIPER_BOT_PASSWORD", "") or os.getenv("SNIPER_BOT_PASSWORD", "")).strip()
         self.subscribers_db = SubscribersDB()
-        self._client: Optional[httpx.AsyncClient] = None
         self.running = False
         self._commands_registered = False
-
-    async def get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=35.0)
-        return self._client
-
-    async def close(self):
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
 
     def _is_admin(self, user_id: Optional[int], chat_id: str) -> bool:
         admin_cids = getattr(config, "TELEGRAM_CHAT_IDS", [])
@@ -173,58 +164,6 @@ class SniperBotController:
                 self._commands_registered = True
         except Exception as e:
             logger.debug(f"Failed to set Telegram commands: {e}")
-
-    async def send_message(self, chat_id: str, text: str, reply_markup: Optional[dict] = None) -> bool:
-        if not self.token:
-            return False
-        client = await self.get_client()
-        payload: Dict[str, Any] = {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
-        try:
-            resp = await client.post(f"{self.base_url}/sendMessage", json=payload)
-            return resp.status_code == 200
-        except Exception as e:
-            logger.error(f"Error sending Sniper Bot message to {chat_id}: {e}")
-            return False
-
-    async def edit_message(self, chat_id: str, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
-        if not self.token:
-            return False
-        client = await self.get_client()
-        payload: Dict[str, Any] = {
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        if reply_markup:
-            payload["reply_markup"] = reply_markup
-        try:
-            resp = await client.post(f"{self.base_url}/editMessageText", json=payload)
-            return resp.status_code == 200
-        except Exception as e:
-            logger.error(f"Error editing message {message_id} in {chat_id}: {e}")
-            return False
-
-    async def answer_callback(self, callback_query_id: str, text: Optional[str] = None, show_alert: bool = False):
-        if not self.token:
-            return
-        client = await self.get_client()
-        payload: Dict[str, Any] = {"callback_query_id": callback_query_id}
-        if text:
-            payload["text"] = text
-            payload["show_alert"] = show_alert
-        try:
-            await client.post(f"{self.base_url}/answerCallbackQuery", json=payload)
-        except Exception:
-            pass
 
     async def send_auth_prompt(self, chat_id: str):
         text = (

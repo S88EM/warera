@@ -191,14 +191,14 @@ class WarEraClient:
         if reg_file.exists() and not self._regions_cache:
             try:
                 self._regions_cache = json.loads(reg_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to read regions cache: {e}")
 
         if cnt_file.exists() and not self._countries_cache:
             try:
                 self._countries_cache = json.loads(cnt_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to read countries cache: {e}")
 
         if not self._regions_cache or force:
             r_data = await self.call_trpc("region.getAllRegions")
@@ -206,8 +206,8 @@ class WarEraClient:
                 self._regions_cache = r_data
                 try:
                     reg_file.write_text(json.dumps(self._regions_cache, ensure_ascii=False), encoding="utf-8")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to write regions cache: {e}")
 
         if not self._countries_cache or force:
             c_data = await self.call_trpc("country.getAllCountries")
@@ -215,8 +215,8 @@ class WarEraClient:
                 self._countries_cache = {c["_id"]: c for c in c_data if isinstance(c, dict) and "_id" in c}
                 try:
                     cnt_file.write_text(json.dumps(self._countries_cache, ensure_ascii=False), encoding="utf-8")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to write countries cache: {e}")
 
     async def get_regions(self) -> Dict[str, Dict[str, Any]]:
         if not self._regions_cache:

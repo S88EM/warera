@@ -16,62 +16,16 @@ from datetime import datetime, timezone
 
 from market_cache import load_market_cheapest_cache
 from equipment_data import EQUIPMENT_METADATA, QUALITY_TIERS, get_item_image_url, get_item_icon, RARITY_CONFIG
+from combat_constants import (
+    FOOD_SPECS,
+    SCRAP_RECOVERY_BY_TIER,
+    AMMO_SPECS,
+    DEFAULT_MARKET_PRICES,
+    merge_live_consumables,
+    extract_player_combat_profile,
+)
 
 logger = logging.getLogger("WarEraCombatCalculator")
-
-# Consumable food specs: % of character max HP healed per 1 hunger unit
-FOOD_SPECS = {
-    "cookedFish": {"name": "Смажена риба", "hp_pct": 0.20, "default_price": 7.74, "icon": "🐟"},
-    "steak": {"name": "Стейк", "hp_pct": 0.15, "default_price": 3.03, "icon": "🥩"},
-    "fish": {"name": "Сира риба", "hp_pct": 0.12, "default_price": 3.93, "icon": "🎣"},
-    "bread": {"name": "Хліб", "hp_pct": 0.10, "default_price": 1.40, "icon": "🍞"},
-}
-
-# Scrap returned when item breaks (1/3 of craft requirement)
-# Source: Warera Build Tool (intel.warera.wiki/builder) & Game Crafting Tables
-SCRAP_RECOVERY_BY_TIER = {
-    0: 0,
-    1: 2,    # Grey / Knife (craft: 6 scrap / 3)
-    2: 6,    # Green / Gun (craft: 18 scrap / 3)
-    3: 18,   # Blue / Rifle / T3 (craft: 54 scrap / 3)
-    4: 54,   # Purple / Sniper / T4 (craft: 162 scrap / 3)
-    5: 162,  # Gold / Tank / T5 (craft: 486 scrap / 3)
-    6: 486,  # Red / Jet / T6 (craft: 1458 scrap / 3)
-}
-
-# Ammo specs: bonus attack % and live orderbook benchmark prices
-AMMO_SPECS = {
-    "lightAmmo": {
-        "name": "Зелені (Легкі)",
-        "code": "lightAmmo",
-        "icon": "🟢",
-        "badge": "🟢 Зелені (+10%)",
-        "bonus_pct": 10.0,
-        "default_price": 0.20,
-        "tier_affinity": [3, 4],
-        "desc": "Найбільш економічні для Снайперки Т4 та щоденних боїв",
-    },
-    "ammo": {
-        "name": "Сині (Стандартні)",
-        "code": "ammo",
-        "icon": "🔵",
-        "badge": "🔵 Сині (+20%)",
-        "bonus_pct": 20.0,
-        "default_price": 0.825,
-        "tier_affinity": [4.5, 5],
-        "desc": "Оптимальні для Танка Т5 та збільшеного дамагу",
-    },
-    "heavyAmmo": {
-        "name": "Фіолетові (Важкі)",
-        "code": "heavyAmmo",
-        "icon": "🟣",
-        "badge": "🟣 Фіолетові (+40%)",
-        "bonus_pct": 40.0,
-        "default_price": 3.07,
-        "tier_affinity": [6],
-        "desc": "Максимальний урон для Літака Т6 та рекордних планок (7M-10M+)",
-    },
-}
 
 # Standard baseline roll values by tier for combat simulation
 TIER_STAT_BENCHMARKS = {
@@ -173,18 +127,161 @@ TIER_STAT_BENCHMARKS = {
     },
 }
 
-# Fallback default prices for all gear items if market cache is empty
-DEFAULT_MARKET_PRICES = {
-    "rifle": 13.6, "helmet3": 13.6, "chest3": 13.6, "pants3": 13.6, "boots3": 13.6, "gloves3": 13.6,
-    "sniper": 42.0, "helmet4": 47.2, "chest4": 43.0, "pants4": 43.9, "boots4": 40.9, "gloves4": 42.4,
-    "tank": 144.0, "helmet5": 122.0, "chest5": 122.0, "pants5": 122.5, "boots5": 160.0, "gloves5": 155.0,
-    "jet": 446.0, "helmet6": 370.0, "chest6": 368.0, "pants6": 370.0, "boots6": 431.0, "gloves6": 415.0,
-}
+# DEFAULT_MARKET_PRICES is imported from combat_constants
 
 
 class CombatDamageCalculator:
     def __init__(self, market_app=None):
         self.market_app = market_app
+
+    @staticmethod
+    def _format_target_stats(code: str, slot: str) -> tuple[str, str]:
+        meta = EQUIPMENT_METADATA.get(code, {})
+        ranges = meta.get("ranges", {})
+        if slot == "weapon":
+            atk_r = ranges.get("attack", [70, 90])
+            crit_r = ranges.get("criticalChance", [10, 15])
+            rec_atk = int(atk_r[0] + (atk_r[1] - atk_r[0]) * 0.65)
+            rec_crit = int(crit_r[0] + (crit_r[1] - crit_r[0]) * 0.65)
+            return f"🗡 {rec_atk}+ Атака • 🎯 {rec_crit}%+ Крит", f"🗡 {rec_atk} 🎯 {rec_crit}%"
+        if slot == "helmet":
+            cd_r = ranges.get("criticalDamages", [40, 80])
+            rec_cd = int(cd_r[0] + (cd_r[1] - cd_r[0]) * 0.65)
+            return f"💥 +{rec_cd}%+ Крит-урон", f"💥 +{rec_cd}%"
+        if slot in ("chest", "pants"):
+            arm_r = ranges.get("armor", [15, 25])
+            rec_arm = int(arm_r[0] + (arm_r[1] - arm_r[0]) * 0.60)
+            return f"🛡 {rec_arm}–{arm_r[1]} Броня", f"🛡 {rec_arm}"
+        if slot == "boots":
+            d_r = ranges.get("dodge", [15, 25])
+            rec_d = int(d_r[0] + (d_r[1] - d_r[0]) * 0.65)
+            return f"👟 +{rec_d}%+ Ухилення", f"👟 +{rec_d}%"
+        if slot == "gloves":
+            p_r = ranges.get("precision", [15, 25])
+            rec_p = int(p_r[0] + (p_r[1] - p_r[0]) * 0.65)
+            return f"🎯 +{rec_p}%+ Влучність", f"🎯 +{rec_p}%"
+        return "", ""
+
+    @classmethod
+    def _get_item_quote(cls, code: str, cached_items: Dict[str, Any]) -> Dict[str, Any]:
+        meta = EQUIPMENT_METADATA.get(code, {})
+        c_info = cached_items.get(code, {})
+        offers = c_info.get("offers", [])
+        cheapest = offers[0] if offers else None
+        price = cheapest.get("price") if cheapest else c_info.get("cheapest_price")
+        if not price or float(price) <= 0:
+            price = DEFAULT_MARKET_PRICES.get(code, 40.0)
+        slot_type = meta.get("type", "weapon")
+        target_stats, stat_badge = cls._format_target_stats(code, slot_type)
+        return {
+            "item_code": code,
+            "name": meta.get("name", code),
+            "slot": slot_type,
+            "tier": meta.get("tier", 4),
+            "rarity": meta.get("rarity", "epic"),
+            "image_url": get_item_image_url(code),
+            "icon": get_item_icon(code),
+            "target_stats": target_stats,
+            "stat_badge": stat_badge,
+            "price": round(float(price), 2),
+            "seller": cheapest.get("seller", "") if cheapest else "",
+            "roll_quality": cheapest.get("roll_quality", 0) if cheapest else 0,
+            "url": f"https://app.warera.io/market/equipments?item={code}",
+        }
+
+    @staticmethod
+    def _simulate_tier_combat(
+        skills: Dict[str, Any],
+        base_atk: float,
+        atk_overflow: float,
+        rank_mult: float,
+        battle_mult: float,
+        w_atk: float,
+        w_crit_ch: float,
+        h_crit_dmg: float,
+        c_armor: float,
+        p_armor: float,
+        b_dodge: float,
+        g_prec: float,
+        ammo_bonus_pct: float,
+    ) -> tuple[float, float, float, float, float, float]:
+        curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
+        curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
+
+        total_raw_armor = curr_armor_stat + c_armor + p_armor
+        total_raw_dodge = curr_dodge_stat + b_dodge
+
+        armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
+        dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
+
+        hp_cost = max(0.20, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
+        hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
+
+        eff_dodge_pct = round(dodge_fraction * 100.0, 1)
+        eff_armor_pct = round(armor_reduction * 100.0, 1)
+
+        curr_prec = float(skills.get("precision", {}).get("value", 75))
+        raw_prec = curr_prec + g_prec
+        if raw_prec > 100.0:
+            prec_bonus_atk = (raw_prec - 100.0) * 4.0
+            eff_prec_ratio = 1.0
+        else:
+            prec_bonus_atk = 0.0
+            eff_prec_ratio = max(0.10, raw_prec / 100.0)
+
+        curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
+        curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
+        raw_crit_ch = curr_crit_ch + w_crit_ch
+        raw_crit_dmg = curr_crit_dmg + h_crit_dmg
+
+        if raw_crit_ch > 100.0:
+            crit_bonus_dmg = (raw_crit_ch - 100.0) * 4.0
+            eff_crit_ch_ratio = 1.0
+        else:
+            crit_bonus_dmg = 0.0
+            eff_crit_ch_ratio = max(0.0, raw_crit_ch / 100.0)
+
+        crit_mult_val = (raw_crit_dmg + crit_bonus_dmg) / 100.0
+        ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+        pill_mult = 1.60
+        sim_atk = (base_atk + w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
+
+        hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
+        miss_dmg = sim_atk * 0.5
+        avg_dmg = (eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * battle_mult
+
+        return (
+            round(avg_dmg, 1),
+            round(hp_cost, 2),
+            eff_dodge_pct,
+            eff_armor_pct,
+            round(hits_per_armor_set, 1),
+            round(eff_prec_ratio, 3),
+        )
+
+    @staticmethod
+    def _select_best_strategy(evaluated_options: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
+        if feasible_opts:
+            green_feasible = [o for o in feasible_opts if o["ammo_key"] == "lightAmmo"]
+            pool = green_feasible if green_feasible else feasible_opts
+            pool.sort(key=lambda x: (x["net_cost"], x["hunger_usage_pct"]))
+            best_opt = pool[0]
+            best_opt["is_best_value"] = True
+            cheapest_net = best_opt["net_cost"]
+            for o in evaluated_options:
+                o["savings_vs_best"] = round(o["net_cost"] - cheapest_net, 2)
+            return best_opt
+
+        valid_non_naked = [o for o in evaluated_options if not o.get("is_naked")]
+        if valid_non_naked:
+            valid_non_naked.sort(key=lambda x: (x["hunger_usage_pct"], x["net_cost"]))
+            valid_non_naked[0]["is_best_value"] = True
+            return valid_non_naked[0]
+        if evaluated_options:
+            evaluated_options[0]["is_best_value"] = True
+            return evaluated_options[0]
+        return None
 
     def calculate_all_strategies(
         self,
@@ -300,62 +397,10 @@ class CombatDamageCalculator:
         has_equipped_armor = (equipped_armor > 0 or equipped_dodge > 0)
         is_player_naked = (not has_equipped_weapon) and (not has_equipped_armor)
 
-        # Helper: format recommended roll stats for market search
-        def format_target_stats(code: str, slot: str) -> tuple[str, str]:
-            meta = EQUIPMENT_METADATA.get(code, {})
-            ranges = meta.get("ranges", {})
-            if slot == "weapon":
-                atk_r = ranges.get("attack", [70, 90])
-                crit_r = ranges.get("criticalChance", [10, 15])
-                rec_atk = int(atk_r[0] + (atk_r[1] - atk_r[0]) * 0.65)
-                rec_crit = int(crit_r[0] + (crit_r[1] - crit_r[0]) * 0.65)
-                return f"🗡 {rec_atk}+ Атака • 🎯 {rec_crit}%+ Крит", f"🗡 {rec_atk} 🎯 {rec_crit}%"
-            elif slot == "helmet":
-                cd_r = ranges.get("criticalDamages", [40, 80])
-                rec_cd = int(cd_r[0] + (cd_r[1] - cd_r[0]) * 0.65)
-                return f"💥 +{rec_cd}%+ Крит-урон", f"💥 +{rec_cd}%"
-            elif slot in ("chest", "pants"):
-                arm_r = ranges.get("armor", [15, 25])
-                rec_arm = int(arm_r[0] + (arm_r[1] - arm_r[0]) * 0.60)
-                return f"🛡 {rec_arm}–{arm_r[1]} Броня", f"🛡 {rec_arm}"
-            elif slot == "boots":
-                d_r = ranges.get("dodge", [15, 25])
-                rec_d = int(d_r[0] + (d_r[1] - d_r[0]) * 0.65)
-                return f"👟 +{rec_d}%+ Ухилення", f"👟 +{rec_d}%"
-            elif slot == "gloves":
-                p_r = ranges.get("precision", [15, 25])
-                rec_p = int(p_r[0] + (p_r[1] - p_r[0]) * 0.65)
-                return f"🎯 +{rec_p}%+ Влучність", f"🎯 +{rec_p}%"
-            return "", ""
-
-        # Helper: get price and item details from cache or fallback
+        # Delegate to class methods (defined on CombatDamageCalculator)
         def get_item_quote(code: str) -> Dict[str, Any]:
-            meta = EQUIPMENT_METADATA.get(code, {})
-            c_info = cached_items.get(code, {})
-            offers = c_info.get("offers", [])
-            cheapest = offers[0] if offers else None
-            price = cheapest.get("price") if cheapest else c_info.get("cheapest_price")
-            if not price or float(price) <= 0:
-                price = DEFAULT_MARKET_PRICES.get(code, 40.0)
-            slot_type = meta.get("type", "weapon")
-            target_stats, stat_badge = format_target_stats(code, slot_type)
-            return {
-                "item_code": code,
-                "name": meta.get("name", code),
-                "slot": slot_type,
-                "tier": meta.get("tier", 4),
-                "rarity": meta.get("rarity", "epic"),
-                "image_url": get_item_image_url(code),
-                "icon": get_item_icon(code),
-                "target_stats": target_stats,
-                "stat_badge": stat_badge,
-                "price": round(float(price), 2),
-                "seller": cheapest.get("seller", "") if cheapest else "",
-                "roll_quality": cheapest.get("roll_quality", 0) if cheapest else 0,
-                "url": f"https://app.warera.io/market/equipments?item={code}",
-            }
+            return self._get_item_quote(code, cached_items)
 
-        # Helper to simulate combat hits and damage for any tier combination using Athena & Intel Builder physics
         def simulate_tier_combat(
             w_atk: float, w_crit_ch: float,
             h_crit_dmg: float,
@@ -363,77 +408,20 @@ class CombatDamageCalculator:
             b_dodge: float, g_prec: float,
             ammo_bonus_pct: float
         ) -> tuple[float, float, float, float, float, float]:
-            # 1. Effective Armor & Dodge with exact Diminishing Returns (K = 40)
-            curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
-            curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
-
-            eff_gear_armor = c_armor + p_armor
-            eff_gear_dodge = b_dodge
-
-            total_raw_armor = curr_armor_stat + eff_gear_armor
-            total_raw_dodge = curr_dodge_stat + eff_gear_dodge
-
-            armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
-            dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
-
-            # Exact HP Cost per hit: 10 * (1 - armor_red) * (1 - dodge_fraction)
-            hp_cost = max(0.20, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
-
-            # Durability lifetime: 100 absorbed hits -> 100 * (1 + dodge / 40)
-            hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
-
-            eff_dodge_pct = round(dodge_fraction * 100.0, 1)
-            eff_armor_pct = round(armor_reduction * 100.0, 1)
-
-            # 2. Precision & Stat Overflow (+4 Attack per 1% Precision > 100%)
-            curr_prec = float(skills.get("precision", {}).get("value", 75))
-            raw_prec = curr_prec + g_prec
-
-            if raw_prec > 100.0:
-                prec_overflow = raw_prec - 100.0
-                prec_bonus_atk = prec_overflow * 4.0
-                eff_prec_ratio = 1.0
-            else:
-                prec_bonus_atk = 0.0
-                eff_prec_ratio = max(0.10, raw_prec / 100.0)
-
-            # 3. Critical Chance, Critical Damage & Stat Overflow (+4% Crit Dmg per 1% Crit Chance > 100%)
-            curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
-            curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
-
-            raw_crit_ch = curr_crit_ch + w_crit_ch
-            raw_crit_dmg = curr_crit_dmg + h_crit_dmg
-
-            if raw_crit_ch > 100.0:
-                crit_overflow = raw_crit_ch - 100.0
-                crit_bonus_dmg = crit_overflow * 4.0
-                eff_crit_ch_ratio = 1.0
-            else:
-                crit_bonus_dmg = 0.0
-                eff_crit_ch_ratio = max(0.0, raw_crit_ch / 100.0)
-
-            tot_crit_dmg_pct = raw_crit_dmg + crit_bonus_dmg
-            crit_mult_val = tot_crit_dmg_pct / 100.0
-
-            # 4. Attack with Weapon, Ammo, Pill (1.60), Military Rank
-            eff_w_atk = w_atk
-            ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
-            pill_mult = 1.60
-            sim_atk = (base_atk + eff_w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
-
-            # 5. Expected Damage per hit (Hit: 100% + crit, Miss: 50% damage) + Dynamic Battle Bonus
-            hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
-            miss_dmg = sim_atk * 0.5
-            avg_base_dmg = eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg
-            avg_dmg = avg_base_dmg * battle_mult
-
-            return (
-                round(avg_dmg, 1),
-                round(hp_cost, 2),
-                eff_dodge_pct,
-                eff_armor_pct,
-                round(hits_per_armor_set, 1),
-                round(eff_prec_ratio, 3)
+            return self._simulate_tier_combat(
+                skills=skills,
+                base_atk=base_atk,
+                atk_overflow=atk_overflow,
+                rank_mult=rank_mult,
+                battle_mult=battle_mult,
+                w_atk=w_atk,
+                w_crit_ch=w_crit_ch,
+                h_crit_dmg=h_crit_dmg,
+                c_armor=c_armor,
+                p_armor=p_armor,
+                b_dodge=b_dodge,
+                g_prec=g_prec,
+                ammo_bonus_pct=ammo_bonus_pct,
             )
 
         # Resolve Ammo Selection: prioritize Green Light ammo (0.20 ₴) for maximum economy
@@ -1048,9 +1036,12 @@ class CombatDamageCalculator:
                         b_tier = EQUIPMENT_METADATA.get(s_def.get("boots_code", "boots4"), {}).get("tier", 4)
 
                     # --- Economic income & Net profit calculations (Athena & Intel Builder engine) ---
-                    # 1. Expected Case Drops (Athena & Intel Builder: Drop = Hits * LootChance * Precision)
-                    expected_case1 = round(hits_needed * loot_chance_ratio * eff_prec_ratio, 2) if hits_needed > 0 else 0.0
-                    expected_case2 = round(hits_needed * (loot_chance_ratio / 100.0) * eff_prec_ratio, 3) if hits_needed > 0 else 0.0
+                    # 1. Expected Case Drops (Empirically calibrated from Luc1fer field tests: 498 hits -> 78 Case I (15.66%), 2 Case II (0.40%) at 17% Loot)
+                    # Case I drop rate scales directly with player's Loot Chance (~92% efficiency of loot stat)
+                    # Case II (Elite) drop rate is ~2.5% of Case I drop rate (or ~0.40% of hits at 17% Loot)
+                    eff_loot_ratio = max(0.05, loot_chance_ratio)
+                    expected_case1 = round(hits_needed * eff_loot_ratio * 0.92 * eff_prec_ratio, 2) if hits_needed > 0 else 0.0
+                    expected_case2 = round(hits_needed * eff_loot_ratio * 0.024 * eff_prec_ratio, 3) if hits_needed > 0 else 0.0
                     case1_val = round(expected_case1 * case1_price, 2)
                     case2_val = round(expected_case2 * case2_price, 2)
                     total_cases_val = round(case1_val + case2_val, 2)
@@ -1138,32 +1129,7 @@ class CombatDamageCalculator:
                     evaluated_options.append(opt_record)
     
         # Identify Best Value option (lowest net_cost among reachable green ammo builds)
-        feasible_opts = [o for o in evaluated_options if o["can_reach_in_session"]]
-        if feasible_opts:
-            # User rule: "Завжди збираємо білд зеленими патронами, синіми тільки якщо не дотягуємо"
-            # Prioritize reachable options using green ammo (lightAmmo) first!
-            # Sort by lowest net_cost (best financial bottom line), then lowest hunger usage
-            green_feasible = [o for o in feasible_opts if o["ammo_key"] == "lightAmmo"]
-            if green_feasible:
-                green_feasible.sort(key=lambda x: (x["net_cost"], x["hunger_usage_pct"]))
-                best_opt = green_feasible[0]
-            else:
-                feasible_opts.sort(key=lambda x: (x["net_cost"], x["hunger_usage_pct"]))
-                best_opt = feasible_opts[0]
-
-            best_opt["is_best_value"] = True
-            cheapest_net = best_opt["net_cost"]
-
-            for o in evaluated_options:
-                o["savings_vs_best"] = round(o["net_cost"] - cheapest_net, 2)
-        else:
-            # If none can fully reach in 1 session, pick the one that gets closest to reaching (lowest hunger usage overflow)
-            valid_non_naked = [o for o in evaluated_options if not o.get("is_naked")]
-            if valid_non_naked:
-                valid_non_naked.sort(key=lambda x: (x["hunger_usage_pct"], x["net_cost"]))
-                valid_non_naked[0]["is_best_value"] = True
-            elif evaluated_options:
-                evaluated_options[0]["is_best_value"] = True
+        best_strategy = self._select_best_strategy(evaluated_options)
 
         return {
             "player": {
@@ -1190,6 +1156,6 @@ class CombatDamageCalculator:
             },
             "consumable_prices": consumable_prices,
             "strategies": evaluated_options,
-            "best_strategy": next((o for o in evaluated_options if o.get("is_best_value")), None) or (feasible_opts[0] if feasible_opts else evaluated_options[0]),
+            "best_strategy": best_strategy,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }

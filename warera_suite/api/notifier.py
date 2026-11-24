@@ -36,8 +36,8 @@ class Notifier:
             s_ids = SubscribersDB().get_market_chat_ids()
             if s_ids:
                 return s_ids
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load subscriber chat IDs: {e}")
         return self.telegram_chat_ids or []
 
     async def get_client(self) -> httpx.AsyncClient:

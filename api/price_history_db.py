@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
@@ -15,12 +16,13 @@ class MarketHistoryDB:
         self._init_db()
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=15.0)
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self):
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
+            conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS item_transactions (
                     id TEXT PRIMARY KEY,
@@ -85,7 +87,7 @@ class MarketHistoryDB:
                 created_at,
             ))
 
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             cursor = conn.cursor()
             cursor.executemany("""
                 INSERT OR IGNORE INTO item_transactions (
@@ -100,7 +102,7 @@ class MarketHistoryDB:
     def cleanup_old_transactions(self, keep_days: int = 7) -> int:
         """Remove transactions older than keep_days to keep database lightweight."""
         cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM item_transactions WHERE created_at < ?", (cutoff,))
             deleted = cursor.rowcount
@@ -112,7 +114,7 @@ class MarketHistoryDB:
         """
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         
-        with self._get_conn() as conn:
+        with closing(self._get_conn()) as conn, conn:
             rows = conn.execute("""
                 SELECT primary_stat_val, price
                 FROM item_transactions
@@ -184,7 +186,7 @@ class MarketHistoryDB:
 
         # 1. For weapons with attack + criticalChance, check exact pair in DB
         if stat_name == "attack" and sec_name == "criticalChance" and sec_val is not None:
-            with self._get_conn() as conn:
+            with closing(self._get_conn()) as conn, conn:
                 pair_rows = conn.execute("""
                     SELECT price FROM item_transactions
                     WHERE item_code = ? AND created_at >= ?
