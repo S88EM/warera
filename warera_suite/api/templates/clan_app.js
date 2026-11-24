@@ -755,7 +755,7 @@
         // ================= TARGET DAMAGE & GEAR CALCULATOR MODAL LOGIC =================
         let activeCalcMember = null;
         let activeCalcData = null;
-        let activeCalcTarget = 4000000;
+        let activeCalcTarget = 2000000;
         let activeCalcAmmo = 'auto';
         let activeCalcFood = 'auto';
         let activeCalcWeapon = 'auto';
@@ -900,7 +900,7 @@
             }
 
             activeCalcMember = m;
-            activeCalcTarget = Number(m.target_damage) || 4000000;
+            activeCalcTarget = Number(m.target_damage) || 2000000;
             activeCalcAmmo = m.target_ammo || 'auto';
             activeCalcFood = m.target_food || (m.target_use_fish ? 'cookedFish' : 'auto');
             activeCalcWeapon = m.target_weapon || 'auto';
@@ -1085,6 +1085,11 @@
                 activeIsBuildLocked = !!activeCalcData.is_build_locked;
                 activeSelectedStrat = activeCalcData.best_strategy;
                 renderCalculatorUI(activeCalcData);
+
+                // Auto-lock freshly calculated build so reopening the modal keeps the exact same build
+                if (!activeIsBuildLocked && activeSelectedStrat) {
+                    await saveCurrentTarget(false, true);
+                }
             } catch (err) {
                 console.error('Calculator fetch error:', err);
                 if (optimalCard) {
@@ -1558,7 +1563,7 @@
             }
         }
 
-        async function saveCurrentTarget(andClose = true) {
+        async function saveCurrentTarget(andClose = true, silent = false) {
             if (!activeCalcMember) return;
             const btn = document.getElementById('btnSaveTarget');
             if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Збереження...`;
@@ -1625,8 +1630,10 @@
                 activeCalcMember.target_progress_pct = Math.round(Math.min(100.0, (todayVal / activeCalcTarget) * 100.0) * 10) / 10;
 
                 renderMembersTable();
-                const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
-                showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+                if (!silent) {
+                    const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
+                    showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+                }
 
                 if (andClose) {
                     closeTargetCalculator();
@@ -1636,7 +1643,7 @@
                 }
             } catch (err) {
                 console.error('Save target error:', err);
-                showToast(`Помилка: ${err.message}`, false);
+                if (!silent) showToast(`Помилка: ${err.message}`, false);
             } finally {
                 if (btn) btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Зберегти ціль`;
             }
