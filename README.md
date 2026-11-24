@@ -109,10 +109,23 @@ python run.py --sniper-bot
 
 ---
 
+## 🧪 Тестування
+
+```bash
+pip install pytest
+pytest
+```
+
+Тести у `tests/` перевіряють бойовий калькулятор (`CombatDamageCalculator`), оптимізатор спорядження (`GearOptimizer`), роботу з SQLite (`ClanHistoryDB`, `MarketHistoryDB`), базовий транспорт Telegram-ботів, захист `POST`-ендпоінтів дашборду та рендер HTML-шаблонів.
+
+---
+
 ## 📁 Структура репозиторію
 
 * `repository.yaml` — маніфест репозиторію додатків для Home Assistant.
-* `warera_suite/` — каталог додатку для Home Assistant OS (Dockerfile, config.yaml, Ingress Dashboard, Scanners).
-* `api/` — автономне ядро сканера спорядження, SQLite база історії цін та Telegram-контролер.
+* `warera_suite/` — каталог додатку для Home Assistant OS (`Dockerfile`, `config.yaml`, Ingress Dashboard, Scanners).
+* `api/` — єдине джерело істини (SSOT): ядро сканера ринку, бойовий калькулятор та оптимізатор (`combat_calculator.py`, `gear_optimizer.py`, `combat_constants.py`), SQLite-історія (`clan_history_db.py`, `price_history_db.py`), Telegram-боти (`telegram_base.py`, `telegram_bot.py`, `sniper_bot.py`) та модульні веб-шаблони (`templates/*.html`, `templates/*_app.js`).
+* `tests/` та `pytest.ini` — модульні тести (`pytest`).
+* `sync_suite.py` — синхронізація `api/` у `warera_suite/api/`.
 * `run.py` — головний диспетчер локального запуску.
 * `install_addon.sh` — скрипт для швидкого встановлення по SSH / Samba.
