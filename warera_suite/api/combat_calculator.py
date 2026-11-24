@@ -1169,6 +1169,7 @@ class CombatDamageCalculator:
                 "deficit_damage": round(deficit_damage, 0),
                 "session_hours": round(session_hours, 2),
                 "selected_ammo": selected_ammo,
+                "selected_food": custom_food_key or "auto",
                 "battle_bonus": battle_bonus_val,
                 "battle_multiplier": round(battle_mult, 3),
             },

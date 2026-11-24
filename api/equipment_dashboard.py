@@ -172,11 +172,20 @@ async def handle_calculator(request: web.Request) -> web.Response:
             return web.json_response({"status": "error", "message": "Боєць не знайдений"}, status=404)
 
         selected_ammo = request.query.get("ammo", "auto")
+        selected_food = request.query.get("food", "auto").strip().lower()
+        if selected_food in ("fish", "cookedfish", "cooked_fish"):
+            custom_food_key = "cookedFish"
+        elif selected_food in ("steak", "steaks"):
+            custom_food_key = "steak"
+        else:
+            custom_food_key = None
+
         calc = CombatDamageCalculator(market_app=_app_instance)
         calc_result = calc.calculate_all_strategies(
             target_member,
             target_damage=target_dmg,
             selected_ammo=selected_ammo,
+            custom_food_key=custom_food_key,
             battle_bonus=battle_bonus,
         )
         return web.json_response({

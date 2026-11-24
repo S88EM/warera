@@ -1124,6 +1124,7 @@
         let activeCalcData = null;
         let activeCalcTarget = 4000000;
         let activeCalcAmmo = 'auto';
+        let activeCalcFood = 'auto';
         let activeCalcBonus = 84;
         let activeSelectedStrat = null;
         let calcTargetDebounce = null;
@@ -1223,6 +1224,7 @@
             activeCalcMember = m;
             activeCalcTarget = Number(m.target_damage) || 4000000;
             activeCalcAmmo = 'auto';
+            activeCalcFood = 'auto';
             activeCalcBonus = (typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84;
 
             // Populate header details safely
@@ -1256,8 +1258,9 @@
             if (bonusInput) bonusInput.value = activeCalcBonus;
             updateBonusPresetButtonsUI();
 
-            // Reset ammo buttons
+            // Reset ammo and food buttons
             updateAmmoSelectorUI();
+            updateFoodSelectorUI();
 
             // Show modal
             const modal = document.getElementById('targetCalcModal');
@@ -1284,6 +1287,30 @@
                 if (!btn) return;
                 if (k === activeCalcAmmo) {
                     btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        function setCalcFood(foodKey) {
+            activeCalcFood = foodKey;
+            updateFoodSelectorUI();
+            fetchCalculatorPlan();
+        }
+
+        function updateFoodSelectorUI() {
+            ['auto', 'steak', 'cookedFish'].forEach(k => {
+                const btn = document.getElementById(`foodBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcFood) {
+                    if (k === 'steak') {
+                        btn.className = 'px-2 py-1 rounded-lg bg-rose-600 text-white font-mono text-[10px] border border-rose-400 font-bold shadow-md';
+                    } else if (k === 'cookedFish') {
+                        btn.className = 'px-2 py-1 rounded-lg bg-sky-600 text-white font-mono text-[10px] border border-sky-400 font-bold shadow-md';
+                    } else {
+                        btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                    }
                 } else {
                     btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
                 }
@@ -1317,7 +1344,7 @@
 
             try {
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
-                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&bonus=${activeCalcBonus}`;
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}`;
 
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1929,13 +1956,24 @@
                             <button type="button" onclick="setCalcTarget(20)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
                         </div>
 
-                        <!-- Ammo Selector -->
-                        <div class="flex items-center gap-1.5" id="calcAmmoSelector">
-                            <span class="text-gray-400 text-[10px]">💥 Патрони:</span>
-                            <button type="button" onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
-                            <button type="button" onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
-                            <button type="button" onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
-                            <button type="button" onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
+                        <!-- Selectors: Food & Ammo -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <!-- Food Selector -->
+                            <div class="flex items-center gap-1" id="calcFoodSelector">
+                                <span class="text-gray-400 text-[10px]">🥪 Їжа:</span>
+                                <button type="button" onclick="setCalcFood('auto')" id="foodBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
+                                <button type="button" onclick="setCalcFood('steak')" id="foodBtn_steak" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Стейки (15% HP)">🥩 Стейки</button>
+                                <button type="button" onclick="setCalcFood('cookedFish')" id="foodBtn_cookedFish" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Смажена риба (20% HP)">🐟 Риба</button>
+                            </div>
+
+                            <!-- Ammo Selector -->
+                            <div class="flex items-center gap-1" id="calcAmmoSelector">
+                                <span class="text-gray-400 text-[10px]">💥 Патрони:</span>
+                                <button type="button" onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
+                                <button type="button" onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
+                                <button type="button" onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
+                                <button type="button" onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
+                            </div>
                         </div>
                     </div>
 
