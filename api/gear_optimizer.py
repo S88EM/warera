@@ -270,23 +270,10 @@ class GearOptimizer:
             # Auto: test all 3 to find true most economical choice
             eval_ammos = ["lightAmmo", "ammo", "heavyAmmo"]
 
-        # Weapons to evaluate: from T2 up to T6
+        # Weapons and Armor to evaluate: full spectrum from T2 to T6 without hardcoded restrictions
+        # Every tier is mathematically evaluated on its real damage, hits, and hunger cost
         weapon_tier_choices = [2, 3, 4, 5, 6]
-        if deficit_damage <= 500_000:
-            weapon_tier_choices = [2, 3, 4]
-        elif deficit_damage <= 1_500_000:
-            weapon_tier_choices = [2, 3, 4, 5]
-        elif deficit_damage <= 3_500_000:
-            weapon_tier_choices = [3, 4, 5]
-        else:
-            # High targets require heavy firepower to fit in 8h session
-            weapon_tier_choices = [4, 5, 6]
-
         armor_tier_choices = [2, 3, 4, 5, 6]
-        if deficit_damage <= 1_000_000:
-            armor_tier_choices = [2, 3, 4]
-        elif deficit_damage >= 5_000_000:
-            armor_tier_choices = [3, 4, 5, 6]
 
         valid_solutions: List[Dict[str, Any]] = []
 
@@ -384,9 +371,9 @@ class GearOptimizer:
                                     b_ddg = b_ddg_min + (b_ddg_max - b_ddg_min) * 0.65
                                     b_price = get_item_price(b_code)
 
-                                    # Pure candidate defense (+13.0 passive defense)
-                                    total_raw_armor = curr_armor_stat + c_arm + p_arm + 13.0
-                                    total_raw_dodge = curr_dodge_stat + b_ddg + 13.0
+                                    # Honest candidate defense without artificial bonuses
+                                    total_raw_armor = curr_armor_stat + c_arm + p_arm
+                                    total_raw_dodge = curr_dodge_stat + b_ddg
 
                                     armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
                                     dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
@@ -491,8 +478,8 @@ class GearOptimizer:
             logger.warning("No solution met target deficit within available hunger!")
             return {"status": "error", "message": "Цільовий урон перевищує денний запас здоров'я та голоду бійця."}
 
-        # Sort by Net Cost (cheapest first)
-        valid_solutions.sort(key=lambda s: s["net_cost"])
+        # Sort by Real Purchase Budget (User Rule: no case deductions, optimize strictly by real market purchase budget)
+        valid_solutions.sort(key=lambda s: (s["total_purchase_cost"], s["actual_hits"]))
         best_sol = valid_solutions[0]
 
         # Select diverse representative strategies for comparison table (so user sees different tiers & options)

@@ -193,6 +193,8 @@ class CombatDamageCalculator:
         selected_ammo: str = "auto",
         custom_food_key: Optional[str] = None,
         battle_bonus: float = 50.0,
+        custom_rank_bonus: Optional[float] = None,
+        custom_prestige: Optional[int] = None,
         live_consumables: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
         """
@@ -204,6 +206,8 @@ class CombatDamageCalculator:
         4. Food units vs character hunger capacity per session.
         5. Live market prices for consumables (cases, food, ammo, pill).
         6. Dynamic battle bonus multiplier (e.g. +50%, +84%, +100%).
+        7. Unbounded Military Rank bonus (>37.5%).
+        8. Character Prestige (+1 SP / prestige point).
         """
         battle_bonus_val = max(0.0, float(battle_bonus if battle_bonus is not None else 50.0))
         battle_mult = 1.0 + (battle_bonus_val / 100.0)
@@ -235,11 +239,21 @@ class CombatDamageCalculator:
         hunger_curr = float(player_member.get("hunger_curr") or skills.get("hunger", {}).get("currentBarValue", hunger_max))
         hunger_regen = float(player_member.get("hunger_regen") or skills.get("hunger", {}).get("hourlyBarRegen", 0.7))
 
-        # 3. Base Character Stats
+        # 3. Base Character Stats with unbounded Military Rank & Prestige
         base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
         atk_overflow = float(skills.get("attack", {}).get("overflow", 0))
-        rank_bonus_pct = float(player_member.get("rank_bonus_pct") or skills.get("attack", {}).get("militaryRankPercent", 0.0))
+
+        if custom_rank_bonus is not None and float(custom_rank_bonus) >= 0:
+            rank_bonus_pct = float(custom_rank_bonus)
+        else:
+            rank_bonus_pct = float(player_member.get("rank_bonus_pct") or skills.get("attack", {}).get("militaryRankPercent", 0.0))
         rank_mult = 1.0 + (rank_bonus_pct / 100.0)
+
+        # Prestige: +1 SP per prestige point. If custom prestige exceeds base, add +5 attack per point
+        member_prestige = int(player_member.get("prestige", 0) or 0)
+        curr_prestige = int(custom_prestige) if custom_prestige is not None else member_prestige
+        if curr_prestige > member_prestige:
+            base_atk += (curr_prestige - member_prestige) * 5.0
 
         # 4. Pill Status and Session Duration
         pill_status = player_member.get("pill_status", "READY")
@@ -353,8 +367,8 @@ class CombatDamageCalculator:
             curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
             curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
 
-            eff_gear_armor = max(equipped_armor, c_armor + p_armor)
-            eff_gear_dodge = max(equipped_dodge, b_dodge)
+            eff_gear_armor = c_armor + p_armor
+            eff_gear_dodge = b_dodge
 
             total_raw_armor = curr_armor_stat + eff_gear_armor
             total_raw_dodge = curr_dodge_stat + eff_gear_dodge
@@ -373,8 +387,7 @@ class CombatDamageCalculator:
 
             # 2. Precision & Stat Overflow (+4 Attack per 1% Precision > 100%)
             curr_prec = float(skills.get("precision", {}).get("value", 75))
-            eq_prec = float(skills.get("precision", {}).get("equipment", 0))
-            raw_prec = curr_prec + max(eq_prec, g_prec)
+            raw_prec = curr_prec + g_prec
 
             if raw_prec > 100.0:
                 prec_overflow = raw_prec - 100.0
@@ -387,11 +400,9 @@ class CombatDamageCalculator:
             # 3. Critical Chance, Critical Damage & Stat Overflow (+4% Crit Dmg per 1% Crit Chance > 100%)
             curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
             curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
-            eq_crit_ch = float(skills.get("criticalChance", {}).get("weapon", 0))
-            eq_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
 
-            raw_crit_ch = curr_crit_ch + max(eq_crit_ch, w_crit_ch)
-            raw_crit_dmg = curr_crit_dmg + max(eq_crit_dmg, h_crit_dmg)
+            raw_crit_ch = curr_crit_ch + w_crit_ch
+            raw_crit_dmg = curr_crit_dmg + h_crit_dmg
 
             if raw_crit_ch > 100.0:
                 crit_overflow = raw_crit_ch - 100.0
@@ -405,7 +416,7 @@ class CombatDamageCalculator:
             crit_mult_val = tot_crit_dmg_pct / 100.0
 
             # 4. Attack with Weapon, Ammo, Pill (1.60), Military Rank
-            eff_w_atk = max(equipped_weapon_atk, w_atk)
+            eff_w_atk = w_atk
             ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
             pill_mult = 1.60
             sim_atk = (base_atk + eff_w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult

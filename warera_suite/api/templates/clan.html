@@ -1632,7 +1632,7 @@
                                 <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                                     <span>${s.food_icon} ${s.food_name}</span>
                                     <span>•</span>
-                                    <span>${formatNumber(s.avg_dmg_per_hit)} дамагу/удар</span>
+                                    <span>${formatNumber(s.avg_dmg_per_hit || s.avg_damage_per_hit || s.sim_dmg || 0)} дамагу/удар</span>
                                 </div>
                             </td>
                             <td class="p-2.5 text-center">
