@@ -11,7 +11,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 
 # Application Versioning
-APP_VERSION = "b.0001.82"
+APP_VERSION = "b.0001.84"
 
 # Load API key from API_key.txt if present
 def get_api_key() -> str:

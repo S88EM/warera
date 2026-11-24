@@ -759,6 +759,12 @@
                                 <div class="w-24 bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
                                     <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
                                 </div>
+                                ${m.saved_strategy_label ? `
+                                    <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
+                                        <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
+                                        <span class="truncate max-w-[120px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
+                                    </div>
+                                ` : ''}
                             </div>
                         ` : `
                             <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
@@ -936,6 +942,12 @@
                                     <div class="w-full bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
                                         <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
                                     </div>
+                                    ${m.saved_strategy_label ? `
+                                        <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
+                                            <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
+                                            <span class="truncate max-w-[100px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : `
                                 <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
@@ -1129,8 +1141,10 @@
         let activeCalcTarget = 4000000;
         let activeCalcAmmo = 'auto';
         let activeCalcFood = 'auto';
+        let activeCalcWeapon = 'auto';
         let activeCalcBonus = 84;
         let activeSelectedStrat = null;
+        let activeIsBuildLocked = false;
         let calcTargetDebounce = null;
         let calcBonusDebounce = null;
         let activeCalcPrestige = 0;
@@ -1270,11 +1284,14 @@
 
             activeCalcMember = m;
             activeCalcTarget = Number(m.target_damage) || 4000000;
-            activeCalcAmmo = 'auto';
-            activeCalcFood = 'auto';
-            activeCalcBonus = (typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84;
-            activeCalcPrestige = m.prestige || (m.leveling && m.leveling.prestige) || 0;
-            activeCalcRankBonus = (typeof m.rank_bonus_pct === 'number') ? m.rank_bonus_pct : (m.skills?.attack?.militaryRankPercent || 0);
+            activeCalcAmmo = m.target_ammo || 'auto';
+            activeCalcFood = m.target_food || (m.target_use_fish ? 'cookedFish' : 'auto');
+            activeCalcWeapon = m.target_weapon || 'auto';
+            activeCalcBonus = (typeof m.target_battle_bonus === 'number') ? m.target_battle_bonus : ((typeof customBattleBonus === 'number' && !isNaN(customBattleBonus)) ? customBattleBonus : 84);
+            activeCalcPrestige = (typeof m.target_prestige === 'number') ? m.target_prestige : (m.prestige || (m.leveling && m.leveling.prestige) || 0);
+            activeCalcRankBonus = (typeof m.target_rank_bonus === 'number') ? m.target_rank_bonus : ((typeof m.rank_bonus_pct === 'number') ? m.rank_bonus_pct : (m.skills?.attack?.militaryRankPercent || 0));
+            activeIsBuildLocked = !!m.is_build_locked;
+            activeSelectedStrat = m.saved_build || null;
 
             // Populate header details safely
             const nameEl = document.getElementById('calcUserName');
@@ -1328,9 +1345,10 @@
                 prestigeAutoLabel.className = 'text-[10px] text-purple-400 font-mono font-semibold';
             }
 
-            // Reset ammo and food buttons
+            // Reset ammo, food, and weapon buttons
             updateAmmoSelectorUI();
             updateFoodSelectorUI();
+            updateWeaponSelectorUI();
 
             // Show modal
             const modal = document.getElementById('targetCalcModal');
@@ -1347,8 +1365,9 @@
 
         function setCalcAmmo(ammoKey) {
             activeCalcAmmo = ammoKey;
+            activeIsBuildLocked = false;
             updateAmmoSelectorUI();
-            fetchCalculatorPlan();
+            fetchCalculatorPlan(true);
         }
 
         function updateAmmoSelectorUI() {
@@ -1365,8 +1384,9 @@
 
         function setCalcFood(foodKey) {
             activeCalcFood = foodKey;
+            activeIsBuildLocked = false;
             updateFoodSelectorUI();
-            fetchCalculatorPlan();
+            fetchCalculatorPlan(true);
         }
 
         function updateFoodSelectorUI() {
@@ -1387,7 +1407,26 @@
             });
         }
 
-        async function fetchCalculatorPlan() {
+        function setCalcWeapon(weaponKey) {
+            activeCalcWeapon = weaponKey;
+            activeIsBuildLocked = false;
+            updateWeaponSelectorUI();
+            fetchCalculatorPlan(true);
+        }
+
+        function updateWeaponSelectorUI() {
+            ['auto', 'sniper', 'tank', 'rifle'].forEach(k => {
+                const btn = document.getElementById(`weaponBtn_${k}`);
+                if (!btn) return;
+                if (k === activeCalcWeapon) {
+                    btn.className = 'px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700';
+                }
+            });
+        }
+
+        async function fetchCalculatorPlan(forceUnlock = false) {
             if (!activeCalcMember) return;
             const stratBody = document.getElementById('calcStrategiesBody');
             const banner = document.getElementById('calcStatusBanner');
@@ -1414,7 +1453,8 @@
 
             try {
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
-                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}&prestige=${activeCalcPrestige}&rank_bonus=${activeCalcRankBonus}`;
+                const lockQuery = forceUnlock ? '&unlock=1' : (activeIsBuildLocked ? '&locked=1' : '');
+                const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}&prestige=${activeCalcPrestige}&rank_bonus=${activeCalcRankBonus}&weapon=${activeCalcWeapon}${lockQuery}`;
 
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1425,6 +1465,7 @@
                 }
 
                 activeCalcData = data.result;
+                activeIsBuildLocked = !!activeCalcData.is_build_locked;
                 activeSelectedStrat = activeCalcData.best_strategy;
                 renderCalculatorUI(activeCalcData);
             } catch (err) {
@@ -1457,11 +1498,13 @@
             if (banner) {
                 const deficitStr = t.deficit_damage > 0 ? `Залишилося: <b class="text-white font-mono">+${formatNumber(t.deficit_damage)}</b>` : `<b class="text-emerald-400 font-mono">Ціль уже виконана!</b>`;
                 const pillTimeStr = p.has_active_pill ? `⏳ Таблетка діє ще: <b class="text-amber-400 font-mono">${p.pill_remaining_hours} год</b>` : `💊 Нова таблетка: <b class="text-blue-400 font-mono">8.0 год</b>`;
+                const lockedBadge = activeIsBuildLocked ? `<span class="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-600/50 text-purple-300 font-semibold text-[10px]"><i class="fa-solid fa-lock text-[9px] mr-1"></i>Білд закріплено</span>` : '';
                 banner.innerHTML = `
                     <div class="flex items-center gap-2 flex-wrap">
                         <span>Сьогодні набито: <b class="text-emerald-400 font-mono">+${formatNumber(p.today_damage)}</b></span>
                         <span class="text-gray-500">|</span>
                         <span>${deficitStr}</span>
+                        ${lockedBadge ? `<span class="text-gray-500">|</span> ${lockedBadge}` : ''}
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <span>${pillTimeStr}</span>
@@ -1476,22 +1519,54 @@
             if (optimalCard && best) {
                 const isSelectedBest = !activeSelectedStrat || activeSelectedStrat.strategy_key === best.strategy_key;
                 const stratToShow = isSelectedBest ? best : activeSelectedStrat;
+                const isSaved = !!(stratToShow.is_saved_build || (activeIsBuildLocked && activeSelectedStrat && (activeSelectedStrat.strategy_key === stratToShow.strategy_key || activeSelectedStrat.label === stratToShow.label)));
+
+                let stratBadge = '';
+                let lockActionBtn = '';
+                if (isSaved) {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-500/60 text-[10px] font-black uppercase tracking-wide flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-lock text-purple-400"></i> ЗБЕРЕЖЕНИЙ БІЛД
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="unlockCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gray-800 hover:bg-rose-950/70 text-gray-300 hover:text-rose-200 border border-bordercolor hover:border-rose-500/50 text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm active:scale-95" title="Скинути збережений білд і повернутися до авто-підбору">
+                            <i class="fa-solid fa-unlock text-[9px]"></i> <span>Скинути</span>
+                        </button>
+                    `;
+                } else if (stratToShow.is_best_value) {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black uppercase tracking-wide">
+                        🏆 НАЙВИГІДНІШИЙ ВАРІАНТ
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="saveCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm shadow-purple-500/20 transition-all active:scale-95" title="Зберегти цей білд, щоб він не мінявся після ударів">
+                            <i class="fa-solid fa-bookmark text-[9px]"></i> <span>Зберегти цей білд</span>
+                        </button>
+                    `;
+                } else {
+                    stratBadge = `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/50 text-[10px] font-black uppercase tracking-wide">
+                        ⚙️ ОБРАНИЙ ВАРІАНТ
+                    </span>`;
+                    lockActionBtn = `
+                        <button onclick="saveCurrentBuild()" class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm shadow-purple-500/20 transition-all active:scale-95" title="Зберегти цей білд, щоб він не мінявся після ударів">
+                            <i class="fa-solid fa-bookmark text-[9px]"></i> <span>Зберегти цей білд</span>
+                        </button>
+                    `;
+                }
+
                 const cp = result.consumable_prices || {};
                 const case1Price = cp.case1 ? Number(cp.case1).toFixed(2) : '3.89';
                 const case2Price = cp.case2 ? Number(cp.case2).toFixed(2) : '26.92';
 
                 optimalCard.innerHTML = `
-                    <div class="glass-panel p-4 sm:p-5 rounded-2xl border-2 ${stratToShow.is_best_value ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#0e131f] to-blue-950/30' : 'border-blue-500/60 bg-[#0e131f]'} shadow-xl space-y-3.5">
+                    <div class="glass-panel p-4 sm:p-5 rounded-2xl border-2 ${isSaved ? 'border-purple-500/60 bg-gradient-to-r from-purple-950/40 via-[#0e131f] to-indigo-950/30' : (stratToShow.is_best_value ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#0e131f] to-blue-950/30' : 'border-blue-500/60 bg-[#0e131f]')} shadow-xl space-y-3.5">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-bordercolor/60 pb-3">
                             <div class="flex items-start sm:items-center gap-3">
-                                <div class="w-12 h-12 rounded-2xl ${stratToShow.is_best_value ? 'bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-400' : 'bg-blue-500/15 border-2 border-blue-500/40 text-blue-400'} flex items-center justify-center text-2xl shrink-0 shadow-inner">
-                                    ${stratToShow.is_best_value ? '🏆' : '⚙️'}
+                                <div class="w-12 h-12 rounded-2xl ${isSaved ? 'bg-purple-500/15 border-2 border-purple-500/50 text-purple-400' : (stratToShow.is_best_value ? 'bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-400' : 'bg-blue-500/15 border-2 border-blue-500/40 text-blue-400')} flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                                    ${isSaved ? '🛡️' : (stratToShow.is_best_value ? '🏆' : '⚙️')}
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="px-2 py-0.5 rounded-full ${stratToShow.is_best_value ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : 'bg-blue-500/20 text-blue-300 border border-blue-500/50'} text-[10px] font-black uppercase tracking-wide">
-                                            ${stratToShow.is_best_value ? 'НАЙВИГІДНІШИЙ ВАРІАНТ' : 'ОБРАНИЙ ВАРІАНТ'}
-                                        </span>
+                                        ${stratBadge}
+                                        ${lockActionBtn}
                                         <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b> <span class="text-amber-400 font-mono font-bold">(+${t.battle_bonus ?? activeCalcBonus}% баф)</span></span>
                                     </div>
                                     <h3 class="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2 flex-wrap">
@@ -1503,8 +1578,9 @@
                                 </div>
                             </div>
                             <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
-                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Сумарний бюджет:</div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">${(isSaved && p.today_damage > 0) ? 'Сумарний бюджет залишку:' : 'Сумарний бюджет:'}</div>
                                 <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
+                                ${stratToShow.initial_grand_total && p.today_damage > 0 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} ₴</div>` : ''}
                                 <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
                                     ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} ₴
                                 </div>
@@ -1518,19 +1594,19 @@
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
                                 <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
                                 <div class="font-bold text-white mt-1">${stratToShow.ammo_badge}</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${formatNumber(stratToShow.ammo_units_needed)} пострілів</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${formatNumber(stratToShow.ammo_units_needed)} пострілів ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-500">(з ${formatNumber(stratToShow.initial_hits)})</span>` : ''}</div>
                             </div>
 
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
                                 <div class="text-[10px] uppercase font-bold text-gray-400">🎯 Удари</div>
                                 <div class="font-bold text-white mt-1 font-mono">${formatNumber(stratToShow.hits_needed)} уд.</div>
-                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5">~${formatNumber(stratToShow.avg_dmg_per_hit)}/удар</div>
+                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5">~${formatNumber(stratToShow.avg_dmg_per_hit)}/удар ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-400">(${formatNumber(stratToShow.initial_hits - stratToShow.hits_needed)} влучень)</span>` : ''}</div>
                             </div>
 
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="1 зброя = 100 ударів без ухилення">
                                 <div class="text-[10px] uppercase font-bold text-gray-400">🔫 Зброя</div>
                                 <div class="font-bold text-amber-400 mt-1 font-mono">${stratToShow.weapons_burned} шт</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">100 уд/ган</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${(isSaved && p.today_damage > 0) ? `на залишок (${formatNumber(stratToShow.hits_needed)} уд.)` : '100 уд/ган'}</div>
                             </div>
 
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="Броня захищена ухиленням ${stratToShow.eff_dodge}%">
@@ -1538,6 +1614,21 @@
                                 <div class="font-bold text-indigo-300 mt-1 font-mono">${stratToShow.armor_sets_burned} компл.</div>
                                 <div class="text-[9px] text-gray-400 font-mono mt-0.5">ухил. ${stratToShow.eff_dodge}%</div>
                             </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
+                            </div>
+
+                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
+                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
+                                </div>
+                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                            </div>
+                        </div>
 
                             <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
                                 <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
@@ -1608,7 +1699,9 @@
                     const canReach = s.can_reach_in_session;
 
                     let statusBadge = '';
-                    if (isBest) {
+                    if (s.is_saved_build) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-500/60 text-[10px] font-black flex items-center justify-center gap-1"><i class="fa-solid fa-lock text-[9px] text-purple-400"></i> ЗБЕРЕЖЕНИЙ</span>`;
+                    } else if (isBest) {
                         statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-black">🏆 НАЙВИГІДНІШИЙ</span>`;
                     } else if (s.reach_badge) {
                         const badgeColor = s.reach_status === 'ok' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : (s.reach_status === 'soft_cap' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30');
@@ -1886,7 +1979,7 @@
             }
         }
 
-        async function saveCurrentTarget() {
+        async function saveCurrentTarget(andClose = true) {
             if (!activeCalcMember) return;
             const btn = document.getElementById('btnSaveTarget');
             if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Збереження...`;
@@ -1895,6 +1988,18 @@
                 const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
                 const postUrl = `${basePath ? `${basePath}/` : '/'}api/clan/targets`;
 
+                // Prepare saved_build payload
+                const stratToSave = activeSelectedStrat || (activeCalcData && activeCalcData.best_strategy);
+                let savedBuildPayload = null;
+                if (stratToSave) {
+                    savedBuildPayload = Object.assign({}, stratToSave);
+                    if (!savedBuildPayload.initial_target_damage) {
+                        savedBuildPayload.initial_target_damage = activeCalcTarget;
+                        savedBuildPayload.initial_grand_total = stratToSave.grand_total_cost;
+                        savedBuildPayload.initial_hits = stratToSave.hits_needed;
+                    }
+                }
+
                 const resp = await fetch(postUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1902,9 +2007,19 @@
                         username: activeCalcMember.username,
                         user_id: activeCalcMember.user_id || '',
                         target_damage: activeCalcTarget,
-                        gear_tier: activeSelectedStrat ? activeSelectedStrat.tier_name : 'epic',
+                        gear_tier: stratToSave ? (stratToSave.tier_name || `t${stratToSave.tier_num || 5}`) : 'epic',
                         use_pill: true,
-                        use_fish: activeSelectedStrat ? activeSelectedStrat.food_key === 'cookedFish' : true,
+                        use_fish: stratToSave ? stratToSave.food_key === 'cookedFish' : true,
+                        battle_bonus: activeCalcBonus,
+                        weapon: activeCalcWeapon,
+                        food: activeCalcFood,
+                        ammo: activeCalcAmmo,
+                        prestige: activeCalcPrestige,
+                        rank_bonus: activeCalcRankBonus,
+                        saved_strategy_key: stratToSave ? stratToSave.strategy_key : null,
+                        saved_strategy_label: stratToSave ? stratToSave.label : null,
+                        saved_build: savedBuildPayload,
+                        is_build_locked: true,
                     })
                 });
 
@@ -1915,18 +2030,75 @@
 
                 // Update local memory in clanData so table progress bar renders immediately!
                 activeCalcMember.target_damage = activeCalcTarget;
-                activeCalcMember.target_gear_tier = activeSelectedStrat ? activeSelectedStrat.tier_name : 'epic';
+                activeCalcMember.target_battle_bonus = activeCalcBonus;
+                activeCalcMember.target_weapon = activeCalcWeapon;
+                activeCalcMember.target_food = activeCalcFood;
+                activeCalcMember.target_ammo = activeCalcAmmo;
+                activeCalcMember.target_prestige = activeCalcPrestige;
+                activeCalcMember.target_rank_bonus = activeCalcRankBonus;
+                activeCalcMember.saved_strategy_key = stratToSave ? stratToSave.strategy_key : null;
+                activeCalcMember.saved_strategy_label = stratToSave ? stratToSave.label : null;
+                activeCalcMember.saved_build = savedBuildPayload;
+                activeCalcMember.is_build_locked = true;
+                activeIsBuildLocked = true;
+
                 const todayVal = Number(activeCalcMember.today_damage || 0);
                 activeCalcMember.target_progress_pct = Math.round(Math.min(100.0, (todayVal / activeCalcTarget) * 100.0) * 10) / 10;
 
                 renderMembersTable();
-                showToast(`Ціль ${formatMillions(activeCalcTarget)} збережено для ${activeCalcMember.username}!`);
-                closeTargetCalculator();
+                const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
+                showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+
+                if (andClose) {
+                    closeTargetCalculator();
+                } else if (activeCalcData) {
+                    if (stratToSave) stratToSave.is_saved_build = true;
+                    renderCalculatorUI(activeCalcData);
+                }
             } catch (err) {
                 console.error('Save target error:', err);
                 showToast(`Помилка: ${err.message}`, false);
             } finally {
                 if (btn) btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Зберегти ціль`;
+            }
+        }
+
+        async function saveCurrentBuild() {
+            await saveCurrentTarget(false);
+        }
+
+        async function unlockCurrentBuild() {
+            if (!activeCalcMember) return;
+            try {
+                const basePath = window.location.pathname.replace(/\/(clan(\.html)?|\index\.html)?\/?$/, '');
+                const postUrl = `${basePath ? `${basePath}/` : '/'}api/clan/targets`;
+
+                const resp = await fetch(postUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: activeCalcMember.username,
+                        clear_build: true,
+                    })
+                });
+
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                if (data.status !== 'ok') throw new Error(data.message || 'Помилка скидання');
+
+                activeCalcMember.is_build_locked = false;
+                activeCalcMember.saved_build = null;
+                activeCalcMember.saved_strategy_key = null;
+                activeCalcMember.saved_strategy_label = null;
+                activeIsBuildLocked = false;
+                activeSelectedStrat = null;
+
+                renderMembersTable();
+                showToast(`Закріплення білду скинуто. Увімкнено авто-підбір.`);
+                await fetchCalculatorPlan(true);
+            } catch (err) {
+                console.error('Unlock build error:', err);
+                showToast(`Помилка: ${err.message}`, false);
             }
         }
     </script>
@@ -2046,8 +2218,17 @@
                             <button type="button" onclick="setCalcTarget(20)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
                         </div>
 
-                        <!-- Selectors: Food & Ammo -->
+                        <!-- Selectors: Weapon, Food & Ammo -->
                         <div class="flex flex-wrap items-center gap-3">
+                            <!-- Weapon Selector -->
+                            <div class="flex items-center gap-1" id="calcWeaponSelector">
+                                <span class="text-gray-400 text-[10px]">🗡️ Зброя:</span>
+                                <button type="button" onclick="setCalcWeapon('auto')" id="weaponBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
+                                <button type="button" onclick="setCalcWeapon('sniper')" id="weaponBtn_sniper" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Снайперка IV (Т4)">🎯 Снайперка</button>
+                                <button type="button" onclick="setCalcWeapon('tank')" id="weaponBtn_tank" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Танк V (Т5)">🛡️ Танк</button>
+                                <button type="button" onclick="setCalcWeapon('rifle')" id="weaponBtn_rifle" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Гвинтівка III (Т3)">🔫 Гвинтівка</button>
+                            </div>
+
                             <!-- Food Selector -->
                             <div class="flex items-center gap-1" id="calcFoodSelector">
                                 <span class="text-gray-400 text-[10px]">🥪 Їжа:</span>

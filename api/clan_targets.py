@@ -76,9 +76,19 @@ def set_member_target(
     use_pill: bool = True,
     use_fish: bool = True,
     game_date: Optional[str] = None,
+    battle_bonus: Optional[float] = None,
+    weapon: Optional[str] = None,
+    ammo: Optional[str] = None,
+    food: Optional[str] = None,
+    prestige: Optional[int] = None,
+    rank_bonus: Optional[float] = None,
+    saved_strategy_key: Optional[str] = None,
+    saved_strategy_label: Optional[str] = None,
+    saved_build: Optional[Dict[str, Any]] = None,
+    is_build_locked: bool = True,
 ) -> Dict[str, Any]:
     """
-    Saves or updates a target goal for a clan member for the active game date.
+    Saves or updates a target goal and pinned combat build for a clan member for the active game date.
     """
     target_date = game_date or ClanHistoryDB.get_game_date()
     all_data = load_all_targets_data()
@@ -94,14 +104,44 @@ def set_member_target(
         "username": clean_nick,
         "user_id": user_id or "",
         "target_damage": max(0.0, float(target_damage)),
-        "gear_tier": gear_tier.lower(),
+        "gear_tier": gear_tier.lower() if gear_tier else "epic",
         "use_pill": bool(use_pill),
         "use_fish": bool(use_fish),
         "game_date": target_date,
         "updated_at": now_iso,
+        "battle_bonus": float(battle_bonus) if battle_bonus is not None else None,
+        "weapon": weapon,
+        "ammo": ammo,
+        "food": food,
+        "prestige": int(prestige) if prestige is not None else None,
+        "rank_bonus": float(rank_bonus) if rank_bonus is not None else None,
+        "saved_strategy_key": saved_strategy_key,
+        "saved_strategy_label": saved_strategy_label,
+        "saved_build": saved_build,
+        "is_build_locked": bool(is_build_locked),
     }
 
     # Store with lowercased key for case-insensitive lookup
     day_targets[clean_nick.lower()] = record
     save_all_targets_data(all_data)
     return record
+
+
+def clear_member_build(username: str, game_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Unlocks/clears the saved build for a member while retaining the damage target.
+    """
+    target_date = game_date or ClanHistoryDB.get_game_date()
+    all_data = load_all_targets_data()
+    day_targets = all_data.get("dates", {}).get(target_date, {})
+    clean_nick = (username or "").strip().lower()
+    if clean_nick in day_targets:
+        rec = day_targets[clean_nick]
+        rec["is_build_locked"] = False
+        rec["saved_build"] = None
+        rec["saved_strategy_key"] = None
+        rec["saved_strategy_label"] = None
+        rec["updated_at"] = datetime.now(timezone.utc).isoformat()
+        save_all_targets_data(all_data)
+        return rec
+    return None

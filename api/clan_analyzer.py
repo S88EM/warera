@@ -724,12 +724,32 @@ class WarEraClanAnalyzer:
                     m["target_use_fish"] = target_rec.get("use_fish", True)
                     today_val = float(m.get("today_damage", 0))
                     m["target_progress_pct"] = round(min(100.0, (today_val / tg_dmg) * 100.0), 1)
+                    m["target_battle_bonus"] = target_rec.get("battle_bonus")
+                    m["target_weapon"] = target_rec.get("weapon")
+                    m["target_ammo"] = target_rec.get("ammo")
+                    m["target_food"] = target_rec.get("food")
+                    m["target_prestige"] = target_rec.get("prestige")
+                    m["target_rank_bonus"] = target_rec.get("rank_bonus")
+                    m["saved_strategy_key"] = target_rec.get("saved_strategy_key")
+                    m["saved_strategy_label"] = target_rec.get("saved_strategy_label")
+                    m["saved_build"] = target_rec.get("saved_build")
+                    m["is_build_locked"] = bool(target_rec.get("is_build_locked", False))
                 else:
                     m["target_damage"] = None
                     m["target_gear_tier"] = None
                     m["target_use_pill"] = None
                     m["target_use_fish"] = None
                     m["target_progress_pct"] = None
+                    m["target_battle_bonus"] = None
+                    m["target_weapon"] = None
+                    m["target_ammo"] = None
+                    m["target_food"] = None
+                    m["target_prestige"] = None
+                    m["target_rank_bonus"] = None
+                    m["saved_strategy_key"] = None
+                    m["saved_strategy_label"] = None
+                    m["saved_build"] = None
+                    m["is_build_locked"] = False
         except Exception as e:
             logger.warning(f"Error attaching daily clan targets: {e}")
 

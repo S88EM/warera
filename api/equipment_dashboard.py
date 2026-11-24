@@ -109,17 +109,33 @@ async def handle_clan_targets_get(request: web.Request) -> web.Response:
 
 
 async def handle_clan_targets_set(request: web.Request) -> web.Response:
-    from clan_targets import set_member_target
+    from clan_targets import set_member_target, clear_member_build
     try:
         data = await request.json()
         uname = data.get("username")
         if not uname:
             return web.json_response({"status": "error", "message": "Username is required"}, status=400)
+
+        clear_build = bool(data.get("clear_build", False))
+        if clear_build:
+            rec = clear_member_build(username=uname)
+            return web.json_response({"status": "ok", "target": rec, "cleared": True})
+
         target_dmg = float(data.get("target_damage", 0))
         gear_tier = data.get("gear_tier", "epic")
         use_pill = bool(data.get("use_pill", True))
         use_fish = bool(data.get("use_fish", True))
         user_id = data.get("user_id")
+        battle_bonus = data.get("battle_bonus")
+        weapon = data.get("weapon")
+        ammo = data.get("ammo")
+        food = data.get("food")
+        prestige = data.get("prestige")
+        rank_bonus = data.get("rank_bonus")
+        saved_strategy_key = data.get("saved_strategy_key")
+        saved_strategy_label = data.get("saved_strategy_label")
+        saved_build = data.get("saved_build")
+        is_build_locked = bool(data.get("is_build_locked", True))
 
         rec = set_member_target(
             username=uname,
@@ -128,6 +144,16 @@ async def handle_clan_targets_set(request: web.Request) -> web.Response:
             gear_tier=gear_tier,
             use_pill=use_pill,
             use_fish=use_fish,
+            battle_bonus=battle_bonus,
+            weapon=weapon,
+            ammo=ammo,
+            food=food,
+            prestige=prestige,
+            rank_bonus=rank_bonus,
+            saved_strategy_key=saved_strategy_key,
+            saved_strategy_label=saved_strategy_label,
+            saved_build=saved_build,
+            is_build_locked=is_build_locked,
         )
         return web.json_response({"status": "ok", "target": rec})
     except Exception as e:
@@ -192,6 +218,7 @@ async def handle_calculator(request: web.Request) -> web.Response:
             return web.json_response({"status": "error", "message": "Боєць не знайдений"}, status=404)
 
         selected_ammo = request.query.get("ammo", "auto")
+        selected_weapon = request.query.get("weapon", "auto").strip().lower()
         selected_food = request.query.get("food", "auto").strip().lower()
         if selected_food in ("fish", "cookedfish", "cooked_fish"):
             custom_food_key = "cookedFish"
@@ -210,6 +237,18 @@ async def handle_calculator(request: web.Request) -> web.Response:
         except ValueError:
             custom_rank_bonus = None
 
+        # Check if caller wants to respect locked build or force unlock
+        unlock_req = request.query.get("unlock", "0").lower() in ("1", "true", "yes")
+        locked_param = request.query.get("locked")
+
+        saved_build = target_member.get("saved_build") if target_member else None
+        is_build_locked = bool(target_member.get("is_build_locked", False)) if target_member else False
+        if locked_param is not None:
+            is_build_locked = locked_param.lower() in ("1", "true", "yes")
+        if unlock_req:
+            is_build_locked = False
+            saved_build = None
+
         from gear_optimizer import GearOptimizer
         optimizer = GearOptimizer(market_app=_app_instance)
         opt_result = optimizer.optimize_set_for_target(
@@ -217,10 +256,13 @@ async def handle_calculator(request: web.Request) -> web.Response:
             target_damage=target_dmg,
             selected_ammo=selected_ammo,
             selected_food=custom_food_key or "auto",
+            selected_weapon=selected_weapon,
             battle_bonus=battle_bonus,
             custom_rank_bonus=custom_rank_bonus,
             custom_prestige=custom_prestige,
             live_consumables=live_consumables if isinstance(live_consumables, dict) else None,
+            saved_build=saved_build if is_build_locked else None,
+            is_build_locked=is_build_locked,
         )
 
         if opt_result.get("status") == "ok":

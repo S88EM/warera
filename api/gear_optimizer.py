@@ -141,10 +141,13 @@ class GearOptimizer:
         target_damage: float = 2_500_000.0,
         selected_ammo: str = "auto",
         selected_food: str = "auto",
+        selected_weapon: str = "auto",
         battle_bonus: float = 84.0,
         custom_rank_bonus: Optional[float] = None,
         custom_prestige: Optional[int] = None,
         live_consumables: Optional[Dict[str, float]] = None,
+        saved_build: Optional[Dict[str, Any]] = None,
+        is_build_locked: bool = False,
     ) -> Dict[str, Any]:
         """
         Runs dual optimization to find the cheapest equipment setup that guarantees
@@ -271,8 +274,21 @@ class GearOptimizer:
             eval_ammos = ["lightAmmo", "ammo", "heavyAmmo"]
 
         # Weapons and Armor to evaluate: full spectrum from T2 to T6 without hardcoded restrictions
-        # Every tier is mathematically evaluated on its real damage, hits, and hunger cost
-        weapon_tier_choices = [2, 3, 4, 5, 6]
+        # If user explicitly selected a weapon, pin weapon search to that tier
+        w_sel = (selected_weapon or "auto").strip().lower()
+        if w_sel in ("sniper", "4", "t4"):
+            weapon_tier_choices = [4]
+        elif w_sel in ("tank", "5", "t5"):
+            weapon_tier_choices = [5]
+        elif w_sel in ("rifle", "3", "t3"):
+            weapon_tier_choices = [3]
+        elif w_sel in ("jet", "6", "t6"):
+            weapon_tier_choices = [6]
+        elif w_sel in ("gun", "2", "t2"):
+            weapon_tier_choices = [2]
+        else:
+            weapon_tier_choices = [2, 3, 4, 5, 6]
+
         armor_tier_choices = [2, 3, 4, 5, 6]
 
         valid_solutions: List[Dict[str, Any]] = []
@@ -514,9 +530,67 @@ class GearOptimizer:
         # Refine Minimum Roll Requirements for best solution
         refined_slots = self._format_and_refine_slots(best_sol, deficit_damage)
 
+        if saved_build and is_build_locked:
+            saved_strat = self._build_saved_strategy_dict(
+                saved_build=saved_build,
+                deficit_damage=deficit_damage,
+                pill_cost=pill_cost,
+                available_hunger=available_hunger,
+                case1_price=case1_price,
+                case2_price=case2_price,
+                scrap_price=scrap_price,
+                natural_hp_pool=natural_hp_pool,
+                health_max=health_max,
+                loot_chance_ratio=loot_chance_ratio,
+                target_damage=target_damage,
+                consumable_prices=consumable_prices,
+            )
+            best_strat = saved_strat
+            all_strats = [saved_strat] + [
+                self._build_strategy_dict(
+                    s,
+                    self._format_and_refine_slots(s, deficit_damage),
+                    pill_cost,
+                    deficit_damage,
+                    f"Альтернатива #{idx+1}",
+                    is_best=False,
+                    available_hunger=available_hunger,
+                    case1_price=case1_price,
+                    case2_price=case2_price,
+                )
+                for idx, s in enumerate(diverse_solutions)
+            ]
+        else:
+            best_strat = self._build_strategy_dict(
+                best_sol,
+                refined_slots,
+                pill_cost,
+                deficit_damage,
+                "Оптимальний мінімальний сет",
+                is_best=True,
+                available_hunger=available_hunger,
+                case1_price=case1_price,
+                case2_price=case2_price,
+            )
+            all_strats = [
+                self._build_strategy_dict(
+                    s,
+                    self._format_and_refine_slots(s, deficit_damage),
+                    pill_cost,
+                    deficit_damage,
+                    "Оптимальний мінімальний сет" if idx == 0 else f"Альтернатива #{idx}",
+                    is_best=(idx == 0),
+                    available_hunger=available_hunger,
+                    case1_price=case1_price,
+                    case2_price=case2_price,
+                )
+                for idx, s in enumerate(diverse_solutions)
+            ]
+
         # Build final formatted payload matching WarEra Suite schema
         return {
             "status": "ok",
+            "is_build_locked": bool(saved_build and is_build_locked),
             "player": {
                 "username": uname,
                 "level": lvl,
@@ -539,15 +613,10 @@ class GearOptimizer:
                 "today_damage": round(today_damage, 0),
                 "deficit_damage": round(deficit_damage, 0),
             },
-            "best_strategy": self._build_strategy_dict(best_sol, refined_slots, pill_cost, deficit_damage, "Оптимальний мінімальний сет", is_best=True, available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price),
-            "alternatives": [
-                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, f"Альтернатива #{idx+1}", is_best=False, available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price)
-                for idx, s in enumerate(diverse_solutions[1:4])
-            ],
-            "strategies": [
-                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, "Оптимальний мінімальний сет" if idx == 0 else f"Альтернатива #{idx}", is_best=(idx == 0), available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price)
-                for idx, s in enumerate(diverse_solutions)
-            ],
+            "best_strategy": best_strat,
+            "alternatives": all_strats[1:4],
+            "strategies": all_strats,
+            "consumable_prices": consumable_prices,
             "updated_at": market_cache.get("updated_at") or "",
         }
 
@@ -801,4 +870,191 @@ class GearOptimizer:
             "slots": slots,
             "slots_def": slots,
             "build_slots": build_slots,
+            "is_saved_build": False,
+            "sol_meta": {
+                "w_tier": sol["w_tier"], "w_code": sol["w_code"], "w_price": sol["w_price"],
+                "h_tier": sol["h_tier"], "h_code": sol["h_code"], "h_price": sol["h_price"],
+                "c_tier": sol["c_tier"], "c_code": sol["c_code"], "c_price": sol["c_price"],
+                "p_tier": sol["p_tier"], "p_code": sol["p_code"], "p_price": sol["p_price"],
+                "b_tier": sol["b_tier"], "b_code": sol["b_code"], "b_price": sol["b_price"],
+                "g_tier": sol["g_tier"], "g_code": sol["g_code"], "g_price": sol["g_price"],
+                "ammo_key": ammo_key, "food_key": food_key,
+                "avg_dmg_per_hit": sol["avg_dmg_per_hit"],
+                "hp_cost_per_hit": sol["hp_cost_per_hit"],
+                "eff_dodge_pct": sol.get("eff_dodge_pct", 0),
+                "eff_armor_pct": sol.get("eff_armor_pct", 0),
+                "eff_prec_ratio": sol.get("eff_prec_ratio", 1.0),
+                "weapons_needed": sol["weapons_needed"],
+                "armor_sets_needed": sol["armor_sets_needed"],
+            },
         }
+
+    def _build_saved_strategy_dict(
+        self,
+        saved_build: Dict[str, Any],
+        deficit_damage: float,
+        pill_cost: float,
+        available_hunger: float = 7.0,
+        case1_price: float = 3.89,
+        case2_price: float = 27.19,
+        scrap_price: float = 0.26,
+        natural_hp_pool: float = 150.0,
+        health_max: float = 150.0,
+        loot_chance_ratio: float = 0.05,
+        target_damage: float = 2_500_000.0,
+        consumable_prices: Optional[Dict[str, float]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Recalculates an existing locked/saved strategy for the active remaining deficit_damage.
+        Preserves the EXACT gear slots (weapon, armor tiers, rolls, ammo, food) selected by the user.
+        """
+        consumable_prices = consumable_prices or {}
+        sol_meta = saved_build.get("sol_meta") or {}
+
+        avg_dmg_per_hit = float(saved_build.get("avg_dmg_per_hit") or sol_meta.get("avg_dmg_per_hit") or 7000.0)
+        hp_cost_per_hit = float(saved_build.get("hp_cost_per_hit") or sol_meta.get("hp_cost_per_hit") or 35.0)
+        eff_dodge = float(saved_build.get("eff_dodge") or sol_meta.get("eff_dodge_pct") or 50.0)
+        eff_armor = float(saved_build.get("eff_armor") or sol_meta.get("eff_armor_pct") or 30.0)
+        eff_prec_ratio = float(saved_build.get("eff_precision") or sol_meta.get("eff_prec_ratio") or 1.0)
+
+        food_key = saved_build.get("food_key") or sol_meta.get("food_key") or "cookedFish"
+        food_spec = FOOD_SPECS.get(food_key, FOOD_SPECS["cookedFish"])
+        food_unit_price = float(consumable_prices.get(food_key) or saved_build.get("food_unit_price") or saved_build.get("food_price") or 10.0)
+
+        ammo_key = saved_build.get("ammo_key") or sol_meta.get("ammo_key") or "lightAmmo"
+        ammo_spec = AMMO_SPECS.get(ammo_key, AMMO_SPECS["lightAmmo"])
+        ammo_unit_price = float(consumable_prices.get(ammo_key) or saved_build.get("ammo_unit_price") or saved_build.get("ammo_price") or 0.5)
+
+        # Hits needed for remaining deficit
+        if deficit_damage > 0:
+            actual_hits = math.ceil(deficit_damage / max(1.0, avg_dmg_per_hit))
+        else:
+            actual_hits = 0
+
+        ammo_bullets_needed = actual_hits
+        ammo_cost = round(ammo_bullets_needed * ammo_unit_price, 2)
+
+        hp_per_food_unit = food_spec["hp_pct"] * health_max
+        total_hp_spent = actual_hits * hp_cost_per_hit
+        food_hp_needed = max(0.0, total_hp_spent - natural_hp_pool)
+        food_units_needed = math.ceil(food_hp_needed / hp_per_food_unit) if hp_per_food_unit > 0 else 0
+        food_cost = round(food_units_needed * food_unit_price, 2)
+
+        weapons_needed = math.ceil(actual_hits / 100.0) if actual_hits > 0 else (1 if deficit_damage > 0 else 0)
+        hits_per_armor_set = 100.0 / max(0.05, 1.0 - (eff_dodge / 100.0))
+        armor_sets_needed = math.ceil(actual_hits / hits_per_armor_set) if actual_hits > 0 else (1 if deficit_damage > 0 else 0)
+
+        # Clone and update build_slots
+        old_slots = saved_build.get("build_slots") or []
+        updated_slots = []
+        gear_purchase_cost = 0.0
+
+        w_tier = sol_meta.get("w_tier") or saved_build.get("tier_num") or 5
+        h_tier = sol_meta.get("h_tier", 4)
+        c_tier = sol_meta.get("c_tier", 4)
+        p_tier = sol_meta.get("p_tier", 4)
+        b_tier = sol_meta.get("b_tier", 5)
+        g_tier = sol_meta.get("g_tier", 5)
+
+        for slot_item in old_slots:
+            item = dict(slot_item)
+            s_type = item.get("slot")
+            u_price = float(item.get("unit_price") or 0.0)
+
+            if s_type == "weapon":
+                item["qty_needed"] = weapons_needed
+                item["total_price"] = round(weapons_needed * u_price, 2)
+                item["stat_badge"] = f"{weapons_needed} шт"
+                gear_purchase_cost += item["total_price"]
+            elif s_type in ("helmet", "chest", "pants", "boots", "gloves"):
+                item["qty_needed"] = armor_sets_needed
+                item["total_price"] = round(armor_sets_needed * u_price, 2)
+                gear_purchase_cost += item["total_price"]
+            elif s_type == "ammo":
+                item["qty_needed"] = ammo_bullets_needed
+                item["total_price"] = ammo_cost
+                item["unit_price"] = ammo_unit_price
+                item["stat_badge"] = f"{ammo_bullets_needed} шт"
+            elif s_type == "food":
+                item["qty_needed"] = food_units_needed
+                item["total_price"] = food_cost
+                item["unit_price"] = food_unit_price
+                item["stat_badge"] = f"{food_units_needed} шт"
+
+            updated_slots.append(item)
+
+        total_purchase_cost = round(gear_purchase_cost + ammo_cost + food_cost + pill_cost, 2)
+
+        # Durability & Economic recovery for remaining deficit
+        weapon_decay_ratio = actual_hits / 100.0
+        armor_decay_ratio = actual_hits / hits_per_armor_set if hits_per_armor_set > 0 else 0
+        weapon_price = float(sol_meta.get("w_price") or 40.0)
+        armor_price = float(sum(sol_meta.get(f"{k}_price", 20.0) for k in ["h", "c", "p", "b", "g"]))
+        amortized_gear_cost = (weapon_decay_ratio * weapon_price) + (armor_decay_ratio * armor_price)
+        amortized_gross_cost = amortized_gear_cost + ammo_cost + food_cost + pill_cost
+
+        weapon_scrap = SCRAP_RECOVERY_BY_TIER.get(w_tier, 0) * max(1, weapons_needed)
+        armor_scrap = (
+            SCRAP_RECOVERY_BY_TIER.get(h_tier, 0)
+            + SCRAP_RECOVERY_BY_TIER.get(c_tier, 0)
+            + SCRAP_RECOVERY_BY_TIER.get(p_tier, 0)
+            + SCRAP_RECOVERY_BY_TIER.get(b_tier, 0)
+            + SCRAP_RECOVERY_BY_TIER.get(g_tier, 0)
+        ) * max(1, armor_sets_needed)
+        total_scrap = weapon_scrap + armor_scrap
+        scrap_recovery_value = round(total_scrap * scrap_price, 2)
+
+        expected_regular_cases = round(actual_hits * eff_prec_ratio * loot_chance_ratio, 1)
+        expected_elite_cases = round(actual_hits * eff_prec_ratio * (loot_chance_ratio / 100.0), 2)
+        total_cases_value = round((expected_regular_cases * case1_price) + (expected_elite_cases * case2_price), 2)
+
+        net_cost = round(amortized_gross_cost - scrap_recovery_value - total_cases_value, 2)
+        cost_per_1m = round((net_cost / (deficit_damage / 1_000_000.0)), 2) if deficit_damage > 0 else 0.0
+
+        hunger_usage_pct = round((food_units_needed / max(0.1, available_hunger)) * 100.0, 1)
+
+        result_strat = dict(saved_build)
+        result_strat.update({
+            "is_saved_build": True,
+            "is_best_value": True,
+            "hits_needed": actual_hits,
+            "hits_planned": actual_hits,
+            "weapons_burned": weapons_needed,
+            "weapons_needed": weapons_needed,
+            "armor_sets_burned": armor_sets_needed,
+            "armor_sets_needed": armor_sets_needed,
+            "ammo_units_needed": ammo_bullets_needed,
+            "ammo_planned": ammo_bullets_needed,
+            "ammo_cost": ammo_cost,
+            "ammo_price": ammo_unit_price,
+            "ammo_unit_price": ammo_unit_price,
+            "food_units_needed": food_units_needed,
+            "food_planned": food_units_needed,
+            "food_cost": food_cost,
+            "food_price": food_unit_price,
+            "food_unit_price": food_unit_price,
+            "hunger_units_needed": food_units_needed,
+            "hunger_usage_pct": hunger_usage_pct,
+            "grand_total": total_purchase_cost,
+            "grand_total_cost": total_purchase_cost,
+            "net_cost": net_cost,
+            "net_profit": round(-net_cost, 2),
+            "cost_per_1m": cost_per_1m,
+            "cost_per_m_dmg": cost_per_1m,
+            "total_scrap": total_scrap,
+            "scrap_recovery_value": scrap_recovery_value,
+            "scrap_value": scrap_recovery_value,
+            "expected_regular_cases": expected_regular_cases,
+            "expected_case1": expected_regular_cases,
+            "expected_elite_cases": expected_elite_cases,
+            "expected_case2": expected_elite_cases,
+            "total_cases_value": total_cases_value,
+            "build_slots": updated_slots,
+            "reach_status": "ok" if hunger_usage_pct <= 100 else "over_cap",
+            "reach_badge": "✅ Досяжно" if hunger_usage_pct <= 100 else "❌ Переліміт голоду",
+            "reach_note": "1 сесія табла" if hunger_usage_pct <= 100 else "не вміститься в ліміт",
+            "initial_target_damage": saved_build.get("initial_target_damage") or target_damage,
+            "initial_grand_total": saved_build.get("initial_grand_total") or saved_build.get("grand_total_cost"),
+            "initial_hits": saved_build.get("initial_hits") or saved_build.get("hits_needed"),
+        })
+        return result_strat
