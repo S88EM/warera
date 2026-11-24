@@ -9,6 +9,7 @@ Can be executed manually, in CI/CD, or automatically via git pre-commit hook.
 
 import filecmp
 import os
+import re
 import shutil
 import stat
 import sys
@@ -117,8 +118,32 @@ def sync_codebase():
     return {"copied": copied, "updated": updated, "deleted": deleted}
 
 
+def bump_version():
+    """Increments patch version in warera_suite/config.yaml and APP_VERSION in api/config.py."""
+    suite_cfg = BASE_DIR / "warera_suite" / "config.yaml"
+    if suite_cfg.exists():
+        text = suite_cfg.read_text(encoding="utf-8")
+        m = re.search(r'^(version:\s*["\']?)(\d+)\.(\d+)\.(\d+)(["\']?)', text, re.M)
+        if m:
+            major, minor, patch = int(m.group(2)), int(m.group(3)), int(m.group(4)) + 1
+            new_ver = f"{major}.{minor}.{patch}"
+            text = text[:m.start()] + f"{m.group(1)}{new_ver}{m.group(5)}" + text[m.end():]
+            suite_cfg.write_text(text, encoding="utf-8")
+            print(f"🔖 [Version Bump] warera_suite/config.yaml -> {new_ver}")
+
+    api_cfg = API_DIR / "config.py"
+    if api_cfg.exists():
+        text = api_cfg.read_text(encoding="utf-8")
+        m = re.search(r'^(APP_VERSION\s*=\s*["\']b\.\d+\.)(\d+)(["\'])', text, re.M)
+        if m:
+            new_build = int(m.group(2)) + 1
+            text = text[:m.start()] + f"{m.group(1)}{new_build}{m.group(3)}" + text[m.end():]
+            api_cfg.write_text(text, encoding="utf-8")
+            print(f"🔖 [Version Bump] api/config.py -> b.0001.{new_build}")
+
+
 def install_git_hook():
-    """Installs or updates .git/hooks/pre-commit to auto-run sync_suite.py."""
+    """Installs or updates .git/hooks/pre-commit to auto-bump version (if not staged) and sync_suite.py."""
     git_dir = BASE_DIR / ".git"
     if not git_dir.exists() or not git_dir.is_dir():
         return
@@ -128,9 +153,13 @@ def install_git_hook():
     hook_file = hooks_dir / "pre-commit"
 
     hook_script = """#!/bin/sh
-# Auto-sync api/ to warera_suite/api/ before committing
-python3 sync_suite.py 2>/dev/null || python sync_suite.py 2>/dev/null || py sync_suite.py 2>/dev/null
-git add warera_suite/api/ warera_suite/requirements.txt 2>/dev/null
+# Auto-bump HA add-on version if warera_suite/config.yaml was not already bumped, and sync api/ -> warera_suite/api/
+BUMP_FLAG=""
+if ! git diff --cached --name-only | grep -q "^warera_suite/config.yaml$"; then
+    BUMP_FLAG="--bump"
+fi
+python3 sync_suite.py $BUMP_FLAG 2>/dev/null || python sync_suite.py $BUMP_FLAG 2>/dev/null || py sync_suite.py $BUMP_FLAG 2>/dev/null
+git add warera_suite/config.yaml api/config.py warera_suite/api/ warera_suite/requirements.txt 2>/dev/null
 exit 0
 """
     try:
@@ -138,12 +167,14 @@ exit 0
         # Make executable
         st = hook_file.stat()
         hook_file.chmod(st.st_mode | stat.S_IEXEC)
-        print("✓ [Git Hook] Встановлено автоматичний pre-commit hook для синхронізації")
+        print("✓ [Git Hook] Встановлено автоматичний pre-commit hook для синхронізації та версіонування")
     except Exception as e:
         print(f"⚠️ Не вдалося записати git hook: {e}")
 
 
 if __name__ == "__main__":
+    if "--bump" in sys.argv:
+        bump_version()
     sync_codebase()
     if "--install-hook" in sys.argv or not (BASE_DIR / ".git" / "hooks" / "pre-commit").exists():
         install_git_hook()
