@@ -207,6 +207,7 @@ class WarEraClanAnalyzer:
             uid = m.get("_id")
             uname = m.get("username", "Unknown")
             lvl = m.get("leveling", {}).get("level", 1)
+            prestige = int(m.get("leveling", {}).get("prestige") or m.get("leveling", {}).get("prestigeLevel") or m.get("prestige", 0) or 0)
             skills = m.get("skills", {})
             dates = m.get("dates", {})
             rankings = m.get("rankings", {})
@@ -608,6 +609,7 @@ class WarEraClanAnalyzer:
                 "user_id": uid,
                 "username": uname,
                 "level": lvl,
+                "prestige": prestige,
                 "avatar_url": m.get("avatarUrl", ""),
                 "military_rank": m.get("militaryRank", 0),
                 "clan_role": clan_role,

@@ -691,7 +691,10 @@
                                         <span class="text-[10px] hidden xl:inline">Ціль</span>
                                     </button>
                                 </div>
-                                <div class="text-[10px] text-gray-400">Ранг ${m.military_rank}</div>
+                                <div class="text-[10px] text-gray-400 flex items-center gap-1.5">
+                                    <span>Ранг ${m.military_rank}</span>
+                                    ${m.prestige ? `<span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">+⭐${m.prestige}</span>` : ''}
+                                </div>
                             </div>
                         </div>
                     </td>
@@ -866,6 +869,7 @@
                                     <span class="${roleColor} font-medium">${m.role_label}</span>
                                     <span>•</span>
                                     <span class="text-[10px]">Ранг ${m.military_rank}</span>
+                                    ${m.prestige ? `<span>•</span><span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">⭐${m.prestige}</span>` : ''}
                                     <span>•</span>
                                     <span class="${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-400'}">${m.last_seen_label}</span>
                                 </div>
@@ -1222,6 +1226,12 @@
             activeCalcPrestige = isNaN(parsed) ? 0 : Math.max(0, parsed);
             const badge = document.getElementById('calcPrestigeBadge');
             if (badge) badge.innerText = `⭐ Престиж: ${activeCalcPrestige}`;
+            const prestigeAutoLabel = document.getElementById('calcPrestigeAutoLabel');
+            if (prestigeAutoLabel && activeCalcMember) {
+                const diff = activeCalcPrestige !== (activeCalcMember.prestige || 0);
+                prestigeAutoLabel.innerText = diff ? `⚠️ симуляція` : `✓ з гри: ${activeCalcMember.prestige || 0}`;
+                prestigeAutoLabel.className = diff ? `text-[10px] text-amber-400 font-mono font-semibold` : `text-[10px] text-purple-400 font-mono font-semibold`;
+            }
 
             clearTimeout(calcPrestigeDebounce);
             calcPrestigeDebounce = setTimeout(() => {
@@ -1236,6 +1246,12 @@
             const rankEl = document.getElementById('calcUserRank');
             if (rankEl && activeCalcMember) {
                 rankEl.innerText = `Ранг ${activeCalcMember.military_rank || 0} (+${activeCalcRankBonus}%)`;
+            }
+            const rankAutoLabel = document.getElementById('calcRankAutoLabel');
+            if (rankAutoLabel && activeCalcMember) {
+                const diff = Math.abs(activeCalcRankBonus - (activeCalcMember.rank_bonus_pct || 0)) > 0.01;
+                rankAutoLabel.innerText = diff ? `⚠️ симуляція` : `✓ з гри: +${activeCalcMember.rank_bonus_pct || 0}%`;
+                rankAutoLabel.className = diff ? `text-[10px] text-amber-400 font-mono font-semibold` : `text-[10px] text-emerald-400 font-mono font-semibold`;
             }
 
             clearTimeout(calcRankBonusDebounce);
@@ -1299,6 +1315,18 @@
 
             const rankBonusInput = document.getElementById('calcRankBonusInput');
             if (rankBonusInput) rankBonusInput.value = activeCalcRankBonus;
+
+            const rankAutoLabel = document.getElementById('calcRankAutoLabel');
+            if (rankAutoLabel) {
+                rankAutoLabel.innerText = `✓ з гри: +${activeCalcRankBonus}%`;
+                rankAutoLabel.className = 'text-[10px] text-emerald-400 font-mono font-semibold';
+            }
+
+            const prestigeAutoLabel = document.getElementById('calcPrestigeAutoLabel');
+            if (prestigeAutoLabel) {
+                prestigeAutoLabel.innerText = `✓ з гри: ${activeCalcPrestige}`;
+                prestigeAutoLabel.className = 'text-[10px] text-purple-400 font-mono font-semibold';
+            }
 
             // Reset ammo and food buttons
             updateAmmoSelectorUI();
@@ -1963,10 +1991,10 @@
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block text-gray-400 text-[11px] font-bold uppercase">🎖 Ранг бонус (%):</label>
-                                <span class="text-[10px] text-gray-500 font-mono">без ліміту</span>
+                                <span id="calcRankAutoLabel" class="text-[10px] text-emerald-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
                             </div>
                             <div class="relative">
-                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-indigo-500/60 rounded-xl px-3 py-2.5 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-indigo-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Військовий ранг (без обмежень, наприклад 52.5% чи 75%)">
+                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-indigo-500/60 rounded-xl px-3 py-2.5 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-indigo-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
                                 <span class="absolute right-2.5 top-2.5 text-indigo-400 font-mono text-xs font-bold">%</span>
                             </div>
                         </div>
@@ -1975,10 +2003,10 @@
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block text-gray-400 text-[11px] font-bold uppercase">⭐ Престиж (+SP):</label>
-                                <span class="text-[10px] text-gray-500 font-mono">+1 SP / рвн</span>
+                                <span id="calcPrestigeAutoLabel" class="text-[10px] text-purple-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
                             </div>
                             <div class="relative">
-                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-purple-500/60 rounded-xl px-3 py-2.5 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-purple-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Очки престижу додають додаткові очки навичок">
+                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-purple-500/60 rounded-xl px-3 py-2.5 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-purple-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
                                 <span class="absolute right-2.5 top-2.5 text-purple-400 font-mono text-xs font-bold">SP</span>
                             </div>
                         </div>
