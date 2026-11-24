@@ -378,8 +378,8 @@ class GearOptimizer:
                                     armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
                                     dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
 
-                                    # Damage taken per hit (calibrated base cost 6.5 HP as in clan_analyzer.py)
-                                    hp_cost_per_hit = max(0.80, 6.5 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
+                                    # Damage taken per hit (canonical WarEra formula: base cost 10.0 HP)
+                                    hp_cost_per_hit = max(0.50, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
 
                                     # Armor set durability lifetime (Dodge protection)
                                     hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
@@ -390,7 +390,8 @@ class GearOptimizer:
                                         food_unit_price = float(consumable_prices.get(food_key, food_spec["default_price"]))
 
                                         hp_per_food_unit = food_hp_pct * health_max
-                                        max_food_hp = available_hunger * hp_per_food_unit
+                                        max_food_units = math.floor(available_hunger)
+                                        max_food_hp = max_food_units * hp_per_food_unit
                                         total_hp_capacity = natural_hp_pool + max_food_hp
                                         max_possible_hits = math.floor(total_hp_capacity / hp_cost_per_hit)
                                         max_possible_damage = max_possible_hits * avg_dmg_per_hit
@@ -407,6 +408,8 @@ class GearOptimizer:
                                         total_hp_spent = actual_hits * hp_cost_per_hit
                                         food_hp_needed = max(0.0, total_hp_spent - natural_hp_pool)
                                         food_units_needed = math.ceil(food_hp_needed / hp_per_food_unit) if hp_per_food_unit > 0 else 0
+                                        if food_units_needed > max_food_units:
+                                            continue
                                         food_cost = food_units_needed * food_unit_price
 
                                         ammo_bullets_needed = actual_hits

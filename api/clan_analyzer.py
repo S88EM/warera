@@ -369,19 +369,16 @@ class WarEraClanAnalyzer:
             game_armor_softcap = float(skills.get("armor", {}).get("totalAfterSoftCap", 0))
             game_dodge_softcap = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
 
-            # Apply WarEra soft cap curve (soft cap at 40%, 50% efficiency above 40%)
-            # Includes server passive defense (+13% from country / MU defense)
-            calc_armor_softcap = min(total_raw_armor + 13.0, 40.0) + max(0.0, total_raw_armor + 13.0 - 40.0) * 0.5
-            calc_dodge_softcap = min(total_raw_dodge + 13.0, 40.0) + max(0.0, total_raw_dodge + 13.0 - 40.0) * 0.5
+            # Exact WarEra diminishing returns (canonical formula from game client)
+            armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
+            dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
 
-            eff_armor_pct = max(game_armor_softcap, calc_armor_softcap)
-            eff_dodge_pct = max(game_dodge_softcap, calc_dodge_softcap)
+            eff_armor_pct = armor_reduction * 100.0
+            eff_dodge_pct = dodge_fraction * 100.0
 
-            # Effective HP cost per hit (calibrated to live WarEra combat empirical data: ~1.25-1.30 HP with 64% armor / 45% dodge)
-            # Empirical proof: GeF dealt 2.43M in round #6b03e1a2 (~255 hits) from 336 initial HP pool -> ~1.29 HP cost per hit
-            base_hit_cost = 6.5 # calibrated from live combat empirical data
-            hp_cost_per_hit = base_hit_cost * (1.0 - (eff_armor_pct / 100.0)) * (1.0 - (eff_dodge_pct / 100.0))
-            hp_cost_per_hit = max(hp_cost_per_hit, 0.8) # floor at 0.8 HP cost
+            # Effective HP cost per hit (canonical WarEra game formula: base 10.0 HP)
+            base_hit_cost = 10.0
+            hp_cost_per_hit = max(0.5, base_hit_cost * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
 
             # Hits per day from natural HP pool
             hits_per_day_natural = daily_hp_pool / hp_cost_per_hit

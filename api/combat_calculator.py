@@ -626,7 +626,7 @@ class CombatDamageCalculator:
                         sim_dmg = round((eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * battle_mult, 1)
                     else:
                         sim_dmg = 0.0
-                        sim_hp_cost = 6.5
+                        sim_hp_cost = 10.0
                         eff_dodge = float(skills.get("dodge", {}).get("totalAfterSoftCap", 0))
                         eff_armor = float(skills.get("armor", {}).get("totalAfterSoftCap", 0)) or 24.0
                         eff_prec_ratio = 0.5
