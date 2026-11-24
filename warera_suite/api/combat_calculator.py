@@ -193,6 +193,7 @@ class CombatDamageCalculator:
         selected_ammo: str = "auto",
         custom_food_key: Optional[str] = None,
         battle_bonus: float = 50.0,
+        live_consumables: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
         """
         Calculates all viable combat strategies (Current, T3, T4, Hybrid, T5, T6)
@@ -201,14 +202,24 @@ class CombatDamageCalculator:
         2. Armor durability loss attenuated by dodge chance (1 set = 200-250+ hits).
         3. Ammo type and consumption (1 ammo per hit).
         4. Food units vs character hunger capacity per session.
-        5. Live market prices.
+        5. Live market prices for consumables (cases, food, ammo, pill).
         6. Dynamic battle bonus multiplier (e.g. +50%, +84%, +100%).
         """
         battle_bonus_val = max(0.0, float(battle_bonus if battle_bonus is not None else 50.0))
         battle_mult = 1.0 + (battle_bonus_val / 100.0)
         market_cache = load_market_cheapest_cache()
         cached_items = market_cache.get("items", {})
-        consumable_prices = market_cache.get("consumables", {})
+        consumable_prices = dict(market_cache.get("consumables", {}))
+
+        # Merge live market prices if provided
+        if live_consumables and isinstance(live_consumables, dict):
+            for k, v in live_consumables.items():
+                try:
+                    vf = float(v)
+                    if vf > 0:
+                        consumable_prices[k] = round(vf, 3)
+                except (ValueError, TypeError):
+                    pass
 
         uname = player_member.get("username", "Боєць")
         lvl = player_member.get("level", 1)
@@ -1142,9 +1153,6 @@ class CombatDamageCalculator:
                 valid_non_naked[0]["is_best_value"] = True
             elif evaluated_options:
                 evaluated_options[0]["is_best_value"] = True
-                valid_non_naked[0]["is_best_value"] = True
-            elif evaluated_options:
-                evaluated_options[0]["is_best_value"] = True
 
         return {
             "player": {
@@ -1169,6 +1177,7 @@ class CombatDamageCalculator:
                 "battle_bonus": battle_bonus_val,
                 "battle_multiplier": round(battle_mult, 3),
             },
+            "consumable_prices": consumable_prices,
             "strategies": evaluated_options,
             "best_strategy": next((o for o in evaluated_options if o.get("is_best_value")), None) or (feasible_opts[0] if feasible_opts else evaluated_options[0]),
             "updated_at": datetime.now(timezone.utc).isoformat(),

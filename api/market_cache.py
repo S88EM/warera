@@ -25,16 +25,31 @@ CACHE_FILE_NAME = "market_cheapest_cache.json"
 TARGET_QUALITIES = ["rare", "epic", "legendary", "mythic"]
 
 # Key combat consumables in WarEra
-CONSUMABLE_KEYS = ["cookedFish", "fish", "steak", "bread", "cocain", "scrap", "case1", "case2"]
+CONSUMABLE_KEYS = [
+    "cookedFish",
+    "fish",
+    "steak",
+    "bread",
+    "cocain",
+    "scrap",
+    "case1",
+    "case2",
+    "lightAmmo",
+    "ammo",
+    "heavyAmmo",
+]
 DEFAULT_CONSUMABLE_PRICES = {
-    "cookedFish": 7.74,
-    "fish": 3.93,
-    "steak": 3.03,
+    "cookedFish": 7.85,
+    "fish": 3.98,
+    "steak": 3.05,
     "bread": 1.40,
     "cocain": 34.80,
     "scrap": 0.26,
     "case1": 3.89,
-    "case2": 27.19,
+    "case2": 26.92,
+    "lightAmmo": 0.20,
+    "ammo": 0.84,
+    "heavyAmmo": 3.08,
 }
 
 
@@ -159,6 +174,47 @@ def save_market_cheapest_cache(
             temp_path.unlink()
 
     return cache_path
+
+
+def update_cached_consumables(consumable_prices: Dict[str, float]) -> Dict[str, float]:
+    """
+    Atomically updates cached consumable prices in market_cheapest_cache.json
+    without touching equipment offers. Returns the updated consumables dictionary.
+    """
+    cache_path = get_cache_path()
+    existing = load_market_cheapest_cache()
+    consumables_cache = existing.get("consumables", dict(DEFAULT_CONSUMABLE_PRICES))
+
+    updated_any = False
+    if consumable_prices and isinstance(consumable_prices, dict):
+        for c_key in CONSUMABLE_KEYS:
+            if c_key in consumable_prices:
+                try:
+                    p = float(consumable_prices[c_key])
+                    if p > 0:
+                        consumables_cache[c_key] = round(p, 3)
+                        updated_any = True
+                except (ValueError, TypeError):
+                    pass
+
+    if updated_any:
+        payload = {
+            "updated_at": existing.get("updated_at") or datetime.now(timezone.utc).isoformat(),
+            "items": existing.get("items", {}),
+            "consumables": consumables_cache,
+        }
+        temp_path = cache_path.with_suffix(".tmp")
+        try:
+            temp_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            temp_path.replace(cache_path)
+        except Exception as e:
+            logger.error(f"Error updating cached consumables: {e}")
+            if temp_path.exists():
+                temp_path.unlink()
+
+    return consumables_cache
 
 
 def load_market_cheapest_cache() -> Dict[str, Any]:

@@ -156,8 +156,28 @@ async def handle_calculator(request: web.Request) -> web.Response:
     gear_tier = request.query.get("gear", "epic").lower()
 
     try:
+        from warera_client import WarEraClient
+        from market_cache import update_cached_consumables
+
+        client = WarEraClient()
         clan_analyzer = WarEraClanAnalyzer()
-        clan_data = await clan_analyzer.analyze_clan()
+
+        # Concurrently fetch clan telemetry and live market commodity prices (cases, ammo, food, pill)
+        clan_task = clan_analyzer.analyze_clan()
+        prices_task = client.get_prices()
+        clan_data, raw_market_prices = await asyncio.gather(clan_task, prices_task, return_exceptions=True)
+
+        if isinstance(clan_data, Exception):
+            raise clan_data
+
+        live_consumables = {}
+        if isinstance(raw_market_prices, dict) and raw_market_prices:
+            try:
+                live_consumables = update_cached_consumables(raw_market_prices)
+            except Exception as cache_err:
+                logger.warning(f"Failed to update cached consumables: {cache_err}")
+                live_consumables = raw_market_prices
+
         members = clan_data.get("members", [])
         target_member = None
         if user_nick:
@@ -187,6 +207,7 @@ async def handle_calculator(request: web.Request) -> web.Response:
             selected_ammo=selected_ammo,
             custom_food_key=custom_food_key,
             battle_bonus=battle_bonus,
+            live_consumables=live_consumables if isinstance(live_consumables, dict) else None,
         )
         return web.json_response({
             "status": "ok",
