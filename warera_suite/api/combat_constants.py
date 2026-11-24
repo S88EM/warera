@@ -106,6 +106,26 @@ def merge_live_consumables(
     return consumable_prices
 
 
+# Empirically calibrated from 498 hits -> 78 Case I (15.66%), 2 Case II (0.40%) at 17% Loot, 98% Precision
+CASE1_DROP_FACTOR = 0.94
+CASE2_DROP_FACTOR = 0.024
+
+
+def estimate_expected_cases(
+    hits: int,
+    loot_chance_ratio: float,
+    eff_prec_ratio: float,
+) -> tuple[float, float]:
+    """Returns (expected_case1, expected_case2) for a given hit count, loot chance, and precision."""
+    if hits <= 0:
+        return 0.0, 0.0
+    eff_loot_ratio = max(0.05, float(loot_chance_ratio))
+    prec = max(0.0, float(eff_prec_ratio))
+    expected_case1 = round(hits * eff_loot_ratio * CASE1_DROP_FACTOR * prec, 2)
+    expected_case2 = round(hits * eff_loot_ratio * CASE2_DROP_FACTOR * prec, 3)
+    return expected_case1, expected_case2
+
+
 def extract_player_combat_profile(
     player_member: Dict[str, Any],
     custom_rank_bonus: Optional[float] = None,

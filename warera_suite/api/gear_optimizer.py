@@ -45,6 +45,7 @@ try:
         TIER_NAMES,
         merge_live_consumables,
         extract_player_combat_profile,
+        estimate_expected_cases,
     )
 except ImportError:
     from api.market_cache import load_market_cheapest_cache
@@ -64,6 +65,7 @@ except ImportError:
         TIER_NAMES,
         merge_live_consumables,
         extract_player_combat_profile,
+        estimate_expected_cases,
     )
 
 logger = logging.getLogger("WarEraGearOptimizer")
@@ -379,8 +381,9 @@ class GearOptimizer:
                                         total_scrap = weapon_scrap + armor_scrap
                                         scrap_recovery_value = total_scrap * scrap_price
 
-                                        expected_regular_cases = actual_hits * eff_prec_ratio * loot_chance_ratio
-                                        expected_elite_cases = actual_hits * eff_prec_ratio * (loot_chance_ratio / 100.0)
+                                        expected_regular_cases, expected_elite_cases = estimate_expected_cases(
+                                            actual_hits, loot_chance_ratio, eff_prec_ratio
+                                        )
                                         case_recovery_value = (expected_regular_cases * case1_price) + (expected_elite_cases * case2_price)
 
                                         net_cost = amortized_gross_cost - scrap_recovery_value - case_recovery_value
@@ -932,8 +935,11 @@ class GearOptimizer:
         total_scrap = weapon_scrap + armor_scrap
         scrap_recovery_value = round(total_scrap * scrap_price, 2)
 
-        expected_regular_cases = round(actual_hits * eff_prec_ratio * loot_chance_ratio, 1)
-        expected_elite_cases = round(actual_hits * eff_prec_ratio * (loot_chance_ratio / 100.0), 2)
+        expected_regular_cases, expected_elite_cases = estimate_expected_cases(
+            actual_hits, loot_chance_ratio, eff_prec_ratio
+        )
+        expected_regular_cases = round(expected_regular_cases, 1)
+        expected_elite_cases = round(expected_elite_cases, 2)
         total_cases_value = round((expected_regular_cases * case1_price) + (expected_elite_cases * case2_price), 2)
 
         net_cost = round(amortized_gross_cost - scrap_recovery_value - total_cases_value, 2)

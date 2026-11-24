@@ -41,7 +41,7 @@ warera.tar.gz
 warera_suite_ha_addon.zip
 
 # Local test and debug scripts
-test_*.py
+/test_*.py
 api/test_*.py
 warera_suite/api/test_*.py
 

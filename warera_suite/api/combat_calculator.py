@@ -23,6 +23,7 @@ from combat_constants import (
     DEFAULT_MARKET_PRICES,
     merge_live_consumables,
     extract_player_combat_profile,
+    estimate_expected_cases,
 )
 
 logger = logging.getLogger("WarEraCombatCalculator")
@@ -1036,12 +1037,9 @@ class CombatDamageCalculator:
                         b_tier = EQUIPMENT_METADATA.get(s_def.get("boots_code", "boots4"), {}).get("tier", 4)
 
                     # --- Economic income & Net profit calculations (Athena & Intel Builder engine) ---
-                    # 1. Expected Case Drops (Empirically calibrated from Luc1fer field tests: 498 hits -> 78 Case I (15.66%), 2 Case II (0.40%) at 17% Loot)
-                    # Case I drop rate scales directly with player's Loot Chance (~92% efficiency of loot stat)
-                    # Case II (Elite) drop rate is ~2.5% of Case I drop rate (or ~0.40% of hits at 17% Loot)
-                    eff_loot_ratio = max(0.05, loot_chance_ratio)
-                    expected_case1 = round(hits_needed * eff_loot_ratio * 0.92 * eff_prec_ratio, 2) if hits_needed > 0 else 0.0
-                    expected_case2 = round(hits_needed * eff_loot_ratio * 0.024 * eff_prec_ratio, 3) if hits_needed > 0 else 0.0
+                    expected_case1, expected_case2 = estimate_expected_cases(
+                        hits_needed, loot_chance_ratio, eff_prec_ratio
+                    )
                     case1_val = round(expected_case1 * case1_price, 2)
                     case2_val = round(expected_case2 * case2_price, 2)
                     total_cases_val = round(case1_val + case2_val, 2)
