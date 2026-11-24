@@ -1085,6 +1085,11 @@
                 activeIsBuildLocked = !!activeCalcData.is_build_locked;
                 activeSelectedStrat = activeCalcData.best_strategy;
                 renderCalculatorUI(activeCalcData);
+
+                // Auto-lock freshly calculated build so reopening the modal keeps the exact same build
+                if (!activeIsBuildLocked && activeSelectedStrat) {
+                    await saveCurrentTarget(false, true);
+                }
             } catch (err) {
                 console.error('Calculator fetch error:', err);
                 if (optimalCard) {
@@ -1558,7 +1563,7 @@
             }
         }
 
-        async function saveCurrentTarget(andClose = true) {
+        async function saveCurrentTarget(andClose = true, silent = false) {
             if (!activeCalcMember) return;
             const btn = document.getElementById('btnSaveTarget');
             if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Збереження...`;
@@ -1625,8 +1630,10 @@
                 activeCalcMember.target_progress_pct = Math.round(Math.min(100.0, (todayVal / activeCalcTarget) * 100.0) * 10) / 10;
 
                 renderMembersTable();
-                const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
-                showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+                if (!silent) {
+                    const stratLabel = stratToSave ? ` та білд "${stratToSave.label}"` : '';
+                    showToast(`Ціль ${formatMillions(activeCalcTarget)}${stratLabel} збережено!`);
+                }
 
                 if (andClose) {
                     closeTargetCalculator();
@@ -1636,7 +1643,7 @@
                 }
             } catch (err) {
                 console.error('Save target error:', err);
-                showToast(`Помилка: ${err.message}`, false);
+                if (!silent) showToast(`Помилка: ${err.message}`, false);
             } finally {
                 if (btn) btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Зберегти ціль`;
             }
