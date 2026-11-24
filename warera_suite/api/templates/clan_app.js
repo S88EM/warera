@@ -1247,21 +1247,6 @@
                             </div>
                         </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
-                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
-                            </div>
-
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
-                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
-                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
-                                </div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
-                            </div>
-                        </div>
-
                         <!-- 2 Economics & Loot Badges (Athena & Intel Builder engine: Cases & Scrap) -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-bordercolor/40">
                             <!-- Expected Cases Drop -->
@@ -1551,45 +1536,22 @@
                 }
             }
 
-            // Consumables Breakdown
+            // Pill status strip (Ammo and Food are already shown in the 8-slot grid above)
             const consGrid = document.getElementById('calcConsumablesGrid');
             if (consGrid) {
+                const needPill = strat.pill_cost > 0;
                 consGrid.innerHTML = `
-                    <!-- Ammo Box -->
-                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
-                            <div class="text-xs font-bold text-white mt-0.5">${strat.ammo_badge}</div>
-                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${formatNumber(strat.ammo_units_needed)} пострілів @ ${strat.ammo_price} ₴</div>
-                        </div>
-                        <div class="text-right font-mono font-bold text-xs text-amber-400 mt-2 border-t border-bordercolor/40 pt-1">
-                            ${formatNumber(strat.ammo_cost)} ₴
-                        </div>
-                    </div>
-
-                    <!-- Food Box -->
-                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-400">${strat.food_icon} Їжа</div>
-                            <div class="text-xs font-bold text-white mt-0.5">${strat.food_name}</div>
-                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.food_units_needed} шт @ ${strat.food_unit_price} ₴</div>
-                        </div>
-                        <div class="text-right font-mono font-bold text-xs text-sky-400 mt-2 border-t border-bordercolor/40 pt-1">
-                            ${formatNumber(strat.food_cost)} ₴
-                        </div>
-                    </div>
-
-                    <!-- Pill Box -->
-                    <div class="glass-panel p-3 rounded-xl border border-bordercolor flex flex-col justify-between">
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-gray-400">💊 Таблетка (Cocain)</div>
-                            <div class="text-xs font-bold ${strat.pill_cost > 0 ? 'text-white' : 'text-emerald-400'} mt-0.5">
-                                ${strat.pill_cost > 0 ? 'Потрібно докупити' : 'Вже активна на бійці'}
+                    <div class="glass-panel px-3.5 py-2.5 rounded-xl border ${needPill ? 'border-rose-500/30 bg-rose-950/15' : 'border-emerald-500/30 bg-emerald-950/15'} flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="text-base">💊</span>
+                            <div class="min-w-0">
+                                <div class="text-xs font-bold ${needPill ? 'text-white' : 'text-emerald-300'}">
+                                    Таблетка (Cocain): ${needPill ? 'потрібно докупити (1 шт на 8 год, +60%)' : 'вже активна на бійці'}
+                                </div>
                             </div>
-                            <div class="text-[10px] text-gray-400 mt-1 font-mono">${strat.pill_cost > 0 ? '1 шт на 8 годин (+60%)' : 'Діє до кінця сесії (0 ₴)'}</div>
                         </div>
-                        <div class="text-right font-mono font-bold text-xs text-rose-300 mt-2 border-t border-bordercolor/40 pt-1">
-                            ${strat.pill_cost > 0 ? `${strat.pill_cost} ₴` : '0.00 ₴'}
+                        <div class="font-mono font-bold text-xs ${needPill ? 'text-rose-300' : 'text-emerald-400'} shrink-0">
+                            ${needPill ? `${strat.pill_cost} ₴` : '0.00 ₴'}
                         </div>
                     </div>
                 `;

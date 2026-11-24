@@ -417,48 +417,48 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
                         <!-- Target Damage Input (Millions) -->
                         <div class="col-span-1 sm:col-span-2 lg:col-span-1">
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎯 Бажаний урон:</label>
-                                <span id="calcTargetHint" class="text-[11px] font-mono text-emerald-400 font-bold">= 4 000 000 дамагу</span>
+                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">🎯 Бажаний урон</label>
+                                <span id="calcTargetHint" class="text-[10px] font-mono text-emerald-400 font-bold whitespace-nowrap">= 4 000 000</span>
                             </div>
                             <div class="relative">
-                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-blue-500/40 rounded-xl px-3 py-2.5 text-white font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="4" oninput="onCalcTargetInput(this.value)">
-                                <span class="absolute right-3 top-2.5 text-gray-400 font-mono text-xs font-bold">M дамагу</span>
+                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-white font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="4" oninput="onCalcTargetInput(this.value)">
+                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">M</span>
                             </div>
                         </div>
 
                         <!-- Battle Bonus Input (%) -->
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-gray-400 text-[11px] font-bold uppercase">⚔️ Бонус битви (%):</label>
+                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">⚔️ Бонус битви</label>
                             </div>
                             <div class="relative">
-                                <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-amber-500/60 rounded-xl px-3 py-2.5 text-center text-amber-400 font-mono text-sm font-bold focus:outline-none focus:border-amber-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
-                                <span class="absolute right-2.5 top-2.5 text-amber-400 font-mono text-xs font-bold">%</span>
+                                <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-amber-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
+                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">%</span>
                             </div>
                         </div>
 
                         <!-- Military Rank Bonus Input (%) - UNBOUNDED -->
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-gray-400 text-[11px] font-bold uppercase">🎖 Ранг бонус (%):</label>
+                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">🎖 Ранг бонус</label>
                                 <span id="calcRankAutoLabel" class="text-[10px] text-emerald-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
                             </div>
                             <div class="relative">
-                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-indigo-500/60 rounded-xl px-3 py-2.5 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-indigo-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
-                                <span class="absolute right-2.5 top-2.5 text-indigo-400 font-mono text-xs font-bold">%</span>
+                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
+                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">%</span>
                             </div>
                         </div>
 
                         <!-- Prestige Input -->
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-gray-400 text-[11px] font-bold uppercase">⭐ Престиж (+SP):</label>
+                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">⭐ Престиж</label>
                                 <span id="calcPrestigeAutoLabel" class="text-[10px] text-purple-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
                             </div>
                             <div class="relative">
-                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-purple-500/60 rounded-xl px-3 py-2.5 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-purple-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
-                                <span class="absolute right-2.5 top-2.5 text-purple-400 font-mono text-xs font-bold">SP</span>
+                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
+                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">SP</span>
                             </div>
                         </div>
                     </div>
@@ -533,12 +533,39 @@
                     </div>
                 </div>
 
-                <!-- 2. Optimal Best Strategy Highlight Card (Only the best profitable one!) -->
+                <!-- 2. Optimal Best Strategy Highlight Card -->
                 <div id="calcOptimalCard">
                     <!-- Populated by JS -->
                 </div>
 
-                <!-- Collapsible Alternative Strategies Table (Optional) -->
+                <!-- 3. Smart 8-Slot RPG Build Visualizer & Durability Eco Advice -->
+                <div class="space-y-3" id="calcShoppingSection">
+                    <div class="flex items-center justify-between border-b border-bordercolor/60 pb-2">
+                        <div>
+                            <div class="font-bold text-gray-200 text-xs sm:text-sm flex items-center gap-2">
+                                <span>🎒 Оптимальний білд та спорядження (8 слотів):</span>
+                                <span id="calcSelectedStratLabel" class="text-blue-400 font-mono text-xs">...</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-0.5">Цільові стати ролів для купівлі на ринку та реальний знос (100 ударів/зброя, броня захищена ухиленням).</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-gray-400 text-[10px] block">Бюджет операції:</span>
+                            <span id="calcSelectedGrandTotal" class="text-base sm:text-lg font-black text-emerald-400 font-mono">0.00 ₴</span>
+                        </div>
+                    </div>
+
+                    <!-- 8-Slot Grid / Cards (4x2 RPG layout) -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3" id="calcGearSlotsGrid">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Pill Status Strip -->
+                    <div class="pt-1" id="calcConsumablesGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 4. Collapsible Alternative Strategies Table (Optional) -->
                 <details class="group bg-cardbg/40 rounded-xl border border-bordercolor/60 overflow-hidden">
                     <summary class="p-3 text-xs text-gray-400 hover:text-white font-medium cursor-pointer flex items-center justify-between transition-colors select-none">
                         <div class="flex items-center gap-2">
@@ -571,33 +598,6 @@
                         </table>
                     </div>
                 </details>
-
-                <!-- 3. Smart 8-Slot RPG Build Visualizer & Durability Eco Advice -->
-                <div class="space-y-3" id="calcShoppingSection">
-                    <div class="flex items-center justify-between border-b border-bordercolor/60 pb-2">
-                        <div>
-                            <div class="font-bold text-gray-200 text-xs sm:text-sm flex items-center gap-2">
-                                <span>🎒 Оптимальний білд та спорядження (8 слотів):</span>
-                                <span id="calcSelectedStratLabel" class="text-blue-400 font-mono text-xs">...</span>
-                            </div>
-                            <div class="text-[11px] text-gray-400 mt-0.5">Цільові стати ролів для купівлі на ринку та реальний знос (100 ударів/зброя, броня захищена ухиленням).</div>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-gray-400 text-[10px] block">Бюджет операції:</span>
-                            <span id="calcSelectedGrandTotal" class="text-base sm:text-lg font-black text-emerald-400 font-mono">0.00 ₴</span>
-                        </div>
-                    </div>
-
-                    <!-- 8-Slot Grid / Cards (4x2 RPG layout) -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3" id="calcGearSlotsGrid">
-                        <!-- Populated by JS -->
-                    </div>
-
-                    <!-- Consumables Breakdown Box -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1" id="calcConsumablesGrid">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
             </div>
         </div>
     </div>
