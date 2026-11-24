@@ -260,7 +260,6 @@ class CombatDamageCalculator:
         scrap_price = float(consumable_prices.get("scrap", 0.26))
         case1_price = float(consumable_prices.get("case1", 3.89))
         case2_price = float(consumable_prices.get("case2", 27.19))
-        bounty_rate = float(player_member.get("bounty_rate") or consumable_prices.get("lootPer1k", 0.20))
 
         # Current player combat parameters from analyzer
         curr_avg_dmg = float(player_member.get("avg_dmg_per_hit") or 1000.0)
@@ -1055,11 +1054,8 @@ class CombatDamageCalculator:
                     total_scrap_units = w_scrap + a_scrap
                     scrap_val = round(total_scrap_units * scrap_price, 2)
 
-                    # 3. Clan / Battle Bounty Income
-                    bounty_income = round((deficit_damage / 1000.0) * bounty_rate, 2) if deficit_damage > 0 else 0.0
-
-                    # 4. Net Profit / Net Cost
-                    total_income = round(bounty_income + total_cases_val + scrap_val, 2)
+                    # 3. Net Profit / Net Cost (Operational combat returns: Cases + Scrap)
+                    total_income = round(total_cases_val + scrap_val, 2)
                     net_cost = round(grand_total - total_income, 2)
                     net_profit = round(total_income - grand_total, 2)
 
@@ -1108,7 +1104,7 @@ class CombatDamageCalculator:
                         "total_cases_value": total_cases_val,
                         "total_scrap": total_scrap_units,
                         "scrap_value": scrap_val,
-                        "bounty_income": bounty_income,
+                        "bounty_income": 0.0,
                         "total_income": total_income,
                         "net_cost": net_cost,
                         "net_profit": net_profit,

@@ -31,7 +31,8 @@ api/*.db
 warera_suite/api/*.db
 api/*_cache.json
 warera_suite/api/*_cache.json
-scratch/-journal
+scratch/
+scratch/*
 *.log
 *bot_subscribers.json
 

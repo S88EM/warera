@@ -1481,8 +1481,8 @@
                             </div>
                         </div>
 
-                        <!-- 3 Economics & Loot Badges (Athena & Intel Builder engine) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-2 border-t border-bordercolor/40">
+                        <!-- 2 Economics & Loot Badges (Athena & Intel Builder engine: Cases & Scrap) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-bordercolor/40">
                             <!-- Expected Cases Drop -->
                             <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Очікуваний дроп кейсів (Кейс ~3.89 ₴, Елітний ~27.19 ₴)">
                                 <div class="flex items-center gap-2.5 min-w-0">
@@ -1520,20 +1520,6 @@
                                     </div>
                                 </div>
                                 <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.scrap_value || 0)} ₴</div>
-                            </div>
-
-                            <!-- Clan Bounty -->
-                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Виплата баунті від скарбниці клану">
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 text-amber-400 text-base">
-                                        ⚔️
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Баунті клану</div>
-                                        <div class="text-white font-mono font-bold text-xs">~0.20 ₴ / 1k урону</div>
-                                    </div>
-                                </div>
-                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.bounty_income || 0)} ₴</div>
                             </div>
                         </div>
                     </div>
