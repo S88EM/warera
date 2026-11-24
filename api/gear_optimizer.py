@@ -215,23 +215,14 @@ class GearOptimizer:
         hunger_curr = float(player_member.get("hunger_curr") or skills.get("hunger", {}).get("currentBarValue", hunger_max))
         hunger_regen = float(player_member.get("hunger_regen") or skills.get("hunger", {}).get("hourlyBarRegen", 0.7))
 
-        # Base character stats from skills
+        # Base character stats from skills (pure clean baseline without equipped gear)
         base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
-        atk_overflow = float(skills.get("attack", {}).get("overflow", 0))
-
-        curr_prec = float(skills.get("precision", {}).get("value", 75))
+        strat_prec = float(skills.get("precision", {}).get("strategic", 0))
+        curr_prec = float(skills.get("precision", {}).get("value", 75)) + strat_prec
         curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
         curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
         curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
         curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
-
-        # Equipped items (if keeping current items as baseline)
-        equipped_weapon_atk = float(player_member.get("equipped_weapon_atk") or skills.get("attack", {}).get("weapon", 0))
-        equipped_armor = float(player_member.get("equipped_armor") or skills.get("armor", {}).get("equipment", 0))
-        equipped_dodge = float(player_member.get("equipped_dodge") or skills.get("dodge", {}).get("equipment", 0))
-        equipped_prec = float(skills.get("precision", {}).get("equipment", 0))
-        equipped_crit_ch = float(skills.get("criticalChance", {}).get("weapon", 0))
-        equipped_crit_dmg = float(skills.get("criticalDamages", {}).get("equipment", 0))
 
         # Pill Status & Duration
         pill_status = player_member.get("pill_status", "READY")
@@ -279,18 +270,23 @@ class GearOptimizer:
             # Auto: test all 3 to find true most economical choice
             eval_ammos = ["lightAmmo", "ammo", "heavyAmmo"]
 
-        # Weapons to evaluate: from T1 up to T6
-        weapon_tier_choices = [3, 4, 5, 6]
+        # Weapons to evaluate: from T2 up to T6
+        weapon_tier_choices = [2, 3, 4, 5, 6]
         if deficit_damage <= 500_000:
             weapon_tier_choices = [2, 3, 4]
         elif deficit_damage <= 1_500_000:
+            weapon_tier_choices = [2, 3, 4, 5]
+        elif deficit_damage <= 3_500_000:
             weapon_tier_choices = [3, 4, 5]
-        elif deficit_damage >= 6_000_000:
+        else:
+            # High targets require heavy firepower to fit in 8h session
             weapon_tier_choices = [4, 5, 6]
 
-        armor_tier_choices = [3, 4, 5, 6]
+        armor_tier_choices = [2, 3, 4, 5, 6]
         if deficit_damage <= 1_000_000:
             armor_tier_choices = [2, 3, 4]
+        elif deficit_damage >= 5_000_000:
+            armor_tier_choices = [3, 4, 5, 6]
 
         valid_solutions: List[Dict[str, Any]] = []
 
@@ -329,8 +325,8 @@ class GearOptimizer:
                         g_price = get_item_price(g_code)
 
                         # --- Combat Damage Simulation for this offensive setup ---
-                        # Precision & Overflow
-                        raw_prec = curr_prec + max(equipped_prec, g_prec)
+                        # Precision & Overflow purely from candidate gloves
+                        raw_prec = curr_prec + g_prec
                         if raw_prec > 100.0:
                             prec_bonus_atk = (raw_prec - 100.0) * 4.0
                             eff_prec_ratio = 1.0
@@ -338,9 +334,9 @@ class GearOptimizer:
                             prec_bonus_atk = 0.0
                             eff_prec_ratio = max(0.10, raw_prec / 100.0)
 
-                        # Crit Chance & Overflow
-                        raw_crit_ch = curr_crit_ch + max(equipped_crit_ch, w_crit_ch)
-                        raw_crit_dmg = curr_crit_dmg + max(equipped_crit_dmg, h_crit_dmg)
+                        # Crit Chance & Overflow purely from candidate weapon and helmet
+                        raw_crit_ch = curr_crit_ch + w_crit_ch
+                        raw_crit_dmg = curr_crit_dmg + h_crit_dmg
                         if raw_crit_ch > 100.0:
                             crit_bonus_dmg = (raw_crit_ch - 100.0) * 4.0
                             eff_crit_ch_ratio = 1.0
@@ -351,10 +347,9 @@ class GearOptimizer:
                         tot_crit_dmg_pct = raw_crit_dmg + crit_bonus_dmg
                         crit_mult_val = tot_crit_dmg_pct / 100.0
 
-                        # Attack value
-                        eff_w_atk = max(equipped_weapon_atk, w_atk)
+                        # Attack value from candidate weapon
                         pill_mult = 1.60
-                        sim_atk = (base_atk + eff_w_atk + atk_overflow + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
+                        sim_atk = (base_atk + w_atk + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
 
                         # Expected damage per hit with Graze mechanics
                         hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
@@ -389,16 +384,15 @@ class GearOptimizer:
                                     b_ddg = b_ddg_min + (b_ddg_max - b_ddg_min) * 0.65
                                     b_price = get_item_price(b_code)
 
-                                    eff_gear_armor = max(equipped_armor, c_arm + p_arm)
-                                    eff_gear_dodge = max(equipped_dodge, b_ddg)
-                                    total_raw_armor = curr_armor_stat + eff_gear_armor
-                                    total_raw_dodge = curr_dodge_stat + eff_gear_dodge
+                                    # Pure candidate defense (+13.0 passive defense)
+                                    total_raw_armor = curr_armor_stat + c_arm + p_arm + 13.0
+                                    total_raw_dodge = curr_dodge_stat + b_ddg + 13.0
 
                                     armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
                                     dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
 
-                                    # Damage taken per hit
-                                    hp_cost_per_hit = max(0.20, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
+                                    # Damage taken per hit (calibrated base cost 6.5 HP as in clan_analyzer.py)
+                                    hp_cost_per_hit = max(0.80, 6.5 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
 
                                     # Armor set durability lifetime (Dodge protection)
                                     hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
@@ -488,7 +482,7 @@ class GearOptimizer:
                                             "eff_dodge_pct": round(dodge_fraction * 100.0, 1),
                                             "eff_armor_pct": round(armor_reduction * 100.0, 1),
                                             "eff_prec_ratio": round(eff_prec_ratio, 3),
-                                            "eff_w_atk": round(eff_w_atk, 1),
+                                            "eff_w_atk": round(w_atk, 1),
                                         }
                                         valid_solutions.append(solution)
 
@@ -500,6 +494,32 @@ class GearOptimizer:
         # Sort by Net Cost (cheapest first)
         valid_solutions.sort(key=lambda s: s["net_cost"])
         best_sol = valid_solutions[0]
+
+        # Select diverse representative strategies for comparison table (so user sees different tiers & options)
+        diverse_solutions = [best_sol]
+        seen_keys = set()
+        seen_keys.add((best_sol["w_tier"], best_sol["food_key"], best_sol["ammo_key"]))
+
+        # 1. Prioritize adding the best configuration for each DIFFERENT weapon tier
+        for sol in valid_solutions[1:]:
+            w_tier = sol["w_tier"]
+            if not any(s["w_tier"] == w_tier for s in diverse_solutions):
+                diverse_solutions.append(sol)
+                seen_keys.add((w_tier, sol["food_key"], sol["ammo_key"]))
+
+        # 2. Add alternative food/ammo variations
+        for sol in valid_solutions[1:]:
+            tier_key = (sol["w_tier"], sol["food_key"], sol["ammo_key"])
+            if tier_key not in seen_keys and len(diverse_solutions) < 8:
+                diverse_solutions.append(sol)
+                seen_keys.add(tier_key)
+
+        # 3. Fill up to 6 solutions if needed
+        for sol in valid_solutions[1:]:
+            if sol not in diverse_solutions:
+                diverse_solutions.append(sol)
+            if len(diverse_solutions) >= 6:
+                break
 
         # Refine Minimum Roll Requirements for best solution
         refined_slots = self._format_and_refine_slots(best_sol, deficit_damage)
@@ -529,16 +549,14 @@ class GearOptimizer:
                 "today_damage": round(today_damage, 0),
                 "deficit_damage": round(deficit_damage, 0),
             },
-            "best_strategy": self._build_strategy_dict(best_sol, refined_slots, pill_cost, deficit_damage, "Оптимальний мінімальний сет", is_best=True, available_hunger=available_hunger),
+            "best_strategy": self._build_strategy_dict(best_sol, refined_slots, pill_cost, deficit_damage, "Оптимальний мінімальний сет", is_best=True, available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price),
             "alternatives": [
-                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, f"Альтернатива #{idx+1}", is_best=False, available_hunger=available_hunger)
-                for idx, s in enumerate(valid_solutions[1:4])
+                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, f"Альтернатива #{idx+1}", is_best=False, available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price)
+                for idx, s in enumerate(diverse_solutions[1:4])
             ],
             "strategies": [
-                self._build_strategy_dict(best_sol, refined_slots, pill_cost, deficit_damage, "Оптимальний мінімальний сет", is_best=True, available_hunger=available_hunger)
-            ] + [
-                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, f"Альтернатива #{idx+1}", is_best=False, available_hunger=available_hunger)
-                for idx, s in enumerate(valid_solutions[1:6])
+                self._build_strategy_dict(s, self._format_and_refine_slots(s, deficit_damage), pill_cost, deficit_damage, "Оптимальний мінімальний сет" if idx == 0 else f"Альтернатива #{idx}", is_best=(idx == 0), available_hunger=available_hunger, case1_price=case1_price, case2_price=case2_price)
+                for idx, s in enumerate(diverse_solutions)
             ],
             "updated_at": market_cache.get("updated_at") or "",
         }
@@ -627,6 +645,8 @@ class GearOptimizer:
         name: str,
         is_best: bool = False,
         available_hunger: float = 7.0,
+        case1_price: float = 3.89,
+        case2_price: float = 27.19,
     ) -> Dict[str, Any]:
         """Formats single solution into UI presentation dictionary matching clan.html schema."""
         ammo_spec = sol["ammo_spec"]
@@ -722,6 +742,8 @@ class GearOptimizer:
             ) * sol["armor_sets_needed"]
         )
 
+        total_cases_value = round((sol["expected_regular_cases"] * case1_price) + (sol["expected_elite_cases"] * case2_price), 2)
+
         return {
             "strategy_key": strat_key,
             "name": name,
@@ -732,6 +754,7 @@ class GearOptimizer:
             "can_reach_in_session": True,
             "reach_status": "ok",
             "reach_badge": "✅ Досяжно",
+            "avg_dmg_per_hit": sol["avg_dmg_per_hit"],
             "avg_damage_per_hit": sol["avg_dmg_per_hit"],
             "hp_cost_per_hit": sol["hp_cost_per_hit"],
             "hits_needed": sol["actual_hits"],
@@ -759,7 +782,10 @@ class GearOptimizer:
             "total_scrap": total_scrap,
             "expected_regular_cases": sol["expected_regular_cases"],
             "expected_cases": sol["expected_regular_cases"],
+            "expected_case1": sol["expected_regular_cases"],
             "expected_elite_cases": sol["expected_elite_cases"],
+            "expected_case2": sol["expected_elite_cases"],
+            "total_cases_value": total_cases_value,
             # Consumables
             "ammo_name": ammo_spec["name"],
             "ammo_badge": ammo_spec["badge"],
