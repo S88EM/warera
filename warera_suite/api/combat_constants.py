@@ -111,6 +111,30 @@ CASE1_DROP_FACTOR = 0.94
 CASE2_DROP_FACTOR = 0.024
 
 
+def extract_loot_chance_ratio(player_member: Dict[str, Any]) -> float:
+    """Extracts player's total loot chance ratio (e.g., 0.17 for 17%) from API skills."""
+    explicit = player_member.get("loot_chance")
+    if explicit is not None and float(explicit) > 0:
+        return max(0.05, float(explicit) / 100.0)
+
+    skills = player_member.get("skills") or {}
+    loot_skill = skills.get("lootChance") or skills.get("loot") or {}
+    if isinstance(loot_skill, dict):
+        loot_total = float(loot_skill.get("total") or 0)
+        if loot_total > 0:
+            return max(0.05, loot_total / 100.0)
+        loot_val = (
+            float(loot_skill.get("value") or 0)
+            + float(loot_skill.get("strategic") or 0)
+            + float(loot_skill.get("equipment") or 0)
+        )
+        if loot_val > 0:
+            return max(0.05, loot_val / 100.0)
+        loot_lvl = float(loot_skill.get("level") or 0)
+        return max(0.05, (5.0 + 2.0 * loot_lvl) / 100.0)
+    return 0.05
+
+
 def estimate_expected_cases(
     hits: int,
     loot_chance_ratio: float,

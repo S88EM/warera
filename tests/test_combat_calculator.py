@@ -2,7 +2,17 @@ from unittest.mock import patch
 import pytest
 
 from combat_calculator import CombatDamageCalculator
-from combat_constants import estimate_expected_cases
+from combat_constants import estimate_expected_cases, extract_loot_chance_ratio
+
+
+def test_extract_loot_chance_ratio_from_api_skills():
+    member = {
+        "skills": {
+            "lootChance": {"level": 4, "value": 13, "total": 17, "prestige": 0, "strategic": 4}
+        }
+    }
+    assert extract_loot_chance_ratio(member) == pytest.approx(0.17)
+    assert extract_loot_chance_ratio({"skills": {}}) == pytest.approx(0.05)
 
 
 def test_estimate_expected_cases_calibrated():

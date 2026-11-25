@@ -45,6 +45,7 @@ try:
         TIER_NAMES,
         merge_live_consumables,
         extract_player_combat_profile,
+        extract_loot_chance_ratio,
         estimate_expected_cases,
     )
 except ImportError:
@@ -65,6 +66,7 @@ except ImportError:
         TIER_NAMES,
         merge_live_consumables,
         extract_player_combat_profile,
+        extract_loot_chance_ratio,
         estimate_expected_cases,
     )
 
@@ -173,13 +175,7 @@ class GearOptimizer:
         deficit_damage = max(0.0, float(target_damage) - today_damage)
 
         # Loot chance and economic reward values
-        loot_skill_lvl = float(skills.get("loot", {}).get("level", 0))
-        loot_skill_total = float(skills.get("loot", {}).get("total", 0))
-        loot_chance_pct = float(
-            player_member.get("loot_chance")
-            or (loot_skill_total if loot_skill_total > 0 else (5.0 + 2.0 * loot_skill_lvl))
-        )
-        loot_chance_ratio = loot_chance_pct / 100.0
+        loot_chance_ratio = extract_loot_chance_ratio(player_member)
 
         scrap_price = float(consumable_prices.get("scrap", 0.26))
         case1_price = float(consumable_prices.get("case1", 3.89))
