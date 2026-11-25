@@ -1148,25 +1148,30 @@
                 timeSpan.innerText = `🟢 ціни ринку оновлено: ${dt.toLocaleTimeString()}`;
             }
 
-            // Status Banner
+            // Status Banner (without redundant 'Білд закріплено' badge)
             const banner = document.getElementById('calcStatusBanner');
             if (banner) {
                 const deficitStr = t.deficit_damage > 0 ? `Залишилося: <b class="text-white font-mono">+${formatNumber(t.deficit_damage)}</b>` : `<b class="text-emerald-400 font-mono">Ціль уже виконана!</b>`;
-                const pillTimeStr = p.has_active_pill ? `⏳ Таблетка діє ще: <b class="text-amber-400 font-mono">${p.pill_remaining_hours} год</b>` : `💊 Нова таблетка: <b class="text-blue-400 font-mono">8.0 год</b>`;
-                const lockedBadge = activeIsBuildLocked ? `<span class="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-600/50 text-purple-300 font-semibold text-[10px]"><i class="fa-solid fa-lock text-[9px] mr-1"></i>Білд закріплено</span>` : '';
+                const pillTimeStr = p.has_active_pill ? `Таблетка: <b class="text-amber-400 font-mono">${p.pill_remaining_hours} год</b>` : `Нова таблетка: <b class="text-blue-400 font-mono">8.0 год</b>`;
                 banner.innerHTML = `
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span>Сьогодні набито: <b class="text-emerald-400 font-mono">+${formatNumber(p.today_damage)}</b></span>
-                        <span class="text-gray-500">|</span>
+                        <span>Сьогодні: <b class="text-emerald-400 font-mono">+${formatNumber(p.today_damage)}</b></span>
+                        <span class="text-gray-500">·</span>
                         <span>${deficitStr}</span>
-                        ${lockedBadge ? `<span class="text-gray-500">|</span> ${lockedBadge}` : ''}
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <span>${pillTimeStr}</span>
-                        <span class="text-gray-500">|</span>
-                        <span>Доступний голод: <b class="text-sky-400 font-mono">${(p && p.available_hunger !== undefined) ? p.available_hunger : (best && best.available_hunger !== undefined ? best.available_hunger : 0)} од.</b></span>
+                        <span class="text-gray-500">·</span>
+                        <span>Голод: <b class="text-sky-400 font-mono">${(p && p.available_hunger !== undefined) ? p.available_hunger : (best && best.available_hunger !== undefined ? best.available_hunger : 0)} од.</b></span>
                     </div>
                 `;
+            }
+
+            // Update mobile tab budget badge
+            const mobBudget = document.getElementById('calcMobileBudgetBadge');
+            if (mobBudget && best) {
+                const activeStrat = activeSelectedStrat || best;
+                mobBudget.innerText = `(${formatNumber(activeStrat.grand_total_cost)} Coins)`;
             }
 
             // Render Hero Card (Only the best profitable strategy!)
@@ -1244,87 +1249,55 @@
                             </div>
                         </div>
 
-                        <!-- 6 Stat Badges -->
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">💥 Патрони</div>
-                                <div class="font-bold text-white mt-1">${stratToShow.ammo_badge}</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${formatNumber(stratToShow.ammo_units_needed)} пострілів ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-500">(з ${formatNumber(stratToShow.initial_hits)})</span>` : ''}</div>
+                        <!-- 6 Stat Metrics: 3x2 on desktop, 2x3 on mobile (lightweight, no heavy borders) -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 bg-darkbg/60 rounded-xl p-2.5 text-xs">
+                            <div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Патрони</div>
+                                <div class="font-bold text-white mt-0.5 truncate">${stratToShow.ammo_badge}</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${formatNumber(stratToShow.ammo_units_needed)} постр.</div>
                             </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">🎯 Удари</div>
-                                <div class="font-bold text-white mt-1 font-mono">${formatNumber(stratToShow.hits_needed)} уд.</div>
-                                <div class="text-[9px] text-emerald-400 font-mono mt-0.5">~${formatNumber(stratToShow.avg_dmg_per_hit)}/удар ${stratToShow.initial_hits && stratToShow.initial_hits !== stratToShow.hits_needed ? `<span class="text-gray-400">(${formatNumber(stratToShow.initial_hits - stratToShow.hits_needed)} влучень)</span>` : ''}</div>
+                            <div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Удари</div>
+                                <div class="font-bold text-white mt-0.5 font-mono">${formatNumber(stratToShow.hits_needed)} уд.</div>
+                                <div class="text-[10px] text-emerald-400 font-mono">~${formatNumber(stratToShow.avg_dmg_per_hit)}/уд.</div>
                             </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="1 зброя = 100 ударів без ухилення">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">🔫 Зброя</div>
-                                <div class="font-bold text-amber-400 mt-1 font-mono">${stratToShow.weapons_burned} шт</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${(isSaved && p.today_damage > 0) ? `на залишок (${formatNumber(stratToShow.hits_needed)} уд.)` : '100 уд/ган'}</div>
+                            <div title="1 зброя = 100 ударів без ухилення">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Зброя</div>
+                                <div class="font-bold text-amber-400 mt-0.5 font-mono">${stratToShow.weapons_burned} шт</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${(isSaved && p.today_damage > 0) ? `на ${formatNumber(stratToShow.hits_needed)} уд.` : '100 уд/ган'}</div>
                             </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors" title="Броня захищена ухиленням ${stratToShow.eff_dodge}%">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">🦺 Броня</div>
-                                <div class="font-bold text-indigo-300 mt-1 font-mono">${stratToShow.armor_sets_burned} компл.</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">ухил. ${stratToShow.eff_dodge}%</div>
+                            <div title="Броня захищена ухиленням ${stratToShow.eff_dodge}%">
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Броня</div>
+                                <div class="font-bold text-indigo-300 mt-0.5 font-mono">${stratToShow.armor_sets_burned} компл.</div>
+                                <div class="text-[10px] text-gray-400 font-mono">ухил. ${stratToShow.eff_dodge}%</div>
                             </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">🥪 Їжа / Голод</div>
-                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-1 font-mono">${stratToShow.food_units_needed} шт</div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.hunger_usage_pct}% шкали</div>
+                            <div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Їжа / Голод</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-0.5 font-mono">${stratToShow.food_units_needed} шт</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.hunger_usage_pct}% шкали</div>
                             </div>
 
-                            <div class="bg-darkbg/80 p-2.5 rounded-xl border border-bordercolor/60 hover:border-blue-500/40 transition-colors">
-                                <div class="text-[10px] uppercase font-bold text-gray-400">⏳ Ліміт сесії</div>
-                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-1 flex items-center gap-1">
-                                    <span>${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}</span>
+                            <div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Ліміт сесії</div>
+                                <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-0.5">
+                                    ${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}
                                 </div>
-                                <div class="text-[9px] text-gray-400 font-mono mt-0.5">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
                             </div>
                         </div>
 
-                        <!-- 2 Economics & Loot Badges (Athena & Intel Builder engine: Cases & Scrap) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-bordercolor/40">
-                            <!-- Expected Cases Drop -->
-                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Очікуваний дроп кейсів (жива ціна біржі: Кейс ~${case1Price} Coins, Елітний ~${case2Price} Coins)">
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
-                                        <img src="${ICON_CASE_REGULAR}" class="w-full h-full object-contain filter drop-shadow" alt="Кейс">
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Очікуваний дроп кейсів</div>
-                                        <div class="text-white font-mono font-bold text-xs flex items-center gap-1.5 flex-wrap">
-                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case1Price} Coins">
-                                                <span>${stratToShow.expected_case1 || 0}</span>
-                                                <span class="text-emerald-400 text-[10px] font-medium">Кейс</span>
-                                            </span>
-                                            <span class="text-gray-400 font-normal">+</span>
-                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case2Price} Coins">
-                                                <img src="${ICON_CASE_ELITE}" class="w-3.5 h-3.5 object-contain inline-block" alt="Елітний">
-                                                <span>${stratToShow.expected_case2 || 0}</span>
-                                                <span class="text-indigo-300 text-[10px] font-medium">Елітний</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.total_cases_value || 0)} Coins</div>
-                            </div>
-
-                            <!-- Scrap Recovery -->
-                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Відновлення 1/3 металу при повному зносі спорядження (~0.26 Coins/од.)">
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
-                                        <img src="${ICON_SCRAP}" class="w-full h-full object-contain filter drop-shadow" alt="Брухт">
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Брухт (1/3 зносу)</div>
-                                        <div class="text-white font-mono font-bold text-xs">${formatNumber(stratToShow.total_scrap || 0)} <span class="text-gray-400 text-[10px] font-medium">од.</span></div>
-                                    </div>
-                                </div>
-                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.scrap_value || 0)} Coins</div>
-                            </div>
+                        <!-- Combined 1-Line Return (Cases + Scrap) -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-darkbg/70 border border-bordercolor/50 text-xs" title="Кейс ~${case1Price} Coins, Елітний ~${case2Price} Coins">
+                            <span class="text-gray-300 font-semibold">
+                                Повернення: <b class="text-emerald-400 font-mono">+${formatNumber(Math.round((stratToShow.total_cases_value || 0) + (stratToShow.scrap_value || 0)))} Coins</b>
+                            </span>
+                            <span class="text-[11px] text-gray-400 font-mono">
+                                Кейси +${formatNumber(stratToShow.total_cases_value || 0)} (${stratToShow.expected_case1 || 0} / ${stratToShow.expected_case2 || 0} ел.) · Брухт +${formatNumber(stratToShow.scrap_value || 0)}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -1412,12 +1385,32 @@
             renderCalculatorUI(activeCalcData);
         }
 
+        function setCalcMobileTab(tab) {
+            const left = document.getElementById('calcLeftCol');
+            const right = document.getElementById('calcRightCol');
+            const btnBuild = document.getElementById('calcTabBtn_build');
+            const btnSettings = document.getElementById('calcTabBtn_settings');
+            if (!left || !right) return;
+            if (tab === 'settings') {
+                left.classList.remove('hidden');
+                right.classList.add('hidden', 'lg:block');
+                if (btnSettings) btnSettings.className = 'py-2.5 px-3 text-white border-b-2 border-blue-500 bg-blue-600/10 flex items-center justify-center gap-1.5 transition';
+                if (btnBuild) btnBuild.className = 'py-2.5 px-3 text-gray-400 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition';
+            } else {
+                right.classList.remove('hidden');
+                left.classList.add('hidden', 'lg:block');
+                if (btnBuild) btnBuild.className = 'py-2.5 px-3 text-white border-b-2 border-blue-500 bg-blue-600/10 flex items-center justify-center gap-1.5 transition';
+                if (btnSettings) btnSettings.className = 'py-2.5 px-3 text-gray-400 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition';
+            }
+        }
+
         function renderShoppingList(strat) {
             if (!strat) return;
 
-            document.getElementById('calcSelectedStratLabel').innerText = `${strat.label} (${strat.food_name})`;
-            const netBadge = `<span class="text-xs font-mono font-bold ml-2 ${strat.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">(${strat.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(strat.net_profit)} Coins)</span>`;
-            document.getElementById('calcSelectedGrandTotal').innerHTML = `${formatNumber(strat.grand_total_cost)} Coins ${netBadge}`;
+            const lblEl = document.getElementById('calcSelectedStratLabel');
+            if (lblEl) lblEl.innerText = `${strat.label} (${strat.food_name})`;
+            const grandEl = document.getElementById('calcSelectedGrandTotal');
+            if (grandEl) grandEl.innerHTML = `${formatNumber(strat.grand_total_cost)} Coins`;
 
             const grid = document.getElementById('calcGearSlotsGrid');
             if (grid) {
@@ -1483,90 +1476,70 @@
                             }
                         } else if (rarity === 'mythic' || item.tier === 6) {
                             cardBorder = 'border-rose-500/60';
-                            cardBg = 'bg-gradient-to-b from-[#260a12] via-[#1a070c] to-[#0e0407]';
-                            cardGlow = 'shadow-[0_4px_16px_rgba(244,63,94,0.18)]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">Т6 Міфік</span>';
+                            cardBg = 'bg-gradient-to-r from-[#260a12] to-[#110609]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold shrink-0">T6</span>';
                         } else if (rarity === 'legendary' || item.tier === 5) {
                             cardBorder = 'border-amber-500/60';
-                            cardBg = 'bg-gradient-to-b from-[#261b07] via-[#1a1205] to-[#0e0a03]';
-                            cardGlow = 'shadow-[0_4px_16px_rgba(245,158,11,0.18)]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">Т5 Легенда</span>';
+                            cardBg = 'bg-gradient-to-r from-[#261b07] to-[#120d04]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">T5</span>';
                         } else if (rarity === 'epic' || item.tier === 4) {
                             cardBorder = 'border-purple-500/60';
-                            cardBg = 'bg-gradient-to-b from-[#1b0f2a] via-[#130b1e] to-[#0b0611]';
-                            cardGlow = 'shadow-[0_4px_16px_rgba(168,85,247,0.18)]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold">Т4 Епік</span>';
+                            cardBg = 'bg-gradient-to-r from-[#1b0f2a] to-[#0e0816]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold shrink-0">T4</span>';
                         } else if (rarity === 'rare' || item.tier === 3) {
                             cardBorder = 'border-blue-500/60';
-                            cardBg = 'bg-gradient-to-b from-[#0c182c] via-[#091120] to-[#050b14]';
-                            cardGlow = 'shadow-[0_4px_16px_rgba(59,130,246,0.18)]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold">Т3 Синій</span>';
+                            cardBg = 'bg-gradient-to-r from-[#0c182c] to-[#070d18]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold shrink-0">T3</span>';
                         } else if (rarity === 'uncommon' || item.tier === 2) {
                             cardBorder = 'border-emerald-500/60';
-                            cardBg = 'bg-gradient-to-b from-[#0a2016] via-[#07160f] to-[#040c08]';
-                            cardGlow = 'shadow-[0_4px_16px_rgba(16,185,129,0.18)]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">Зелений</span>';
+                            cardBg = 'bg-gradient-to-r from-[#0a2016] to-[#06110c]';
+                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold shrink-0">T2</span>';
                         }
 
-                        // Bottom action / status pill
-                        let bottomHtml = '';
-                        if (isEquipped) {
-                            bottomHtml = `
-                                <div class="mt-2 py-1 px-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] text-center flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-check text-emerald-400 text-[9px]"></i>
-                                    <span>Вже на тобі (0 Coins)</span>
-                                </div>
-                            `;
-                        } else if (item.item_code === 'knife' && strat.is_naked) {
-                            bottomHtml = `
-                                <a href="https://app.warera.io/market/equipments" target="_blank" class="mt-2 py-1 px-1.5 rounded-lg bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:text-white hover:bg-rose-900/80 font-bold text-[10px] text-center flex items-center justify-center gap-1 transition-all">
-                                    <i class="fa-solid fa-cart-shopping text-[9px]"></i>
-                                    <span>Купити зброю</span>
-                                </a>
-                            `;
-                        } else {
-                            const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)} Coins` : `${item.unit_price} Coins`;
-                            bottomHtml = `
-                                <a href="${item.url}" target="_blank" class="mt-2 py-1 px-1.5 rounded-lg bg-gradient-to-r from-blue-600/30 to-blue-500/20 hover:from-blue-600 hover:to-blue-500 border border-blue-500/40 hover:border-blue-400 text-white font-bold text-[10px] flex items-center justify-between transition-all group shadow-sm active:scale-95" title="Купити ${item.name} на ринку WarEra">
-                                    <span class="font-mono text-emerald-300 group-hover:text-white font-bold">${buyPriceLabel}</span>
-                                    <span class="text-[9px] text-gray-300 group-hover:text-white flex items-center gap-0.5">${item.qty_needed} шт <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i></span>
-                                </a>
-                            `;
-                        }
+                        const cleanName = (item.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+                        const compactStats = (item.target_stats || '—')
+                            .replace(/Атака/g, 'Атк')
+                            .replace(/Крит\.?\s*урон/gi, 'Крит ур.')
+                            .replace(/Крит-урон/gi, 'Крит ур.')
+                            .replace(/Ухилення/g, 'Ухил')
+                            .replace(/Влучність/g, 'Влуч.')
+                            .replace(/\s*•\s*/g, ' · ');
 
-                        const fallbackSrc = item.slot === 'food' 
-                            ? 'https://media.warera.io/images/itemsv2/steak.png' 
-                            : (item.slot === 'ammo' 
-                                ? 'https://media.warera.io/images/itemsv2/lightAmmo.png' 
+                        const fallbackSrc = item.slot === 'food'
+                            ? 'https://media.warera.io/images/itemsv2/steak.png'
+                            : (item.slot === 'ammo'
+                                ? 'https://media.warera.io/images/itemsv2/lightAmmo.png'
                                 : 'https://media.warera.io/images/itemsv2/sniper.png');
 
+                        let priceHtml = '';
+                        if (isEquipped) {
+                            priceHtml = `<span class="text-[10px] font-bold text-emerald-400 whitespace-nowrap">На тобі · 0</span>`;
+                        } else if (item.item_code === 'knife' && strat.is_naked) {
+                            priceHtml = `<a href="https://app.warera.io/market/equipments" target="_blank" class="px-2 py-1 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold whitespace-nowrap">Купити</a>`;
+                        } else {
+                            const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)}` : `${item.unit_price}`;
+                            priceHtml = `
+                                <a href="${item.url}" target="_blank" class="px-2 py-1 rounded-lg bg-blue-600/25 hover:bg-blue-600 border border-blue-500/40 text-white font-mono text-[10px] font-bold flex items-center gap-1 whitespace-nowrap transition shrink-0" title="Купити ${cleanName} (${item.qty_needed} шт)">
+                                    <span class="text-emerald-300">${buyPriceLabel} Coins</span>
+                                    <span class="text-gray-300 text-[9px]">×${item.qty_needed}</span>
+                                </a>
+                            `;
+                        }
+
                         return `
-                            <div class="glass-panel p-2.5 sm:p-3 rounded-2xl border-2 ${cardBorder} ${cardBg} ${cardGlow} flex flex-col justify-between hover:border-gray-400 transition-all group relative overflow-hidden">
-                                <!-- Top slot label + tier pill -->
-                                <div class="flex items-center justify-between gap-1 text-[10px]">
-                                    <span class="text-gray-400 font-bold flex items-center gap-1">
-                                        <span>${item.icon || '📦'}</span>
-                                        <span>${item.slot_title || item.slot}</span>
-                                    </span>
-                                    ${tierPill}
+                            <div class="p-2 rounded-xl border ${cardBorder} ${cardBg} flex items-center gap-2.5 min-h-[58px] hover:border-gray-400 transition-all">
+                                <div class="w-10 h-10 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center shrink-0 p-1">
+                                    <img src="${item.image_url}" class="max-h-full max-w-full object-contain" onerror="this.onerror=null; this.src='${fallbackSrc}';">
                                 </div>
-
-                                <!-- Center: Item Image & Name -->
-                                <div class="py-1.5 text-center">
-                                    <div class="h-14 sm:h-16 flex items-center justify-center">
-                                        <img src="${item.image_url}" class="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform" onerror="this.onerror=null; this.src='${fallbackSrc}';">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-bold text-white text-xs truncate" title="${item.name}">${cleanName}</span>
+                                        ${tierPill}
                                     </div>
-                                    <div class="font-extrabold text-white text-xs sm:text-[13px] truncate mt-1" title="${item.name}">${item.name}</div>
-                                    
-                                    <!-- Target stat roll recommendation -->
-                                    <div class="mt-1 px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[10px] font-mono text-sky-300 font-semibold truncate" title="Рекомендований стат ролу для покупки на ринку">
-                                        ${item.target_stats || '—'}
-                                    </div>
+                                    <div class="text-[10px] font-mono text-sky-300 truncate mt-0.5" title="${item.target_stats || ''}">${compactStats}</div>
                                 </div>
-
-                                <!-- Footer: Price / Already equipped action -->
-                                <div>
-                                    ${bottomHtml}
+                                <div class="shrink-0">
+                                    ${priceHtml}
                                 </div>
                             </div>
                         `;
