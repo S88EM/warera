@@ -1000,7 +1000,10 @@
             updateFoodSelectorUI();
             updateWeaponSelectorUI();
 
-            // Show modal
+            // Show modal & lock background scroll / pull-to-refresh
+            setCalcMobileTab('build');
+            document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'contain';
             const modal = document.getElementById('targetCalcModal');
             if (modal) modal.classList.remove('hidden');
 
@@ -1011,6 +1014,8 @@
         function closeTargetCalculator() {
             const modal = document.getElementById('targetCalcModal');
             if (modal) modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            document.body.style.overscrollBehaviorY = '';
         }
 
         function setCalcAmmo(ammoKey) {
