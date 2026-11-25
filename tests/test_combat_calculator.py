@@ -16,10 +16,10 @@ def test_extract_loot_chance_ratio_from_api_skills():
 
 
 def test_estimate_expected_cases_calibrated():
-    # Field data: 498 hits at 17% loot, 98% precision -> 78 Case I, 2 Case II
+    # In-game tooltip formula: each 1% lootChance gives 1% Case I and 0.01% Case II per hit
     case1, case2 = estimate_expected_cases(hits=498, loot_chance_ratio=0.17, eff_prec_ratio=0.98)
-    assert case1 == pytest.approx(78.0, abs=0.1)
-    assert case2 == pytest.approx(2.0, abs=0.05)
+    assert case1 == pytest.approx(84.66, abs=0.01)
+    assert case2 == pytest.approx(0.847, abs=0.001)
     assert estimate_expected_cases(hits=0, loot_chance_ratio=0.17, eff_prec_ratio=0.98) == (0.0, 0.0)
 
 
