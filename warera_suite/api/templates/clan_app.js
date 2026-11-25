@@ -843,7 +843,8 @@
             clearTimeout(calcTargetDebounce);
             calcTargetDebounce = setTimeout(() => {
                 activeCalcTarget = targetVal;
-                fetchCalculatorPlan();
+                activeIsBuildLocked = false;
+                fetchCalculatorPlan(true);
             }, 350);
         }
 
@@ -852,10 +853,11 @@
             const parsed = parseFloat(cleanStr);
             const numM = isNaN(parsed) ? 1 : Math.max(0.1, parsed);
             activeCalcTarget = Math.round(numM * 1000000);
+            activeIsBuildLocked = false;
             const input = document.getElementById('calcTargetInput');
             if (input) input.value = numM;
             updateCalcTargetHint(activeCalcTarget);
-            fetchCalculatorPlan();
+            fetchCalculatorPlan(true);
         }
 
         function updateBonusPresetButtonsUI() {
