@@ -34,6 +34,11 @@ def test_clan_history_snapshot_and_damage_delta(tmp_path):
     assert stats["has_yesterday"] is False
     assert stats["yesterday_damage"] is None
 
+    hist_7d = db.get_7d_damage_history(game_date=game_date, days=7)
+    assert "u1" in hist_7d
+    assert len(hist_7d["u1"]) == 7
+    assert hist_7d["u1"][-1] == 750_000
+
 
 def test_market_history_save_and_deduplicate(tmp_path):
     db = MarketHistoryDB(db_path=tmp_path / "market_test.db")

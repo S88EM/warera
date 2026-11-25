@@ -43,20 +43,20 @@
 <body class="min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
 
     <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-3 sm:px-4 py-2.5 sm:py-3">
+    <header class="sticky top-0 z-40 bg-darkbg/95 backdrop-blur border-b border-bordercolor px-3 sm:px-4 py-2 sm:py-2.5">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
-            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0">
-                    <i class="fa-solid fa-shield-halved text-base sm:text-lg"></i>
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0">
+                    <i class="fa-solid fa-shield-halved text-sm sm:text-base"></i>
                 </div>
                 <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 sm:gap-2">
+                    <div class="flex items-center gap-2">
                         <span class="font-extrabold text-white text-sm sm:text-base tracking-tight truncate" id="headerClanTitle">WarEra · Штаб Клану</span>
-                        <span class="px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60 uppercase tracking-wider flex items-center gap-1 shrink-0">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live
+                        <span id="liveFreshnessBadge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/90 text-emerald-400 border border-emerald-800/60 tracking-wide flex items-center gap-1.5 shrink-0" title="Час з моменту останньої синхронізації з грою">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span id="liveFreshnessText">Оновлення...</span>
                         </span>
                     </div>
-                    <div class="text-[11px] text-gray-400 truncate hidden sm:block">Бойова готовність, білди, статус таблетки та розрахунок залпу</div>
                 </div>
             </div>
 
@@ -69,7 +69,7 @@
                     <i class="fa-solid fa-gem text-blue-400"></i><span class="hidden md:inline">Маркет</span>
                 </a>
                 <button onclick="copyDiscordReport()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all flex items-center gap-1.5" title="Скопіювати бойовий звіт">
-                    <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Скопіювати </span>звіт
+                    <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Звіт</span>
                 </button>
                 <button onclick="loadClanData(true)" class="p-1.5 sm:p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs border border-bordercolor transition-colors" title="Оновити дані">
                     <i class="fa-solid fa-rotate" id="refreshIcon"></i>
@@ -79,296 +79,285 @@
     </header>
 
     <!-- Main Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
 
-        <!-- Clan Hero Header Banner -->
-        <section class="glass-panel rounded-2xl p-4 sm:p-5 border border-bordercolor shadow-xl relative overflow-hidden">
-            <div class="absolute -right-10 -bottom-10 opacity-5 pointer-events-none text-9xl">
-                <i class="fa-solid fa-shield-halved"></i>
-            </div>
-            
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5 relative z-10">
+        <!-- Compact Clan Hero Banner -->
+        <section class="glass-panel rounded-2xl p-3 sm:p-4 border border-bordercolor shadow-xl relative overflow-hidden">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 relative z-10">
                 <!-- Clan Branding -->
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-indigo-950 to-cardbg border-2 border-indigo-500/40 p-1 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
-                        <img id="clanAvatar" src="https://media.warera.io/avatars/mu/mu-69af3162a583a3b5f9941e71-1790698677633-kmc5qgys.png" alt="MU Logo" class="w-full h-full object-cover rounded-xl" onerror="this.src=''; this.parentElement.innerHTML='<i class=\'fa-solid fa-shield text-2xl text-indigo-400\'></i>';">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-indigo-950 to-cardbg border border-indigo-500/40 p-1 flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
+                        <img id="clanAvatar" src="https://media.warera.io/avatars/mu/mu-69af3162a583a3b5f9941e71-1790698677633-kmc5qgys.png" alt="MU Logo" class="w-full h-full object-cover rounded-lg" onerror="this.src=''; this.parentElement.innerHTML='<i class=\'fa-solid fa-shield text-xl text-indigo-400\'></i>';">
                     </div>
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <h1 id="clanName" class="text-xl sm:text-2xl font-black text-white tracking-tight truncate">Завантаження клану...</h1>
-                            <span id="clanTierBadge" class="px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-blue-950 text-blue-300 border border-blue-700/60 uppercase">Platinum</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] sm:text-xs font-mono bg-purple-950 text-purple-300 border border-purple-700/60" id="clanRankBadge">Ранг #--</span>
+                            <h1 id="clanName" class="text-lg sm:text-xl font-black text-white tracking-tight truncate">
+                                <span class="inline-block w-36 h-5 bg-gray-800 rounded animate-pulse align-middle"></span>
+                            </h1>
+                            <span id="clanTierBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-700/60 uppercase">Platinum</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-700/60" id="clanRankBadge">Ранг #--</span>
                         </div>
-                        <div class="text-[11px] sm:text-xs text-gray-400 flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap">
-                            <span id="clanUpgrades"><i class="fa-solid fa-landmark text-indigo-400 mr-1"></i>Штаб: -- ур. · Казарми: -- ур.</span>
+                        <div class="text-[11px] text-gray-400 flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+                            <span id="clanUpgrades"><i class="fa-solid fa-landmark text-gray-400 mr-1"></i>Штаб: -- рів. · Казарми: -- рів.</span>
                             <span class="hidden sm:inline">·</span>
-                            <span id="clanWealth"><i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: -- Coins</span>
-                            <span class="hidden sm:inline">·</span>
-                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-unlock text-[10px] mr-1"></i>Публічний доступ</span>
+                            <span id="clanWealth"><i class="fa-solid fa-coins text-gray-400 mr-1"></i>Казна: -- Coins</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Live Salvo Highlight Card (Adaptive Grid: 3x2 on mobile, 6x1 on desktop) -->
-                <div class="bg-gradient-to-br from-rose-950/40 via-cardbg to-cardbg p-3 sm:p-3.5 rounded-xl border border-rose-500/30 shrink-0 shadow-lg w-full lg:w-auto">
-                    <!-- Title & Icon Header -->
-                    <div class="flex items-center justify-between gap-2 mb-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xs sm:text-sm shrink-0">
-                                <i class="fa-solid fa-crosshairs"></i>
-                            </div>
-                            <span class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-rose-300">Залп клану до 02:00</span>
-                            <i class="fa-solid fa-circle-question text-gray-400 cursor-pointer text-xs" title="Реальний доступний залп клану до 02:00 за Києвом: фактичний залишок активних таблеток (в руках + реген) + чисті бійці, готові пити, + бійці, чий дебаф завершиться до 02:00. Бійці з дебафом після 02:00 (відстрілялися зранку) виключені!"></i>
+                <!-- Live Salvo Highlight Card -->
+                <div class="bg-darkbg/70 p-2.5 sm:p-3 rounded-xl border border-bordercolor shrink-0 w-full lg:w-auto">
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-crosshairs text-rose-400 text-xs"></i>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-300">Залп клану до 02:00</span>
+                            <i class="fa-solid fa-circle-question text-gray-500 hover:text-gray-300 cursor-help text-xs" title="Доступний залп клану до 02:00 за Києвом: залишок активних таблеток (в руках + реген) + готові пити + ті, чий дебаф спаде до 02:00."></i>
                         </div>
                     </div>
 
-                    <!-- 6 Metric Tiles (Separate sleek boxes: 3x2 on mobile, 6x1 on desktop) -->
-                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
-                        <!-- 1. Залп -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-bordercolor/80 hover:border-gray-500 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Реальний доступний залп клану до 02:00 за Києвом (залишок активних таблеток + готові пити + розблокуються ввечері). Бійці з дебафом після 02:00 виключені!">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Залп до 02:00</span>
-                            <b id="statClanSalvo" class="text-white font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                        <div class="bg-cardbg/90 border border-bordercolor rounded-lg px-2 py-1 text-center">
+                            <span class="text-[9px] text-gray-400 font-bold uppercase block">Залп до 02:00</span>
+                            <b id="statClanSalvo" class="text-white font-bold font-mono text-xs">--</b>
                         </div>
-
-                        <!-- 2. В руках -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-rose-500/30 hover:border-rose-500/50 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Миттєвий урон у руках прямо зараз від бійців під діючою таблеткою (поточне HP + їжа). Готовий до негайного удару!">
-                            <span class="text-[10px] text-rose-300/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1">
-                                <span>🔥</span> <span id="labelInstantSalvo">В руках</span>
-                            </span>
-                            <b id="statInstantSalvo" class="text-rose-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                        <div class="bg-cardbg/90 border border-rose-500/30 rounded-lg px-2 py-1 text-center">
+                            <span class="text-[9px] text-rose-300/90 font-bold uppercase flex items-center justify-center gap-1"><i class="fa-solid fa-fire text-[9px]"></i><span id="labelInstantSalvo">В руках</span></span>
+                            <b id="statInstantSalvo" class="text-rose-400 font-bold font-mono text-xs">--</b>
                         </div>
-
-                        <!-- 3. Реген -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-amber-500/30 hover:border-amber-500/50 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Майбутній урон від регену HP та їжі, який дозріє за години, що залишилися до спадіння таблетки">
-                            <span class="text-[10px] text-amber-300/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1">
-                                <span>⏳</span> <span id="labelRegenSalvo">Реген</span>
-                            </span>
-                            <b id="statRegenSalvo" class="text-amber-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                        <div class="bg-cardbg/90 border border-amber-500/30 rounded-lg px-2 py-1 text-center">
+                            <span class="text-[9px] text-amber-300/90 font-bold uppercase flex items-center justify-center gap-1"><i class="fa-regular fa-hourglass-half text-[9px]"></i><span id="labelRegenSalvo">Реген</span></span>
+                            <b id="statRegenSalvo" class="text-amber-400 font-bold font-mono text-xs">--</b>
                         </div>
-
-                        <!-- 4. Можуть пити -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-blue-500/30 hover:border-blue-500/50 rounded-lg px-1 sm:px-2 py-1.5 text-center flex flex-col justify-center transition-all" id="readySalvoContainer" title="Потенційний залп бійців, які готові випити таблетку прямо зараз (8 год з рибою)">
-                            <span class="text-[9.5px] sm:text-[10px] text-blue-300/90 font-bold uppercase tracking-wider flex items-center justify-center gap-1 truncate">
-                                <span>💊</span> <span id="labelReadySalvo">Можуть пити</span> (<span id="statReadyCount">0</span>)
-                            </span>
-                            <b id="statReadySalvo" class="text-blue-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                        <div class="bg-cardbg/90 border border-blue-500/30 rounded-lg px-1.5 py-1 text-center" id="readySalvoContainer">
+                            <span class="text-[9px] text-blue-300/90 font-bold uppercase flex items-center justify-center gap-1 truncate"><i class="fa-solid fa-capsules text-[9px]"></i><span id="labelReadySalvo">Готові</span> (<span id="statReadyCount">0</span>)</span>
+                            <b id="statReadySalvo" class="text-blue-400 font-bold font-mono text-xs">--</b>
                         </div>
-
-                        <!-- 5. Сьогодні -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-emerald-500/30 hover:border-emerald-500/50 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Фактично нанесений урон кланом сьогодні з 02:00">
-                            <span class="text-[10px] text-emerald-300/90 font-bold uppercase tracking-wider">Сьогодні</span>
-                            <b id="statClanToday" class="text-emerald-400 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                        <div class="bg-cardbg/90 border border-emerald-500/30 rounded-lg px-2 py-1 text-center">
+                            <span class="text-[9px] text-emerald-300/90 font-bold uppercase block">Сьогодні</span>
+                            <b id="statClanToday" class="text-emerald-400 font-bold font-mono text-xs">--</b>
                         </div>
-
-                        <!-- 6. Вчора -->
-                        <div class="bg-darkbg/70 hover:bg-darkbg/90 border border-indigo-500/30 hover:border-indigo-500/50 rounded-lg px-2 py-1.5 text-center flex flex-col justify-center transition-all" title="Фактично нанесений урон кланом за вчора">
-                            <span class="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Вчора</span>
-                            <b id="statClanYesterday" class="text-indigo-300 font-bold font-mono text-xs sm:text-sm mt-0.5">--</b>
+                        <div class="bg-cardbg/90 border border-indigo-500/30 rounded-lg px-2 py-1 text-center">
+                            <span class="text-[9px] text-indigo-300/90 font-bold uppercase block">Вчора</span>
+                            <b id="statClanYesterday" class="text-indigo-300 font-bold font-mono text-xs">--</b>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 4 Key Stat Summary Cards (Compact 3x smaller) -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
-            <!-- 1. Вар білди -->
-            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+        <!-- 4 Clickable KPI Filter Cards -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <button type="button" onclick="toggleKpiFilter('WAR')" id="kpiCardWAR" class="kpi-filter-card text-left glass-panel px-3 py-2 rounded-xl border border-bordercolor shadow-sm hover:border-emerald-500/50 transition-all cursor-pointer">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Бойові білди (War)</span>
-                    <i class="fa-solid fa-swords text-emerald-400 text-xs"></i>
+                    <i class="fa-solid fa-khanda text-gray-400 text-xs"></i>
                 </div>
                 <div class="flex items-baseline justify-between mt-0.5">
                     <span class="text-sm sm:text-base font-extrabold text-emerald-400" id="statWarCount">--</span>
-                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statWarSub">-- бійців (≥70% вар)</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statWarSub">-- бійців</span>
                 </div>
-            </div>
+            </button>
 
-            <!-- 2. Таблетка (Бойова готовність) -->
-            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+            <button type="button" onclick="toggleKpiFilter('PILL_ACTIVE')" id="kpiCardPILL_ACTIVE" class="kpi-filter-card text-left glass-panel px-3 py-2 rounded-xl border border-bordercolor shadow-sm hover:border-purple-500/50 transition-all cursor-pointer">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Під таблеткою (+60%)</span>
-                    <i class="fa-solid fa-capsules text-purple-400 text-xs"></i>
+                    <i class="fa-solid fa-capsules text-gray-400 text-xs"></i>
                 </div>
                 <div class="flex items-baseline justify-between mt-0.5">
                     <span class="text-sm sm:text-base font-extrabold text-purple-300" id="statPillActive">--</span>
                     <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statPillSub">-- готові</span>
                 </div>
-            </div>
+            </button>
 
-            <!-- 3. Еко-тил / Гібриди -->
-            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+            <button type="button" onclick="toggleKpiFilter('ECO')" id="kpiCardECO" class="kpi-filter-card text-left glass-panel px-3 py-2 rounded-xl border border-bordercolor shadow-sm hover:border-amber-500/50 transition-all cursor-pointer">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Еко-тил & Гібриди</span>
-                    <i class="fa-solid fa-tractor text-amber-400 text-xs"></i>
+                    <i class="fa-solid fa-tractor text-gray-400 text-xs"></i>
                 </div>
                 <div class="flex items-baseline justify-between mt-0.5">
                     <span class="text-sm sm:text-base font-extrabold text-amber-300" id="statEcoCount">--</span>
                     <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statEcoSub">-- еко · -- гібрид</span>
                 </div>
-            </div>
+            </button>
 
-            <!-- 4. Активність / AFK -->
-            <div class="glass-panel px-3 py-1.5 sm:py-2 rounded-lg border border-bordercolor shadow-sm hover:border-gray-600 transition-all">
+            <button type="button" onclick="toggleKpiFilter('AFK')" id="kpiCardAFK" class="kpi-filter-card text-left glass-panel px-3 py-2 rounded-xl border border-bordercolor shadow-sm hover:border-blue-500/50 transition-all cursor-pointer">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center justify-between">
                     <span>Детектор онлайну</span>
-                    <i class="fa-solid fa-clock text-blue-400 text-xs"></i>
+                    <i class="fa-regular fa-clock text-gray-400 text-xs"></i>
                 </div>
                 <div class="flex items-baseline justify-between mt-0.5">
                     <span class="text-sm sm:text-base font-extrabold text-blue-400" id="statOnlineCount">--</span>
-                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statAfkSub">-- інактив (>24 год)</span>
+                    <span class="text-[10px] text-gray-400 truncate max-w-[130px]" id="statAfkSub">-- інактив (>24г)</span>
                 </div>
-            </div>
+            </button>
         </section>
 
-        <!-- Battle Bonus Target & Combat Settings Banner -->
-        <section class="bg-gradient-to-r from-amber-950/40 via-cardbg to-amber-950/20 border-2 border-amber-500/50 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div class="flex items-start sm:items-center gap-3.5 min-w-0">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl sm:text-3xl shrink-0 shadow-inner">
-                        <i class="fa-solid fa-fire"></i>
+        <!-- Sticky Compact Battle Buff & Controls Bar -->
+        <section class="sticky top-[49px] sm:top-[57px] z-30 glass-panel rounded-xl border border-bordercolor p-2.5 sm:p-3 shadow-lg space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <!-- Compact Battle Buff Control -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-fire text-amber-400 text-xs"></i>
+                        <span class="text-xs font-bold text-gray-200">Бойовий баф:</span>
+                        <i class="fa-solid fa-circle-question text-gray-500 hover:text-gray-300 cursor-help text-xs" title="Вкажіть % сумарного бонусу битви (Альянс + Наказ + Штаб + Бункер). Усі розрахунки залпу нижче адаптуються миттєво з урахуванням таблетки (+60% атаки) та зливу HP і їжі."></i>
                     </div>
-                    <div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h2 class="text-base sm:text-lg font-black text-white tracking-tight">
-                                БОЙОВИЙ БАФ БИТВИ
-                            </h2>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700/60 uppercase">
-                                Динамічний розрахунок
-                            </span>
-                        </div>
-                        <p class="text-xs text-gray-300 mt-1 leading-relaxed max-w-2xl">
-                            Вкажіть потрібний <b>% сумарного бонусу битви</b> (Альянс + Наказ + Штаб + Бункер). 
-                            Усі розрахунки бойового залпу бійців клану на смаженій рибі нижче миттєво адаптуються під цей відсоток.
-                            <span class="text-gray-400 block sm:inline mt-0.5 sm:mt-0 sm:ml-1">💊 Базовий розрахунок враховує таблетку (+60% атаки) та злив HP і їжі.</span>
-                        </p>
+                    <div class="flex items-center bg-darkbg border border-amber-500/50 rounded-lg px-2 py-1">
+                        <input type="number" id="battleBonusInput" value="84" min="0" max="300" step="1" oninput="updateCustomBattleBonus(this.value)" class="w-12 bg-transparent text-center text-sm font-black text-amber-400 font-mono focus:outline-none">
+                        <span class="text-xs text-amber-400 font-bold font-mono">%</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="setBattleBonus(50)" id="topBonusBtn_50" class="px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 border border-bordercolor text-[11px] font-mono text-gray-300 transition">50%</button>
+                        <button type="button" onclick="setBattleBonus(65)" id="topBonusBtn_65" class="px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 border border-bordercolor text-[11px] font-mono text-gray-300 transition">65%</button>
+                        <button type="button" onclick="setBattleBonus(84)" id="topBonusBtn_84" class="px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 border border-bordercolor text-[11px] font-mono text-gray-300 transition">84%</button>
+                        <button type="button" onclick="setBattleBonus(100)" id="topBonusBtn_100" class="px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 border border-bordercolor text-[11px] font-mono text-gray-300 transition">100%</button>
                     </div>
                 </div>
 
-                <!-- Big Interactive Input & Quick Presets -->
-                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0 bg-darkbg/90 border border-amber-500/40 rounded-xl p-3 sm:px-4 sm:py-3 shadow-inner">
-                    <div class="flex items-center gap-2">
-                        <label for="battleBonusInput" class="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                            Бонус:
-                        </label>
-                        <div class="relative flex items-center">
-                            <input 
-                                type="number" 
-                                id="battleBonusInput" 
-                                value="84" 
-                                min="0" 
-                                max="300" 
-                                step="1" 
-                                oninput="updateCustomBattleBonus(this.value)" 
-                                class="w-20 sm:w-24 bg-cardbg border-2 border-amber-500 rounded-xl px-2 py-1.5 text-center text-xl sm:text-2xl font-black text-amber-400 font-mono focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all shadow-md"
-                            >
-                            <span class="text-base sm:text-lg text-amber-400 font-black font-mono ml-2">%</span>
-                        </div>
+                <!-- Search, Sort & View Switcher -->
+                <div class="flex items-center gap-2 flex-1 sm:flex-initial justify-end flex-wrap">
+                    <div class="relative flex-1 sm:w-44 min-w-[140px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-gray-400 text-[11px]"></i>
+                        <input type="text" id="memberSearchInput" oninput="renderMembersTable()" placeholder="Пошук бійця..." class="w-full bg-darkbg border border-bordercolor rounded-lg pl-7 pr-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors">
                     </div>
 
-                    <!-- Quick Preset Buttons -->
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        <button type="button" onclick="setBattleBonus(50)" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-amber-950/60 border border-bordercolor hover:border-amber-500/50 text-xs font-semibold text-gray-300 hover:text-amber-300 transition" title="Стандартний бій без додаткових бонусів">50%</button>
-                        <button type="button" onclick="setBattleBonus(65)" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-amber-950/60 border border-bordercolor hover:border-amber-500/50 text-xs font-semibold text-gray-300 hover:text-amber-300 transition" title="Середній наказ або штабний баф">65%</button>
-                        <button type="button" onclick="setBattleBonus(84)" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-amber-950/60 border border-bordercolor hover:border-amber-500/50 text-xs font-semibold text-gray-300 hover:text-amber-300 transition" title="Штурм форту (максимальний штурмовий бонус)">84% (Форт)</button>
-                        <button type="button" onclick="setBattleBonus(100)" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-amber-950/60 border border-bordercolor hover:border-amber-500/50 text-xs font-semibold text-gray-300 hover:text-amber-300 transition" title="Екстремальний баф альянсу">100%</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Controls, Filter Tabs & Search -->
-        <section class="flex flex-col gap-2.5 sm:gap-3">
-            <!-- Filter Pills (Horizontal swipe on mobile) -->
-            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs shrink-0 w-full">
-                <button onclick="setFilter('ALL')" id="filterALL" class="tab-btn px-3 py-1.5 rounded-lg active transition-colors whitespace-nowrap shrink-0">Всі (<span id="cntAll">0</span>)</button>
-                <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-emerald-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚔️ Вар (<span id="cntWar">0</span>)</button>
-                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-purple-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💊 Баф (<span id="cntPillActive">0</span>)</button>
-                <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚪ Готовий (<span id="cntPillReady">0</span>)</button>
-                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-rose-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⏳ Дебаф (<span id="cntPillCooldown">0</span>)</button>
-                <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-sky-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">⚖️ Гібриди (<span id="cntHybrid">0</span>)</button>
-                <button onclick="setFilter('ECO')" id="filterECO" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">🚜 Еко (<span id="cntEco">0</span>)</button>
-                <button onclick="setFilter('AFK')" id="filterAFK" class="tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0">💤 Інактив (<span id="cntAfk">0</span>)</button>
-            </div>
-
-            <!-- Search box, Mobile Sort & View Switcher -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div class="relative flex-1 min-w-[200px]">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                    <input type="text" id="memberSearchInput" oninput="renderMembersTable()" placeholder="Пошук бійця за ніком..." class="w-full bg-cardbg border border-bordercolor rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors">
-                </div>
-
-                <!-- Sort & View Controls -->
-                <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0 flex-wrap">
-                    <!-- Mobile Sort Dropdown -->
-                    <div class="flex items-center gap-1.5 text-xs">
-                        <select id="sortSelect" onchange="changeSort(this.value)" class="bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 font-medium cursor-pointer">
-                            <option value="damage_fish">🐟 Залп (Смажена риба)</option>
-                            <option value="damage">🥩 Залп (Стейки)</option>
-                            <option value="today">💥 Дамаг сьогодні</option>
-                            <option value="yesterday">📜 Дамаг вчора</option>
-                            <option value="pill">💊 Статус таблетки</option>
-                            <option value="build">⚔️ Білд (Вар/Еко)</option>
-                            <option value="weekly">🏆 Дамаг тижня</option>
-                            <option value="online">🟢 Онлайн</option>
-                            <option value="name">🔤 Ім'я бійця</option>
+                    <div class="flex items-center gap-1 text-xs">
+                        <select id="sortSelect" onchange="changeSort(this.value)" class="bg-darkbg border border-bordercolor rounded-lg px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500 font-medium cursor-pointer">
+                            <option value="damage_fish">Залп (Риба)</option>
+                            <option value="damage">Залп (Стейки)</option>
+                            <option value="today">Урон сьогодні</option>
+                            <option value="yesterday">Урон вчора</option>
+                            <option value="pill">Статус таблетки</option>
+                            <option value="build">Білд (Вар/Еко)</option>
+                            <option value="weekly">Урон тижня</option>
+                            <option value="online">Онлайн</option>
+                            <option value="name">Ім'я бійця</option>
                         </select>
-                        <button onclick="toggleSortOrder()" id="sortOrderBtn" class="p-1.5 rounded-lg bg-cardbg border border-bordercolor text-gray-300 hover:text-white hover:border-gray-500 transition-colors" title="Змінити порядок сортування">
+                        <button onclick="toggleSortOrder()" id="sortOrderBtn" class="p-1.5 rounded-lg bg-darkbg border border-bordercolor text-gray-300 hover:text-white hover:border-gray-500 transition-colors" title="Змінити порядок сортування">
                             <i class="fa-solid fa-arrow-down-wide-short text-xs" id="sortOrderIcon"></i>
                         </button>
                     </div>
 
-                    <!-- View Switcher (Cards / Table) -->
-                    <div class="flex items-center bg-cardbg p-0.5 rounded-lg border border-bordercolor text-xs shrink-0">
-                        <button id="viewCardsBtn" onclick="setViewMode('cards')" class="view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white" title="Вигляд картками">
-                            <i class="fa-solid fa-grip-vertical text-xs"></i> <span class="hidden xs:inline">Картки</span>
+                    <div class="hidden md:flex items-center bg-darkbg p-0.5 rounded-lg border border-bordercolor text-xs shrink-0">
+                        <button id="viewCardsBtn" onclick="setViewMode('cards')" class="view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-gray-400 hover:text-white" title="Вигляд картками">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
                         </button>
-                        <button id="viewTableBtn" onclick="setViewMode('table')" class="view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white" title="Вигляд таблицею">
-                            <i class="fa-solid fa-table-list text-xs"></i> <span class="hidden xs:inline">Таблиця</span>
+                        <button id="viewTableBtn" onclick="setViewMode('table')" class="view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 active text-white" title="Вигляд таблицею">
+                            <i class="fa-solid fa-table-list text-xs"></i>
                         </button>
                     </div>
                 </div>
             </div>
+
+            <!-- Compact Status Filter Pills (Monochrome icons) -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-bordercolor/50 text-[11px]">
+                <button onclick="setFilter('ALL')" id="filterALL" class="tab-btn px-2.5 py-1 rounded-md active transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-users text-[10px]"></i> Всі (<span id="cntAll">0</span>)
+                </button>
+                <button onclick="setFilter('PILL_READY')" id="filterPILL_READY" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-regular fa-circle-check text-blue-400 text-[10px]"></i> Готовий (<span id="cntPillReady">0</span>)
+                </button>
+                <button onclick="setFilter('PILL_ACTIVE')" id="filterPILL_ACTIVE" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-capsules text-purple-400 text-[10px]"></i> Баф (<span id="cntPillActive">0</span>)
+                </button>
+                <button onclick="setFilter('PILL_COOLDOWN')" id="filterPILL_COOLDOWN" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-regular fa-hourglass-half text-rose-400 text-[10px]"></i> Дебаф (<span id="cntPillCooldown">0</span>)
+                </button>
+                <button onclick="setFilter('WAR')" id="filterWAR" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-khanda text-emerald-400 text-[10px]"></i> Вар (<span id="cntWar">0</span>)
+                </button>
+                <button onclick="setFilter('HYBRID')" id="filterHYBRID" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-scale-balanced text-sky-400 text-[10px]"></i> Гібриди (<span id="cntHybrid">0</span>)
+                </button>
+                <button onclick="setFilter('ECO')" id="filterECO" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-tractor text-amber-400 text-[10px]"></i> Еко (<span id="cntEco">0</span>)
+                </button>
+                <button onclick="setFilter('AFK')" id="filterAFK" class="tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    <i class="fa-solid fa-moon text-gray-400 text-[10px]"></i> Інактив (<span id="cntAfk">0</span>)
+                </button>
+            </div>
         </section>
 
-        <!-- Clan Roster: Table View (Sticky name column) -->
+        <!-- Clan Roster: Compact 5-Column Table View (+ Checkbox) -->
         <section id="clanTableSection" class="glass-panel rounded-2xl border border-bordercolor shadow-xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
-                        <tr class="bg-cardbg/80 border-b border-bordercolor text-gray-400 font-semibold select-none">
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors sticky left-0 bg-[#111622] z-20 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.5)]" onclick="sortRoster('name')">Боєць <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('role')">Роль <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('build')">Білд <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocain) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактично нанесений дамаг за сьогодні (з 02:00 за Києвом)">Дамаг сьогодні (з 02:00) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-indigo-300 transition-colors text-right" onclick="sortRoster('yesterday')" title="Фактично нанесений дамаг за вчорашній ігровий день">Дамаг вчора <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage_fish')" title="Теоретичний дамаг за 1 повну таблетку (8 год): більший — на рибі (🐟), менший — на стейках (🥩)">Залп за таблетку <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('weekly')">Дамаг тижня <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
-                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('online')">Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                        <tr class="bg-cardbg/90 border-b border-bordercolor text-gray-400 font-semibold select-none">
+                            <th class="p-3 w-8 text-center">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="rounded border-gray-600 bg-darkbg text-blue-500 focus:ring-0 cursor-pointer" title="Вибрати всіх видимих для планування залпу">
+                            </th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors sticky left-0 bg-[#111622] z-20 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.5)]" onclick="sortRoster('name')">Боєць · Роль · Онлайн <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('build')">Білд · 7д тренд <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors" onclick="sortRoster('pill')">Таблетка (Cocaine) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors text-right" onclick="sortRoster('today')" title="Фактичний урон за сьогодні (з 02:00) та вчора">Урон (Сьогодні / Вчора) <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
+                            <th class="p-3 cursor-pointer hover:text-white transition-colors text-right" onclick="sortRoster('damage_fish')" title="Теоретичний залп за 1 повну таблетку (8 год) та урон тижня">Залп 8г · Тиждень <i class="fa-solid fa-sort ml-1 text-[10px]"></i></th>
                         </tr>
                     </thead>
                     <tbody id="clanTableBody" class="divide-y divide-bordercolor/60">
-                        <tr>
-                            <td colspan="9" class="p-8 text-center text-gray-400">
-                                <i class="fa-solid fa-spinner fa-spin text-xl mb-2 text-blue-500"></i>
-                                <div>Завантаження бойового складу клану...</div>
-                            </td>
+                        <tr class="animate-pulse">
+                            <td class="p-3"><div class="w-4 h-4 bg-gray-800 rounded mx-auto"></div></td>
+                            <td class="p-3"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-gray-800"></div><div class="space-y-1.5"><div class="w-28 h-3 bg-gray-800 rounded"></div><div class="w-20 h-2.5 bg-gray-800/70 rounded"></div></div></div></td>
+                            <td class="p-3"><div class="w-20 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-24 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-16 h-4 bg-gray-800 rounded ml-auto"></div></td>
+                            <td class="p-3"><div class="w-20 h-4 bg-gray-800 rounded ml-auto"></div></td>
+                        </tr>
+                        <tr class="animate-pulse">
+                            <td class="p-3"><div class="w-4 h-4 bg-gray-800 rounded mx-auto"></div></td>
+                            <td class="p-3"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-gray-800"></div><div class="space-y-1.5"><div class="w-24 h-3 bg-gray-800 rounded"></div><div class="w-16 h-2.5 bg-gray-800/70 rounded"></div></div></div></td>
+                            <td class="p-3"><div class="w-20 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-24 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-16 h-4 bg-gray-800 rounded ml-auto"></div></td>
+                            <td class="p-3"><div class="w-20 h-4 bg-gray-800 rounded ml-auto"></div></td>
+                        </tr>
+                        <tr class="animate-pulse">
+                            <td class="p-3"><div class="w-4 h-4 bg-gray-800 rounded mx-auto"></div></td>
+                            <td class="p-3"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-gray-800"></div><div class="space-y-1.5"><div class="w-32 h-3 bg-gray-800 rounded"></div><div class="w-20 h-2.5 bg-gray-800/70 rounded"></div></div></div></td>
+                            <td class="p-3"><div class="w-20 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-24 h-5 bg-gray-800 rounded"></div></td>
+                            <td class="p-3"><div class="w-16 h-4 bg-gray-800 rounded ml-auto"></div></td>
+                            <td class="p-3"><div class="w-20 h-4 bg-gray-800 rounded ml-auto"></div></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <!-- Clan Roster: Mobile Cards View -->
+        <!-- Clan Roster: Mobile Combat Cards View -->
         <section id="clanCardsSection" class="flex flex-col gap-2.5">
-            <div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">
-                <i class="fa-solid fa-spinner fa-spin text-xl mb-2 text-blue-500"></i>
-                <div>Завантаження бойового складу клану...</div>
+            <div class="glass-panel p-4 rounded-2xl border border-bordercolor animate-pulse space-y-3">
+                <div class="flex items-center justify-between"><div class="w-32 h-4 bg-gray-800 rounded"></div><div class="w-20 h-5 bg-gray-800 rounded"></div></div>
+                <div class="grid grid-cols-3 gap-2"><div class="h-10 bg-gray-800 rounded-lg"></div><div class="h-10 bg-gray-800 rounded-lg"></div><div class="h-10 bg-gray-800 rounded-lg"></div></div>
+            </div>
+            <div class="glass-panel p-4 rounded-2xl border border-bordercolor animate-pulse space-y-3">
+                <div class="flex items-center justify-between"><div class="w-28 h-4 bg-gray-800 rounded"></div><div class="w-20 h-5 bg-gray-800 rounded"></div></div>
+                <div class="grid grid-cols-3 gap-2"><div class="h-10 bg-gray-800 rounded-lg"></div><div class="h-10 bg-gray-800 rounded-lg"></div><div class="h-10 bg-gray-800 rounded-lg"></div></div>
             </div>
         </section>
 
     </main>
+
+    <!-- Salvo Planner Floating Bar -->
+    <div id="salvoPlannerBar" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 hidden max-w-2xl w-[94%] glass-panel border border-blue-500/60 bg-[#0d1322]/95 rounded-2xl px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.7)] flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-xs font-mono" id="salvoSelectedCount">0</div>
+            <div>
+                <div class="text-xs font-bold text-white">Планувальник залпу</div>
+                <div class="text-[11px] text-gray-300 font-mono">
+                    Залп 8г: <b id="salvoSelectedFish" class="text-sky-400">0</b> · В руках: <b id="salvoSelectedInstant" class="text-rose-400">0</b>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="copySelectedSalvoPing()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-paper-plane text-[11px]"></i> Скопіювати пінг
+            </button>
+            <button type="button" onclick="clearSelectedMembers()" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-bordercolor transition">
+                Скинути
+            </button>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="border-t border-bordercolor bg-darkbg/90 py-4 px-6 text-center text-xs text-gray-500">
@@ -383,221 +372,209 @@
     <!-- INCLUDE: clan_app.js -->
 
     <!-- ================= TARGET DAMAGE & GEAR CALCULATOR MODAL ================= -->
-    <div id="targetCalcModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md hidden transition-all duration-200" onclick="if (event.target === this) closeTargetCalculator()">
-        <div class="glass-panel w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-blue-500/40 shadow-[0_0_50px_rgba(59,130,246,0.2)] overflow-hidden bg-[#0e131f]/95 animate-fadeIn">
+    <div id="targetCalcModal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md hidden transition-all duration-200" onclick="if (event.target === this) closeTargetCalculator()">
+        <div class="glass-panel w-full max-w-6xl max-h-[92vh] flex flex-col rounded-2xl border border-blue-500/40 shadow-[0_0_50px_rgba(59,130,246,0.2)] overflow-hidden bg-[#0e131f]/95 animate-fadeIn">
             <!-- Modal Header -->
-            <div class="px-5 py-4 border-b border-bordercolor flex items-center justify-between bg-cardbg/80">
-                <div class="flex items-center gap-3">
-                    <img id="calcUserAvatar" src="" class="w-10 h-10 rounded-full border border-blue-500/50 bg-darkbg object-cover" onerror="this.src='https://media.warera.io/images/itemsv2/sniper.png'">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span id="calcUserName" class="font-bold text-white text-base sm:text-lg">Боєць</span>
-                            <span id="calcUserLevel" class="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.0</span>
-                            <span id="calcUserRank" class="text-xs text-gray-400 font-mono">Ранг 0</span>
-                            <span id="calcPrestigeBadge" class="text-xs px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono">⭐ Престиж 0</span>
+            <div class="px-4 sm:px-5 py-3.5 border-b border-bordercolor flex items-center justify-between bg-cardbg/80 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img id="calcUserAvatar" src="" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-blue-500/50 bg-darkbg object-cover shrink-0" onerror="this.src='https://media.warera.io/images/itemsv2/sniper.png'">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span id="calcUserName" class="font-bold text-white text-sm sm:text-base truncate">Боєць</span>
+                            <span id="calcUserLevel" class="text-[11px] px-1.5 py-0.5 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.0</span>
+                            <span id="calcUserRank" class="text-[11px] text-gray-400 font-mono">Ранг 0</span>
+                            <span id="calcPrestigeBadge" class="text-[11px] px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono">Престиж 0</span>
                         </div>
-                        <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
-                            <span id="calcPillBadge" class="px-1.5 py-0.2 rounded text-[10px] border">💊 Таблетка</span>
+                        <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span id="calcPillBadge" class="px-1.5 py-0.2 rounded text-[10px] border">Таблетка</span>
                             <span>•</span>
-                            <span id="calcHungerBadge">🥪 Голод: 0/0</span>
+                            <span id="calcHungerBadge">Голод: 0/0</span>
                             <span>•</span>
-                            <span id="calcHealthBadge">❤️ HP: 0/0</span>
+                            <span id="calcHealthBadge">HP: 0/0</span>
                         </div>
                     </div>
                 </div>
-                <button onclick="closeTargetCalculator()" class="w-8 h-8 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition-colors">
+                <button onclick="closeTargetCalculator()" class="w-8 h-8 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition-colors shrink-0">
                     <i class="fa-solid fa-xmark text-sm"></i>
                 </button>
             </div>
 
-            <!-- Modal Content (Scrollable) -->
-            <div class="p-5 overflow-y-auto space-y-5 text-xs text-gray-300">
-                <!-- 1. Target Controls -->
-                <div class="bg-cardbg/60 p-4 rounded-xl border border-bordercolor/80 space-y-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-                        <!-- Target Damage Input (Millions) -->
-                        <div class="col-span-1 sm:col-span-2 lg:col-span-1">
-                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
-                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">🎯 Бажаний урон</label>
-                                <span id="calcTargetHint" class="text-[10px] font-mono text-emerald-400 font-bold whitespace-nowrap">= 2 000 000</span>
+            <!-- Modal Content (2-Column Desktop Layout) -->
+            <div class="p-4 sm:p-5 overflow-y-auto text-xs text-gray-300">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+                    <!-- LEFT COLUMN: Controls -->
+                    <div class="lg:col-span-5 space-y-3 bg-cardbg/60 p-4 rounded-xl border border-bordercolor/80">
+                        <!-- Target Damage & Battle Bonus -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                    <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">Бажаний урон</label>
+                                    <span id="calcTargetHint" class="text-[10px] font-mono text-emerald-400 font-bold whitespace-nowrap">= 2 000 000</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-white font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="2" oninput="onCalcTargetInput(this.value)">
+                                    <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">M</span>
+                                </div>
                             </div>
-                            <div class="relative">
-                                <input type="text" inputmode="decimal" id="calcTargetInput" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-white font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="2" oninput="onCalcTargetInput(this.value)">
-                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">M</span>
+
+                            <div>
+                                <div class="flex items-center justify-between gap-1 mb-1 h-4">
+                                    <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">Бонус битви</label>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-amber-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
+                                    <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">%</span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Battle Bonus Input (%) -->
-                        <div>
-                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
-                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">⚔️ Бонус битви</label>
-                            </div>
-                            <div class="relative">
-                                <input type="number" id="calcBonusInput" min="0" max="300" step="1" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-amber-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="84" oninput="onCalcBonusInput(this.value)">
-                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">%</span>
-                            </div>
-                        </div>
-
-                        <!-- Military Rank Bonus Input (%) - UNBOUNDED -->
-                        <div>
-                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
-                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">🎖 Ранг бонус</label>
-                                <span id="calcRankAutoLabel" class="text-[10px] text-emerald-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
-                            </div>
-                            <div class="relative">
-                                <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-indigo-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
-                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">%</span>
+                        <!-- Quick Target Millions -->
+                        <div class="space-y-1.5 pt-2 border-t border-bordercolor/40">
+                            <span class="text-gray-400 text-[10px] uppercase font-bold block">Швидкий вибір урону</span>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button type="button" onclick="setCalcTarget(0.5)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">0.5M</button>
+                                <button type="button" onclick="setCalcTarget(1)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">1M</button>
+                                <button type="button" onclick="setCalcTarget(2)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">2M</button>
+                                <button type="button" onclick="setCalcTarget(3.4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">3.4M</button>
+                                <button type="button" onclick="setCalcTarget(4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">4M</button>
+                                <button type="button" onclick="setCalcTarget(6)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">6M</button>
+                                <button type="button" onclick="setCalcTarget(10)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">10M</button>
+                                <button type="button" onclick="setCalcTarget(20)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
                             </div>
                         </div>
 
-                        <!-- Prestige Input -->
-                        <div>
-                            <div class="flex items-center justify-between gap-1 mb-1 h-4">
-                                <label class="text-gray-400 text-[11px] font-bold uppercase whitespace-nowrap">⭐ Престиж</label>
-                                <span id="calcPrestigeAutoLabel" class="text-[10px] text-purple-400 font-mono font-semibold" title="Автоматично підтягнуто з профілю гри">✓ з гри</span>
-                            </div>
-                            <div class="relative">
-                                <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-darkbg border border-bordercolor rounded-xl px-3 py-2 text-center text-purple-300 font-mono text-sm font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)" title="Автоматично підтягнуто з гри. Можна змінити для симуляції.">
-                                <span class="absolute right-3 top-2 text-gray-400 font-mono text-xs font-bold">SP</span>
+                        <!-- Battle Presets -->
+                        <div class="flex items-center justify-between gap-2 pt-2 border-t border-bordercolor/40 flex-wrap">
+                            <span class="text-gray-400 text-[10px] uppercase font-bold">Пресет битви:</span>
+                            <div class="flex items-center gap-1">
+                                <button type="button" id="bonusPresetBtn_50" onclick="setCalcBonus(50)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">50%</button>
+                                <button type="button" id="bonusPresetBtn_65" onclick="setCalcBonus(65)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">65%</button>
+                                <button type="button" id="bonusPresetBtn_84" onclick="setCalcBonus(84)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">84%</button>
+                                <button type="button" id="bonusPresetBtn_100" onclick="setCalcBonus(100)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">100%</button>
                             </div>
                         </div>
+
+                        <!-- Selectors: Weapon, Food, Ammo -->
+                        <div class="space-y-2.5 pt-2 border-t border-bordercolor/40">
+                            <div class="flex items-center gap-1 flex-wrap" id="calcWeaponSelector">
+                                <span class="text-gray-400 text-[10px] uppercase font-bold w-14">Зброя:</span>
+                                <button type="button" onclick="setCalcWeapon('auto')" id="weaponBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
+                                <button type="button" onclick="setCalcWeapon('sniper')" id="weaponBtn_sniper" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700">Снайперка</button>
+                                <button type="button" onclick="setCalcWeapon('tank')" id="weaponBtn_tank" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700">Танк</button>
+                                <button type="button" onclick="setCalcWeapon('rifle')" id="weaponBtn_rifle" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700">Гвинтівка</button>
+                            </div>
+
+                            <div class="flex items-center gap-1 flex-wrap" id="calcFoodSelector">
+                                <span class="text-gray-400 text-[10px] uppercase font-bold w-14">Їжа:</span>
+                                <button type="button" onclick="setCalcFood('auto')" id="foodBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
+                                <button type="button" onclick="setCalcFood('steak')" id="foodBtn_steak" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700">Стейки</button>
+                                <button type="button" onclick="setCalcFood('cookedFish')" id="foodBtn_cookedFish" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700">Риба</button>
+                            </div>
+
+                            <div class="flex items-center gap-1 flex-wrap" id="calcAmmoSelector">
+                                <span class="text-gray-400 text-[10px] uppercase font-bold w-14">Патрони:</span>
+                                <button type="button" onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold">Авто</button>
+                                <button type="button" onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">+10%</button>
+                                <button type="button" onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">+20%</button>
+                                <button type="button" onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">+40%</button>
+                            </div>
+                        </div>
+
+                        <!-- Collapsible Manual Override for Rank & Prestige -->
+                        <details class="bg-darkbg/60 rounded-lg border border-bordercolor/60 p-2.5">
+                            <summary class="cursor-pointer text-[11px] font-semibold text-gray-400 hover:text-white flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-[10px]"></i> Ручне коригування (Ранг / Престиж)</span>
+                                <span class="text-[10px] text-emerald-400 font-mono">✓ з гри</span>
+                            </summary>
+                            <div class="grid grid-cols-2 gap-3 pt-2.5 mt-2 border-t border-bordercolor/40">
+                                <div>
+                                    <div class="flex items-center justify-between gap-1 mb-1">
+                                        <label class="text-gray-400 text-[10px] font-bold uppercase">Ранг бонус</label>
+                                        <span id="calcRankAutoLabel" class="text-[9px] text-emerald-400 font-mono">✓ з гри</span>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="number" id="calcRankBonusInput" min="0" max="500" step="0.5" class="w-full bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-center text-indigo-300 font-mono text-xs font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcRankBonusInput(this.value)">
+                                        <span class="absolute right-2.5 top-1.5 text-gray-400 font-mono text-[10px]">%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between gap-1 mb-1">
+                                        <label class="text-gray-400 text-[10px] font-bold uppercase">Престиж</label>
+                                        <span id="calcPrestigeAutoLabel" class="text-[9px] text-purple-400 font-mono">✓ з гри</span>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="number" id="calcPrestigeInput" min="0" max="100" step="1" class="w-full bg-cardbg border border-bordercolor rounded-lg px-2.5 py-1.5 text-center text-purple-300 font-mono text-xs font-bold focus:outline-none focus:border-blue-400" placeholder="0" oninput="onCalcPrestigeInput(this.value)">
+                                        <span class="absolute right-2.5 top-1.5 text-gray-400 font-mono text-[10px]">SP</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Status Banner & Save Button -->
+                        <div id="calcStatusBanner" class="p-2.5 rounded-lg bg-darkbg/90 border border-blue-500/20 text-gray-300 text-[11px] flex flex-wrap items-center justify-between gap-2"></div>
+
+                        <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-floppy-disk"></i> <span>Зберегти ціль і закрити</span>
+                        </button>
                     </div>
 
-                    <!-- Presets & Save Button row -->
-                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-bordercolor/40">
-                        <!-- Battle presets -->
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="text-gray-400 text-[10px]">Пресет битви:</span>
-                            <button type="button" id="bonusPresetBtn_50" onclick="setCalcBonus(50)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Базовий організований бій (+50%)">50%</button>
-                            <button type="button" id="bonusPresetBtn_65" onclick="setCalcBonus(65)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Бій з фортом (+65%)">65%</button>
-                            <button type="button" id="bonusPresetBtn_84" onclick="setCalcBonus(84)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Повний штурм форту/бази (+84%)">84%</button>
-                            <button type="button" id="bonusPresetBtn_100" onclick="setCalcBonus(100)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor" title="Максимальний баф (+100%)">100%</button>
-                        </div>
+                    <!-- RIGHT COLUMN: Summary + 8-Slot Build + Alternatives -->
+                    <div class="lg:col-span-7 space-y-4">
+                        <!-- Optimal Strategy Card -->
+                        <div id="calcOptimalCard"></div>
 
-                        <!-- Save Target Button -->
-                        <div>
-                            <button onclick="saveCurrentTarget()" id="btnSaveTarget" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-floppy-disk"></i> <span>Зберегти ціль</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Presets & Ammo selector -->
-                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-bordercolor/40">
-                        <!-- Quick presets in Millions -->
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <span class="text-gray-400 text-[10px]">Швидкий вибір:</span>
-                            <button type="button" onclick="setCalcTarget(0.5)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">0.5M (500k)</button>
-                            <button type="button" onclick="setCalcTarget(1)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">1M</button>
-                            <button type="button" onclick="setCalcTarget(2)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">2M</button>
-                            <button type="button" onclick="setCalcTarget(3.4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">3.4M</button>
-                            <button type="button" onclick="setCalcTarget(4)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">4M</button>
-                            <button type="button" onclick="setCalcTarget(6)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">6M</button>
-                            <button type="button" onclick="setCalcTarget(10)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">10M</button>
-                            <button type="button" onclick="setCalcTarget(20)" class="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-[11px] border border-bordercolor">20M</button>
-                        </div>
-
-                        <!-- Selectors: Weapon, Food & Ammo -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            <!-- Weapon Selector -->
-                            <div class="flex items-center gap-1" id="calcWeaponSelector">
-                                <span class="text-gray-400 text-[10px]">🗡️ Зброя:</span>
-                                <button type="button" onclick="setCalcWeapon('auto')" id="weaponBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
-                                <button type="button" onclick="setCalcWeapon('sniper')" id="weaponBtn_sniper" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Снайперка IV (Т4)">🎯 Снайперка</button>
-                                <button type="button" onclick="setCalcWeapon('tank')" id="weaponBtn_tank" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Танк V (Т5)">🛡️ Танк</button>
-                                <button type="button" onclick="setCalcWeapon('rifle')" id="weaponBtn_rifle" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Гвинтівка III (Т3)">🔫 Гвинтівка</button>
+                        <!-- 8-Slot RPG Build Visualizer -->
+                        <div class="space-y-3" id="calcShoppingSection">
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bordercolor/60 pb-2">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-gray-200 text-xs sm:text-sm flex flex-wrap items-center gap-2">
+                                        <span>Оптимальний білд (8 слотів):</span>
+                                        <span id="calcSelectedStratLabel" class="text-blue-400 font-mono text-xs">...</span>
+                                    </div>
+                                    <div class="text-[11px] text-gray-400 mt-0.5">Цільові стати для купівлі та реальний знос (100 уд./зброя).</div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="text-gray-400 text-[10px] block">Бюджет операції:</span>
+                                    <span id="calcSelectedGrandTotal" class="text-base sm:text-lg font-black text-emerald-400 font-mono whitespace-nowrap">0.00 Coins</span>
+                                </div>
                             </div>
 
-                            <!-- Food Selector -->
-                            <div class="flex items-center gap-1" id="calcFoodSelector">
-                                <span class="text-gray-400 text-[10px]">🥪 Їжа:</span>
-                                <button type="button" onclick="setCalcFood('auto')" id="foodBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
-                                <button type="button" onclick="setCalcFood('steak')" id="foodBtn_steak" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Стейки (15% HP)">🥩 Стейки</button>
-                                <button type="button" onclick="setCalcFood('cookedFish')" id="foodBtn_cookedFish" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor hover:bg-gray-700" title="Смажена риба (20% HP)">🐟 Риба</button>
-                            </div>
-
-                            <!-- Ammo Selector -->
-                            <div class="flex items-center gap-1" id="calcAmmoSelector">
-                                <span class="text-gray-400 text-[10px]">💥 Патрони:</span>
-                                <button type="button" onclick="setCalcAmmo('auto')" id="ammoBtn_auto" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-mono text-[10px] border border-blue-400 font-bold shadow-md">Авто</button>
-                                <button type="button" onclick="setCalcAmmo('lightAmmo')" id="ammoBtn_lightAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟢 +10%</button>
-                                <button type="button" onclick="setCalcAmmo('ammo')" id="ammoBtn_ammo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🔵 +20%</button>
-                                <button type="button" onclick="setCalcAmmo('heavyAmmo')" id="ammoBtn_heavyAmmo" class="px-2 py-1 rounded-lg bg-gray-800 text-gray-300 font-mono text-[10px] border border-bordercolor">🟣 +40%</button>
-                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="calcGearSlotsGrid"></div>
+                            <div class="pt-1" id="calcConsumablesGrid"></div>
                         </div>
-                    </div>
 
-                    <!-- Deficit and Status Banner -->
-                    <div id="calcStatusBanner" class="p-2.5 rounded-lg bg-darkbg/90 border border-blue-500/20 text-gray-300 text-[11px] flex flex-wrap items-center justify-between gap-2">
-                        <!-- Populated by JS -->
+                        <!-- Collapsible Alternatives Table -->
+                        <details class="group bg-cardbg/40 rounded-xl border border-bordercolor/60 overflow-hidden">
+                            <summary class="p-3 text-xs text-gray-400 hover:text-white font-medium cursor-pointer flex items-center justify-between transition-colors select-none">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-list-ul text-blue-400"></i>
+                                    <span>Порівняти з альтернативними сетами</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span id="calcUpdatedTime" class="text-[10px] text-gray-500">оновлено: --:--:--</span>
+                                    <i class="fa-solid fa-chevron-down text-gray-500 group-open:rotate-180 transition-transform text-xs"></i>
+                                </div>
+                            </summary>
+                            <div class="p-3 pt-0 overflow-x-auto">
+                                <table class="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                        <tr class="bg-cardbg text-gray-400 font-semibold border-b border-bordercolor text-[11px]">
+                                            <th class="p-2">Стратегія</th>
+                                            <th class="p-2 text-center">Патрони</th>
+                                            <th class="p-2 text-center">Удари</th>
+                                            <th class="p-2 text-center">Зброя</th>
+                                            <th class="p-2 text-center">Броня</th>
+                                            <th class="p-2 text-center">Їжа</th>
+                                            <th class="p-2 text-right font-bold text-gray-200">Бюджет / Профіт</th>
+                                            <th class="p-2 text-center">Статус</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="calcStrategiesBody" class="divide-y divide-bordercolor/60 font-mono"></tbody>
+                                </table>
+                            </div>
+                        </details>
                     </div>
                 </div>
-
-                <!-- 2. Optimal Best Strategy Highlight Card -->
-                <div id="calcOptimalCard">
-                    <!-- Populated by JS -->
-                </div>
-
-                <!-- 3. Smart 8-Slot RPG Build Visualizer & Durability Eco Advice -->
-                <div class="space-y-3" id="calcShoppingSection">
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-bordercolor/60 pb-2">
-                        <div class="min-w-0">
-                            <div class="font-bold text-gray-200 text-xs sm:text-sm flex flex-wrap items-center gap-2">
-                                <span>🎒 Оптимальний білд та спорядження (8 слотів):</span>
-                                <span id="calcSelectedStratLabel" class="text-blue-400 font-mono text-xs">...</span>
-                            </div>
-                            <div class="text-[11px] text-gray-400 mt-0.5">Цільові стати ролів для купівлі на ринку та реальний знос (100 ударів/зброя, броня захищена ухиленням).</div>
-                        </div>
-                        <div class="text-right shrink-0">
-                            <span class="text-gray-400 text-[10px] block">Бюджет операції:</span>
-                            <span id="calcSelectedGrandTotal" class="text-base sm:text-lg font-black text-emerald-400 font-mono whitespace-nowrap">0.00 ₴</span>
-                        </div>
-                    </div>
-
-                    <!-- 8-Slot Grid / Cards (4x2 RPG layout) -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3" id="calcGearSlotsGrid">
-                        <!-- Populated by JS -->
-                    </div>
-
-                    <!-- Pill Status Strip -->
-                    <div class="pt-1" id="calcConsumablesGrid">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- 4. Collapsible Alternative Strategies Table (Optional) -->
-                <details class="group bg-cardbg/40 rounded-xl border border-bordercolor/60 overflow-hidden">
-                    <summary class="p-3 text-xs text-gray-400 hover:text-white font-medium cursor-pointer flex items-center justify-between transition-colors select-none">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-list-ul text-blue-400"></i>
-                            <span>Порівняти з іншими альтернативними сетами</span>
-                            <span class="text-[10px] text-gray-500 font-normal">(натисніть, щоб розгорнути)</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span id="calcUpdatedTime" class="text-[10px] text-gray-500">оновлено: --:--:--</span>
-                            <i class="fa-solid fa-chevron-down text-gray-500 group-open:rotate-180 transition-transform text-xs"></i>
-                        </div>
-                    </summary>
-                    <div class="p-3 pt-0 overflow-x-auto">
-                        <table class="w-full text-left text-xs border-collapse">
-                            <thead>
-                                <tr class="bg-cardbg text-gray-400 font-semibold border-b border-bordercolor text-[11px]">
-                                    <th class="p-2.5">Стратегія та Їжа</th>
-                                    <th class="p-2.5 text-center">💥 Патрони</th>
-                                    <th class="p-2.5 text-center">🎯 Удари</th>
-                                    <th class="p-2.5 text-center">🔫 Зброя</th>
-                                    <th class="p-2.5 text-center">🦺 Броня</th>
-                                    <th class="p-2.5 text-center">🥪 Їжа / Ліміт</th>
-                                    <th class="p-2.5 text-right font-bold text-gray-200">💰 Бюджет / Профіт</th>
-                                    <th class="p-2.5 text-center">Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody id="calcStrategiesBody" class="divide-y divide-bordercolor/60 font-mono">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
             </div>
         </div>
     </div>

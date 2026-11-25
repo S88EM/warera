@@ -693,6 +693,11 @@ class WarEraClanAnalyzer:
         except Exception as e:
             logger.warning(f"Failed to record clan snapshot: {e}")
 
+        try:
+            history_7d_map = self.history_db.get_7d_damage_history(game_date=game_date, days=7)
+        except Exception:
+            history_7d_map = {}
+
         for m in analyzed_members:
             try:
                 dmg_stats = self.history_db.get_damage_stats(
@@ -704,10 +709,15 @@ class WarEraClanAnalyzer:
                 m["today_damage"] = dmg_stats["today_damage"]
                 m["yesterday_damage"] = dmg_stats["yesterday_damage"]
                 m["has_yesterday"] = dmg_stats["has_yesterday"]
+                hist = list(history_7d_map.get(m["user_id"], [0] * 7))
+                if len(hist) == 7:
+                    hist[-1] = m["today_damage"]
+                m["history_7d"] = hist
             except Exception:
                 m["today_damage"] = 0
                 m["yesterday_damage"] = None
                 m["has_yesterday"] = False
+                m["history_7d"] = [0] * 7
 
         # Attach active daily target damage goals and progress
         try:

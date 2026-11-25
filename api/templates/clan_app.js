@@ -4,11 +4,58 @@
         const ICON_SCRAP = "data:image/png;base64,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";
 
         let clanData = null;
-        let currentFilter = 'ALL';
-        let sortField = 'damage_fish';
-        let sortAsc = false;
-        let currentViewMode = localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
-        let customBattleBonus = parseFloat(localStorage.getItem('warera_battle_bonus') || '84');
+        const _initParams = new URLSearchParams(window.location.search);
+        let currentFilter = _initParams.get('filter') || 'ALL';
+        let sortField = _initParams.get('sort') || 'damage_fish';
+        let sortAsc = _initParams.get('dir') === 'asc';
+        let currentViewMode = _initParams.get('view') || localStorage.getItem('warera_clan_view') || (window.innerWidth < 768 ? 'cards' : 'table');
+        let customBattleBonus = parseFloat(_initParams.get('buff') || localStorage.getItem('warera_battle_bonus') || '84');
+        if (isNaN(customBattleBonus)) customBattleBonus = 84;
+
+        let selectedMembers = new Set();
+        let lastFetchTimestamp = 0;
+        let previousPillStatuses = {};
+        let recentlyChangedUsers = new Set();
+
+        function syncStateToUrl() {
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('buff', String(customBattleBonus));
+                if (currentFilter && currentFilter !== 'ALL') url.searchParams.set('filter', currentFilter);
+                else url.searchParams.delete('filter');
+                if (sortField && sortField !== 'damage_fish') url.searchParams.set('sort', sortField);
+                else url.searchParams.delete('sort');
+                if (sortAsc) url.searchParams.set('dir', 'asc');
+                else url.searchParams.delete('dir');
+                if (currentViewMode) url.searchParams.set('view', currentViewMode);
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateFreshnessTimer() {
+            const el = document.getElementById('liveFreshnessText');
+            if (!el) return;
+            if (!lastFetchTimestamp) {
+                el.innerText = 'Оновлення...';
+                return;
+            }
+            const sec = Math.max(0, Math.floor((Date.now() - lastFetchTimestamp) / 1000));
+            if (sec < 60) el.innerText = `оновлено ${sec}с тому`;
+            else el.innerText = `оновлено ${Math.floor(sec / 60)}хв тому`;
+        }
+        setInterval(updateFreshnessTimer, 1000);
+
+        function updateTopBonusButtonsUI() {
+            [50, 65, 84, 100].forEach(val => {
+                const btn = document.getElementById(`topBonusBtn_${val}`);
+                if (!btn) return;
+                if (Math.abs(customBattleBonus - val) < 0.01) {
+                    btn.className = 'px-2 py-1 rounded-md bg-amber-600/30 border border-amber-500 text-[11px] font-mono text-amber-300 font-bold transition';
+                } else {
+                    btn.className = 'px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 border border-bordercolor text-[11px] font-mono text-gray-300 transition';
+                }
+            });
+        }
 
         function updateClanSalvoStats() {
             if (!clanData || !clanData.members) return;
@@ -55,8 +102,11 @@
             const num = parseFloat(val);
             customBattleBonus = isNaN(num) ? 0 : Math.max(0, num);
             localStorage.setItem('warera_battle_bonus', customBattleBonus.toString());
+            updateTopBonusButtonsUI();
+            syncStateToUrl();
             updateClanSalvoStats();
             renderMembersTable();
+            updateSalvoPlannerBar();
         }
 
         function setBattleBonus(val) {
@@ -115,9 +165,31 @@
                     throw new Error(data.message || 'Не вдалося завантажити дані підрозділу');
                 }
 
+                // Detect pill status changes since previous fetch
+                const nextChanged = new Set();
+                if (Object.keys(previousPillStatuses).length > 0 && Array.isArray(data.members)) {
+                    data.members.forEach(m => {
+                        const prev = previousPillStatuses[m.username];
+                        if (prev && prev !== m.pill_status) {
+                            nextChanged.add(m.username);
+                        }
+                    });
+                }
+                if (Array.isArray(data.members)) {
+                    const nextMap = {};
+                    data.members.forEach(m => { nextMap[m.username] = m.pill_status; });
+                    previousPillStatuses = nextMap;
+                }
+                recentlyChangedUsers = nextChanged;
+                lastFetchTimestamp = Date.now();
+                updateFreshnessTimer();
+
                 clanData = data;
+                const bInput = document.getElementById('battleBonusInput');
+                if (bInput) bInput.value = customBattleBonus;
+                updateTopBonusButtonsUI();
                 renderClanHeader();
-                renderMembersTable();
+                setFilter(currentFilter);
                 if (isManual) showToast('Дані клану оновлено!');
             } catch (err) {
                 console.error('Failed to load clan data:', err);
@@ -139,8 +211,8 @@
             }
             document.getElementById('clanTierBadge').innerText = (mu.weekly_tier || 'Platinum').toUpperCase();
             document.getElementById('clanRankBadge').innerText = `Ранг #${mu.weekly_rank || '--'}`;
-            document.getElementById('clanUpgrades').innerHTML = `<i class="fa-solid fa-landmark text-indigo-400 mr-1"></i>Штаб: ${mu.headquarters_level} ур. · Казарми: ${mu.dormitories_level} ур.`;
-            document.getElementById('clanWealth').innerHTML = `<i class="fa-solid fa-coins text-yellow-400 mr-1"></i>Казна підрозділу: ${formatNumber(Math.round(mu.wealth))} Coins`;
+            document.getElementById('clanUpgrades').innerHTML = `<i class="fa-solid fa-landmark text-gray-400 mr-1"></i>Штаб: ${mu.headquarters_level} рів. · Казарми: ${mu.dormitories_level} рів.`;
+            document.getElementById('clanWealth').innerHTML = `<i class="fa-solid fa-coins text-yellow-400/90 mr-1"></i>Казна: ${formatNumber(Math.round(mu.wealth))} Coins`;
 
             // Salvo Highlight (Calculated with active custom battle bonus)
             updateClanSalvoStats();
@@ -178,17 +250,31 @@
             document.getElementById('cntAfk').innerText = s.afk_count;
         }
 
+        function toggleKpiFilter(f) {
+            setFilter(currentFilter === f ? 'ALL' : f);
+        }
+
         function setFilter(f) {
-            currentFilter = f;
+            currentFilter = f || 'ALL';
             ['ALL', 'WAR', 'PILL_ACTIVE', 'PILL_READY', 'PILL_COOLDOWN', 'HYBRID', 'ECO', 'AFK'].forEach(id => {
                 const el = document.getElementById(`filter${id}`);
                 if (!el) return;
-                if (id === f) {
-                    el.className = 'tab-btn px-3 py-1.5 rounded-lg active transition-colors shadow-lg';
+                if (id === currentFilter) {
+                    el.className = 'tab-btn px-2.5 py-1 rounded-md active transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 shadow';
                 } else {
-                    el.className = 'tab-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors';
+                    el.className = 'tab-btn px-2.5 py-1 rounded-md bg-gray-800/80 text-gray-300 hover:bg-gray-700 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5';
                 }
             });
+            ['WAR', 'PILL_ACTIVE', 'ECO', 'AFK'].forEach(id => {
+                const card = document.getElementById(`kpiCard${id}`);
+                if (!card) return;
+                if (id === currentFilter) {
+                    card.classList.add('ring-1', 'ring-blue-500', 'border-blue-500/70');
+                } else {
+                    card.classList.remove('ring-1', 'ring-blue-500', 'border-blue-500/70');
+                }
+            });
+            syncStateToUrl();
             renderMembersTable();
         }
 
@@ -200,6 +286,7 @@
                 sortAsc = (field === 'name' || field === 'role');
             }
             updateSortControls();
+            syncStateToUrl();
             renderMembersTable();
         }
 
@@ -207,12 +294,14 @@
             sortField = field;
             sortAsc = (field === 'name' || field === 'role');
             updateSortControls();
+            syncStateToUrl();
             renderMembersTable();
         }
 
         function toggleSortOrder() {
             sortAsc = !sortAsc;
             updateSortControls();
+            syncStateToUrl();
             renderMembersTable();
         }
 
@@ -230,6 +319,7 @@
         function setViewMode(mode) {
             currentViewMode = mode;
             localStorage.setItem('warera_clan_view', mode);
+            syncStateToUrl();
             updateViewModeUI();
         }
 
@@ -239,8 +329,9 @@
             const cardsBtn = document.getElementById('viewCardsBtn');
             const tableBtn = document.getElementById('viewTableBtn');
 
+            const effectiveMode = (window.innerWidth < 768) ? 'cards' : currentViewMode;
             if (tableSec && cardsSec) {
-                if (currentViewMode === 'cards') {
+                if (effectiveMode === 'cards') {
                     tableSec.classList.add('hidden');
                     cardsSec.classList.remove('hidden');
                 } else {
@@ -250,90 +341,173 @@
             }
 
             if (cardsBtn && tableBtn) {
-                if (currentViewMode === 'cards') {
-                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
-                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                if (effectiveMode === 'cards') {
+                    cardsBtn.className = 'view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 active text-white shadow-sm';
+                    tableBtn.className = 'view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-gray-400 hover:text-white';
                 } else {
-                    tableBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 active text-white shadow-sm';
-                    cardsBtn.className = 'view-btn px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-gray-400 hover:text-white';
+                    tableBtn.className = 'view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 active text-white shadow-sm';
+                    cardsBtn.className = 'view-btn px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-gray-400 hover:text-white';
                 }
             }
+        }
+        window.addEventListener('resize', updateViewModeUI);
+
+        function renderSparkline7d(history7d, targetDmg) {
+            const vals = Array.isArray(history7d) && history7d.length === 7 ? history7d : [0, 0, 0, 0, 0, 0, 0];
+            const maxVal = Math.max(1, ...vals, targetDmg || 0);
+            const bars = vals.map((v, idx) => {
+                const h = v > 0 ? Math.max(3, Math.round((v / maxVal) * 16)) : 2;
+                const y = 18 - h;
+                const x = idx * 8 + 1;
+                let fill = '#334155';
+                if (v > 0) {
+                    fill = (targetDmg && v >= targetDmg) ? '#10b981' : '#38bdf8';
+                }
+                return `<rect x="${x}" y="${y}" width="5" height="${h}" rx="1" fill="${fill}"><title>День ${idx + 1}: ${formatMillions(v)}</title></rect>`;
+            }).join('');
+            return `<svg width="56" height="18" viewBox="0 0 56 18" class="inline-block align-middle opacity-90" aria-label="7-денна активність">${bars}</svg>`;
+        }
+
+        function toggleMemberSelection(username, checked) {
+            if (checked) selectedMembers.add(username);
+            else selectedMembers.delete(username);
+            updateSalvoPlannerBar();
+        }
+
+        function toggleSelectAll(checked) {
+            if (!clanData || !clanData.members) return;
+            const visible = getFilteredAndSortedMembers();
+            visible.forEach(m => {
+                if (checked) selectedMembers.add(m.username);
+                else selectedMembers.delete(m.username);
+            });
+            renderMembersTable();
+            updateSalvoPlannerBar();
+        }
+
+        function clearSelectedMembers() {
+            selectedMembers.clear();
+            const allCb = document.getElementById('selectAllCheckbox');
+            if (allCb) allCb.checked = false;
+            renderMembersTable();
+            updateSalvoPlannerBar();
+        }
+
+        function updateSalvoPlannerBar() {
+            const bar = document.getElementById('salvoPlannerBar');
+            if (!bar) return;
+            if (!clanData || selectedMembers.size === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+            const picked = clanData.members.filter(m => selectedMembers.has(m.username));
+            const totalFish = picked.reduce((acc, m) => acc + (m.build_type === 'ECO' ? 0 : getCustomFishSalvo(m)), 0);
+            const totalInstant = picked.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+
+            document.getElementById('salvoSelectedCount').innerText = picked.length;
+            document.getElementById('salvoSelectedFish').innerText = `~${formatMillions(totalFish)}`;
+            document.getElementById('salvoSelectedInstant').innerText = `~${formatMillions(totalInstant)}`;
+            bar.classList.remove('hidden');
+        }
+
+        function copySelectedSalvoPing() {
+            if (!clanData || selectedMembers.size === 0) return;
+            const picked = clanData.members.filter(m => selectedMembers.has(m.username));
+            const totalFish = picked.reduce((acc, m) => acc + (m.build_type === 'ECO' ? 0 : getCustomFishSalvo(m)), 0);
+            const totalInstant = picked.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
+            const pings = picked.map(m => `@${m.username}`).join(' ');
+            const msg = `⚔️ **Залп під баф +${customBattleBonus}%** (${picked.length} бійців)\n💥 Повний залп 8г (риба): **~${formatMillions(totalFish)}** · В руках: **~${formatMillions(totalInstant)}**\n${pings}`;
+            navigator.clipboard.writeText(msg).then(() => {
+                showToast(`Скопійовано пінг для ${picked.length} бійців!`);
+            }).catch(() => {
+                showToast('Не вдалося скопіювати в буфер обміну', false);
+            });
         }
 
         function renderTableRow(m) {
             const fishSalvo = getCustomFishSalvo(m);
             const steakSalvo = getCustomSteakSalvo(m);
+            const isSelected = selectedMembers.has(m.username);
+            const isRecentlyChanged = recentlyChangedUsers.has(m.username);
+
             let onlineDot = 'bg-emerald-400';
-            if (m.hours_offline >= 24) {
-                onlineDot = 'bg-rose-500';
-            } else if (m.hours_offline >= 3) {
-                onlineDot = 'bg-amber-400';
-            }
+            if (m.hours_offline >= 24) onlineDot = 'bg-rose-500';
+            else if (m.hours_offline >= 3) onlineDot = 'bg-amber-400';
 
             let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
-            if (m.pill_status === 'ACTIVE') {
-                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
-            } else if (m.pill_status === 'READY') {
-                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
-            } else if (m.pill_status === 'COOLDOWN') {
-                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
-            }
+            if (m.pill_status === 'ACTIVE') pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            else if (m.pill_status === 'READY') pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            else if (m.pill_status === 'COOLDOWN') pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
 
             let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
-            if (m.build_type === 'ECO') {
-                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
-            } else if (m.build_type === 'HYBRID') {
-                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
-            }
+            if (m.build_type === 'ECO') buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
+            else if (m.build_type === 'HYBRID') buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
 
             let roleColor = 'text-gray-400';
             if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
             if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
             if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
 
+            const pillPct = m.pill_status === 'ACTIVE' ? Math.max(0, Math.min(100, Math.round(((m.pill_remaining_hours || 0) / 8.0) * 100))) : 0;
+            const rowHighlight = isRecentlyChanged ? 'bg-amber-950/15 ring-1 ring-inset ring-amber-400/50' : '';
+
             return `
-                <tr class="hover:bg-hoverbg/50 transition-colors group">
-                    <!-- Боєць (Sticky column) -->
+                <tr class="hover:bg-hoverbg/50 transition-colors group ${rowHighlight}">
+                    <!-- Checkbox -->
+                    <td class="p-3 text-center">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} data-user="${encodeURIComponent(m.username)}" onchange="toggleMemberSelection(decodeURIComponent(this.dataset.user), this.checked)" class="rounded border-gray-600 bg-darkbg text-blue-500 focus:ring-0 cursor-pointer">
+                    </td>
+
+                    <!-- Боєць · Роль · Онлайн (Sticky column) -->
                     <td class="p-3 whitespace-nowrap sticky left-0 bg-[#111622] group-hover:bg-[#1a2234] z-10 border-r border-bordercolor/60 shadow-[2px_0_5px_rgba(0,0,0,0.4)]">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
-                                ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                            <div class="relative shrink-0">
+                                <div class="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center">
+                                    ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
+                                </div>
+                                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${onlineDot} border-2 border-[#111622]" title="${m.last_seen_label}"></span>
                             </div>
                             <div>
                                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                                     <span>${m.username}</span>
-                                    <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor">Lv.${m.level}</span>
-                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
-                                        <span>🎯</span>
-                                        <span class="text-[10px] hidden xl:inline">Ціль</span>
+                                    <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
+                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-1.5 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/40 text-blue-300 hover:text-white text-[10px] font-bold transition-all ml-0.5 flex items-center gap-1" title="Калькулятор спорядження">
+                                        <i class="fa-solid fa-crosshairs text-[9px]"></i>
+                                        <span class="hidden xl:inline">Ціль</span>
                                     </button>
                                 </div>
-                                <div class="text-[10px] text-gray-400 flex items-center gap-1.5">
+                                <div class="text-[10px] text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                    <span class="${roleColor}">${m.role_label}</span>
+                                    <span>·</span>
                                     <span>Ранг ${m.military_rank}</span>
-                                    ${m.prestige ? `<span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">+⭐${m.prestige}</span>` : ''}
+                                    ${m.prestige ? `<span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono">P${m.prestige}</span>` : ''}
+                                    <span>·</span>
+                                    <span class="${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-400'}">${m.last_seen_label}</span>
                                 </div>
                             </div>
                         </div>
                     </td>
 
-                    <!-- Роль у клані -->
+                    <!-- Білд · 7д тренд -->
                     <td class="p-3 whitespace-nowrap">
-                        <span class="${roleColor} text-xs">${m.role_label}</span>
+                        <div class="flex flex-col gap-1">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-medium border w-fit ${buildBadgeClass}">
+                                ${m.build_label}
+                            </span>
+                            <div class="flex items-center gap-1.5">
+                                ${renderSparkline7d(m.history_7d, m.target_damage)}
+                                <span class="text-[9px] text-gray-500 font-mono">7д</span>
+                            </div>
+                        </div>
                     </td>
 
-                    <!-- Білд -->
+                    <!-- Таблетка (Cocaine) -->
                     <td class="p-3 whitespace-nowrap">
-                        <span class="px-2 py-0.5 rounded text-[11px] font-medium border ${buildBadgeClass}">
-                            ${m.build_label}
-                        </span>
-                    </td>
-
-                    <!-- Таблетка -->
-                    <td class="p-3 whitespace-nowrap">
-                        <div>
+                        <div class="flex items-center gap-1.5">
                             <span class="px-2 py-0.5 rounded text-[11px] border ${pillBadgeClass}" title="${m.pill_tip}">
                                 ${m.pill_label}
                             </span>
+                            ${isRecentlyChanged ? '<span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">Нове</span>' : ''}
                         </div>
                         ${m.build_type === 'ECO' ? `
                             <div class="text-[10px] text-gray-500 mt-1">економічний білд</div>
@@ -342,96 +516,73 @@
                                 <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
                                 <span title="${m.pill_remaining_tip || m.pill_time_label}">${m.pill_time_label}</span>
                                 ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
-                                    <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не б'є, виключений з залпу">🚫 після 02:00</span>
+                                    <span class="text-[9px] px-1 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono">після 02:00</span>
                                 ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
-                                    <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
+                                    <span class="text-[9px] px-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">до 02:00</span>
                                 ` : '')}
                             </div>
                             ${m.pill_status === 'ACTIVE' ? `
-                                <div class="text-[10px] font-bold mt-0.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} (${m.pill_instant_fish_hits || m.pill_instant_hits} уд.) | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))} (${m.pill_regen_fish_hits || m.pill_regen_hits} уд.)">
+                                <div class="w-28 bg-gray-800 rounded-full h-1 mt-1 overflow-hidden">
+                                    <div class="bg-purple-400 h-1 rounded-full" style="width: ${pillPct}%"></div>
+                                </div>
+                                <div class="text-[10px] font-bold mt-0.5">
                                     ${(m.pill_remaining_hours <= 0.2) ? `
-                                        <span class="text-amber-400 font-extrabold flex items-center gap-1">⏳ Баф закінчується</span>
+                                        <span class="text-amber-400 font-extrabold">Баф закінчується</span>
                                     ` : `
-                                        <span class="text-rose-400 font-bold" title="В руках прямо зараз">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
+                                        <span class="text-rose-400 font-bold" title="В руках прямо зараз"><i class="fa-solid fa-fire text-[9px] mr-0.5"></i>~${formatMillions(getCustomInstantFishSalvo(m))}</span>
                                         <span class="text-gray-500 font-normal">|</span>
-                                        <span class="text-amber-400 font-medium" title="Дозріє регеном">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
+                                        <span class="text-amber-400 font-medium" title="Дозріє регеном"><i class="fa-regular fa-hourglass-half text-[9px] mr-0.5"></i>~${formatMillions(getCustomRegenFishSalvo(m))}</span>
                                     `}
                                 </div>
                             ` : ''}
                         `}
                     </td>
 
-                    <!-- Дамаг сьогодні (з 02:00) -->
+                    <!-- Урон (Сьогодні / Вчора) -->
                     <td class="p-3 whitespace-nowrap text-right">
-                        <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Точно: ${formatNumber(m.today_damage)}">
+                        <div class="font-bold text-xs ${m.today_damage > 0 ? 'text-emerald-400 font-extrabold' : 'text-gray-400'}" title="Сьогодні: ${formatNumber(m.today_damage)}">
                             ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
                         </div>
+                        <div class="text-[10px] text-gray-400 font-mono" title="${m.has_yesterday ? `Вчора: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку'}">
+                            вчора: ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
+                        </div>
                         ${m.target_damage ? `
-                            <div data-user="${encodeURIComponent(m.username)}" class="mt-2 flex flex-col items-end cursor-pointer group p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль або переглянути розрахунок спорядження">
-                                <div class="flex items-center gap-1.5 mb-1 text-xs">
-                                    <span class="text-gray-400 group-hover:text-blue-300 font-medium transition-colors">🎯 Ціль:</span>
-                                    <span class="font-extrabold font-mono text-emerald-400 group-hover:text-emerald-300 transition-colors">${formatMillions(m.target_damage)}</span>
-                                    <span class="text-[11px] font-mono text-gray-400 group-hover:text-white transition-colors">(${m.target_progress_pct}%)</span>
+                            <div data-user="${encodeURIComponent(m.username)}" class="mt-1.5 flex flex-col items-end cursor-pointer group/tg p-1 -mr-1 rounded-lg hover:bg-blue-500/10 transition-all" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Змінити ціль">
+                                <div class="flex items-center gap-1 mb-0.5 text-[10px] font-mono">
+                                    <span class="text-emerald-400 font-bold">${formatMillions(m.target_damage)}</span>
+                                    <span class="text-gray-400">(${m.target_progress_pct}%)</span>
                                 </div>
-                                <div class="w-24 bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
-                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
+                                <div class="w-24 bg-gray-700/60 rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
                                 </div>
                                 ${m.saved_strategy_label ? `
-                                    <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
+                                    <div class="mt-0.5 flex items-center gap-1 text-[9px] text-purple-300 font-mono">
                                         <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
-                                        <span class="truncate max-w-[120px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
+                                        <span class="truncate max-w-[110px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
                                     </div>
                                 ` : ''}
                             </div>
-                        ` : `
-                            <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 ml-auto shadow-sm active:scale-95 group" title="Встановити добову ціль урону та підібрати спорядження">
-                                <span class="group-hover:scale-110 transition-transform">🎯</span>
-                                <span>Ціль</span>
-                            </button>
-                        `}
+                        ` : ''}
                     </td>
 
-                    <!-- Дамаг вчора -->
-                    <td class="p-3 whitespace-nowrap text-right">
-                        <div class="font-bold text-xs ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'}" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку 02:00'}">
-                            ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
-                        </div>
-                        <div class="text-[10px] text-gray-500">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
-                    </td>
-
-                    <!-- Залп за таблетку (Риба / Стейк) -->
+                    <!-- Залп 8г · Тиждень -->
                     <td class="p-3 whitespace-nowrap text-right">
                         ${m.build_type === 'ECO' ? `
                             <div class="text-gray-500 font-mono text-xs">—</div>
-                            <div class="text-[10px] text-gray-500">еко-тил</div>
+                            <div class="text-[10px] text-gray-500">тиждень: ${formatMillions(m.weekly_damage)}</div>
                         ` : `
                             <div class="flex flex-col items-end font-mono">
-                                <!-- 1. Риба (перша, більша) -->
-                                <div class="text-xs sm:text-sm font-bold text-sky-400 flex items-center justify-end gap-1.5" title="Залп на смаженій рибі з бафом битви +${customBattleBonus}% (${m.pill_fish_hits} уд.)">
-                                    <span>🐟</span>
-                                    <span>~${formatMillions(fishSalvo)}</span>
+                                <div class="text-xs sm:text-sm font-bold text-sky-400" title="Залп на смаженій рибі (+${customBattleBonus}%)">
+                                    ~${formatMillions(fishSalvo)}
                                 </div>
-                                <!-- 2. Стейк (другий, менший) -->
-                                <div class="text-[11px] sm:text-xs font-semibold text-rose-300/80 flex items-center justify-end gap-1.5" title="Залп на стейках з бафом битви +${customBattleBonus}% (${m.pill_full_hits} уд.)">
-                                    <span>🥩</span>
-                                    <span>~${formatMillions(steakSalvo)}</span>
+                                <div class="text-[10px] text-rose-300/80 font-semibold" title="Залп на стейках (+${customBattleBonus}%)">
+                                    стейк: ~${formatMillions(steakSalvo)}
+                                </div>
+                                <div class="text-[10px] text-gray-400 mt-0.5" title="Усього: ${formatMillions(m.total_damage)}">
+                                    тиж: ${formatMillions(m.weekly_damage)}
                                 </div>
                             </div>
                         `}
-                    </td>
-
-                    <!-- Дамаг тижня -->
-                    <td class="p-3 whitespace-nowrap text-right">
-                        <div class="font-bold text-gray-200 text-xs">${formatMillions(m.weekly_damage)}</div>
-                        <div class="text-[10px] text-gray-400">всього: ${formatMillions(m.total_damage)}</div>
-                    </td>
-
-                    <!-- Онлайн -->
-                    <td class="p-3 whitespace-nowrap">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full ${onlineDot} shrink-0"></span>
-                            <span class="text-xs ${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-300'}">${m.last_seen_label}</span>
-                        </div>
                     </td>
                 </tr>
             `;
@@ -439,213 +590,79 @@
 
         function renderMemberCard(m) {
             const fishSalvo = getCustomFishSalvo(m);
-            const steakSalvo = getCustomSteakSalvo(m);
+            const isSelected = selectedMembers.has(m.username);
+            const isRecentlyChanged = recentlyChangedUsers.has(m.username);
+
             let onlineDot = 'bg-emerald-400';
-            if (m.hours_offline >= 24) {
-                onlineDot = 'bg-rose-500';
-            } else if (m.hours_offline >= 3) {
-                onlineDot = 'bg-amber-400';
-            }
+            if (m.hours_offline >= 24) onlineDot = 'bg-rose-500';
+            else if (m.hours_offline >= 3) onlineDot = 'bg-amber-400';
 
             let pillBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700';
-            if (m.pill_status === 'ACTIVE') {
-                pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
-            } else if (m.pill_status === 'READY') {
-                pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
-            } else if (m.pill_status === 'COOLDOWN') {
-                pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
-            }
-
-            let buildBadgeClass = 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50';
-            if (m.build_type === 'ECO') {
-                buildBadgeClass = 'bg-amber-950/60 text-amber-300 border-amber-700/50';
-            } else if (m.build_type === 'HYBRID') {
-                buildBadgeClass = 'bg-sky-950/60 text-sky-300 border-sky-700/50';
-            }
-
-            let roleColor = 'text-gray-400';
-            if (m.clan_role === 'LEADER') roleColor = 'text-yellow-400 font-bold';
-            if (m.clan_role === 'COMMANDER') roleColor = 'text-rose-400 font-semibold';
-            if (m.clan_role === 'MANAGER') roleColor = 'text-purple-400 font-semibold';
+            if (m.pill_status === 'ACTIVE') pillBadgeClass = 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
+            else if (m.pill_status === 'READY') pillBadgeClass = 'bg-blue-950/80 text-blue-300 border-blue-700/60 font-semibold';
+            else if (m.pill_status === 'COOLDOWN') pillBadgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60 font-semibold';
 
             return `
-                <div class="glass-panel rounded-2xl border border-bordercolor/80 p-3.5 shadow-lg flex flex-col gap-2.5 hover:border-gray-600 transition-all">
-                    <!-- Row 1: Avatar, Name, Level, Role, Pill status -->
-                    <div class="flex items-start justify-between gap-2.5">
+                <div class="glass-panel rounded-2xl border ${isRecentlyChanged ? 'border-amber-400/60 bg-amber-950/15' : 'border-bordercolor/80'} p-3 shadow-lg flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between gap-2">
                         <div class="flex items-center gap-2.5 min-w-0">
+                            <input type="checkbox" ${isSelected ? 'checked' : ''} data-user="${encodeURIComponent(m.username)}" onchange="toggleMemberSelection(decodeURIComponent(this.dataset.user), this.checked)" class="rounded border-gray-600 bg-darkbg text-blue-500 focus:ring-0 cursor-pointer shrink-0">
                             <div class="relative shrink-0">
-                                <div class="w-10 h-10 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center">
+                                <div class="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center">
                                     ${m.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-gray-300">${m.username.charAt(0)}</span>`}
                                 </div>
-                                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${onlineDot} border-2 border-cardbg" title="${m.last_seen_label}"></span>
+                                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${onlineDot} border-2 border-cardbg"></span>
                             </div>
                             <div class="min-w-0">
-                                <div class="flex items-center gap-1.5 flex-wrap">
-                                    <a href="${m.user_id ? `https://app.warera.io/user/${m.user_id}` : '#'}" target="_blank" class="font-extrabold text-white text-sm truncate hover:text-blue-400 hover:underline transition-colors">${m.username}</a>
-                                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
-                                    <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2 py-0.5 rounded-md bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 hover:border-blue-400 text-blue-300 hover:text-white text-xs font-bold transition-all ml-1 flex items-center gap-1 shadow-sm active:scale-95" title="Калькулятор бойового спорядження під урон">
-                                        <span>🎯</span>
-                                        <span class="text-[10px]">Ціль</span>
-                                    </button>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-extrabold text-white text-sm truncate">${m.username}</span>
+                                    <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
                                 </div>
-                                <div class="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5 flex-wrap">
-                                    <span class="${roleColor} font-medium">${m.role_label}</span>
-                                    <span>•</span>
-                                    <span class="text-[10px]">Ранг ${m.military_rank}</span>
-                                    ${m.prestige ? `<span>•</span><span class="text-[9px] px-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700/50 font-mono font-bold" title="Престиж персонажа">⭐${m.prestige}</span>` : ''}
-                                    <span>•</span>
-                                    <span class="${m.is_afk ? 'text-rose-400 font-semibold' : 'text-gray-400'}">${m.last_seen_label}</span>
-                                </div>
+                                <div class="text-[10px] text-gray-400 truncate">${m.role_label} · ${m.last_seen_label}</div>
                             </div>
                         </div>
-
-                        <!-- Pill Status -->
-                        <div class="shrink-0 text-right">
-                            <span class="px-2 py-0.5 rounded text-[10px] border inline-block ${pillBadgeClass}" title="${m.pill_tip}">
-                                ${m.pill_label}
-                            </span>
-                            ${m.build_type !== 'ECO' && m.pill_time_label && m.pill_time_label !== '—' ? `
-                                <div class="text-[10px] text-gray-300 font-medium flex items-center justify-end gap-1 mt-1">
-                                    <i class="fa-regular fa-clock text-[9px] text-gray-400"></i>
-                                    <span>${m.pill_time_label}</span>
-                                    ${m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
-                                        <span class="text-[9px] px-1 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60 font-mono" title="Дебаф спаде після 02:00. Сьогодні більше не п'є, виключений з залпу">🚫 після 02:00</span>
-                                    ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
-                                        <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono" title="Дебаф спаде до 02:00. Встигає випити таблетку ввечері!">✅ до 02:00</span>
-                                    ` : '')}
-                                </div>
-                            ` : ''}
-                        </div>
+                        <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 text-xs font-bold shrink-0 flex items-center gap-1">
+                            <i class="fa-solid fa-crosshairs text-[10px]"></i> Ціль
+                        </button>
                     </div>
 
-                    <!-- Row 2: Build & Salvo summary -->
-                    <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-darkbg/50 border border-bordercolor/50 text-xs">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-medium border ${buildBadgeClass}">
-                            ${m.build_label}
-                        </span>
-                        ${m.build_type === 'ECO' ? `
-                            <span class="text-[11px] text-gray-500">економічний тил</span>
-                        ` : (m.pill_status === 'ACTIVE' ? `
-                            <div class="text-[11px] font-bold flex items-center gap-1.5" title="В руках зараз: ~${formatMillions(getCustomInstantFishSalvo(m))} | Дозріє регеном: ~${formatMillions(getCustomRegenFishSalvo(m))}">
-                                <span class="text-rose-400 font-bold">🔥 ~${formatMillions(getCustomInstantFishSalvo(m))}</span>
-                                <span class="text-gray-500">·</span>
-                                <span class="text-amber-400 font-medium">⏳ ~${formatMillions(getCustomRegenFishSalvo(m))}</span>
-                            </div>
-                        ` : (m.pill_status === 'READY' ? `
-                            <span class="text-[11px] text-blue-300 font-medium">⚪ Готовий до наказу (8 год)</span>
-                        ` : (m.pill_status === 'COOLDOWN' && !m.can_drink_before_reset ? `
-                            <span class="text-[11px] text-rose-400/90 font-medium">🚫 Відстрілявся (дебаф)</span>
-                        ` : (m.pill_status === 'COOLDOWN' && m.can_drink_before_reset ? `
-                            <span class="text-[11px] text-emerald-400/90 font-bold" title="Зможе випити таблетку ввечері">⏳ Вечір: ~${formatMillions(getCustomFishSalvo(m))}</span>
-                        ` : `
-                            <span class="text-[11px] text-rose-300/80 font-medium">⏳ Дебаф</span>
-                        `))))}
-                    </div>
-
-                    <!-- Row 3: 4 Key Metrics Grid -->
-                    <div class="grid grid-cols-4 gap-1 bg-darkbg/80 rounded-xl p-2 border border-bordercolor/60 text-center">
-                        <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Сьогодні</div>
-                            <div class="text-xs font-bold ${m.today_damage > 0 ? 'text-emerald-400 font-black' : 'text-gray-400'} mt-1 truncate" title="Точно: ${formatNumber(m.today_damage)}">
-                                ${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}
-                            </div>
-                            ${m.target_damage ? `
-                                <div data-user="${encodeURIComponent(m.username)}" class="mt-1.5 flex flex-col items-center cursor-pointer p-1 rounded-lg hover:bg-blue-500/10 transition-all border border-transparent hover:border-blue-500/30" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" title="Клікніть, щоб змінити ціль">
-                                    <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-400 mb-1">
-                                        <span>🎯 ${m.target_progress_pct}%</span>
-                                        <span class="text-gray-400 font-normal">з</span>
-                                        <span>${formatMillions(m.target_damage)}</span>
-                                    </div>
-                                    <div class="w-full bg-gray-700/60 rounded-full h-2 overflow-hidden border border-gray-600/40 shadow-inner">
-                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full" style="width: ${Math.min(100, m.target_progress_pct)}%"></div>
-                                    </div>
-                                    ${m.saved_strategy_label ? `
-                                        <div class="mt-1 flex items-center gap-1 text-[9px] text-purple-300 font-mono font-semibold" title="Закріплений білд: ${m.saved_strategy_label}">
-                                            <i class="fa-solid fa-lock text-[8px] text-purple-400"></i>
-                                            <span class="truncate max-w-[100px]">${m.saved_strategy_label.replace(/^[🔥🛡️🗡️🔫🎯\s]+/, '')}</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            ` : `
-                                <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="mt-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 hover:text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1 mx-auto shadow-sm active:scale-95" title="Встановити ціль">
-                                    <span>🎯 Ціль</span>
-                                </button>
-                            `}
+                    <!-- 3 Key Combat Fields: Pill Status, Salvo 8h, Today / 7d -->
+                    <div class="grid grid-cols-3 gap-2 bg-darkbg/80 rounded-xl p-2 border border-bordercolor/60 text-center">
+                        <div>
+                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Таблетка</div>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] border inline-block ${pillBadgeClass}">${m.pill_label}</span>
+                            <div class="text-[9px] text-gray-400 mt-0.5">${m.pill_time_label || '—'}</div>
                         </div>
-
-                        <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Вчора</div>
-                            <div class="text-xs font-bold ${m.has_yesterday ? (m.yesterday_damage > 0 ? 'text-indigo-300' : 'text-gray-400') : 'text-gray-500'} mt-1 truncate" title="${m.has_yesterday ? `Точно: ${formatNumber(m.yesterday_damage)}` : 'Очікує знімку'}">
-                                ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}
-                            </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">${m.has_yesterday ? 'за добу' : 'фіксація'}</div>
+                        <div class="border-x border-bordercolor/40 px-1">
+                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Залп 8г</div>
+                            <div class="text-xs font-bold font-mono text-sky-400">${m.build_type === 'ECO' ? '—' : `~${formatMillions(fishSalvo)}`}</div>
+                            <div class="text-[9px] text-gray-400">${m.pill_status === 'ACTIVE' ? `в руках ~${formatMillions(getCustomInstantFishSalvo(m))}` : m.build_label}</div>
                         </div>
-
-                        <div class="px-1 border-r border-bordercolor/40">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-rose-300/90 text-center" title="Залп за таблетку (8г) з бафом битви +${customBattleBonus}%">
-                                <span>Залп 8г</span>
-                            </div>
-                            <div class="font-mono mt-0.5 text-center">
-                                <div class="text-xs font-bold text-sky-400 truncate" title="Залп на смаженій рибі (+${customBattleBonus}%)">
-                                    ${m.build_type === 'ECO' ? '—' : `🐟 ~${formatMillions(fishSalvo)}`}
-                                </div>
-                                <div class="text-[10px] text-rose-300/80 font-semibold truncate" title="Залп на стейках (+${customBattleBonus}%)">
-                                    ${m.build_type === 'ECO' ? 'еко-тил' : `🥩 ~${formatMillions(steakSalvo)}`}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="px-1">
-                            <div class="text-[9px] uppercase font-bold tracking-wider text-gray-400">Тиждень</div>
-                            <div class="text-xs font-bold text-gray-300 mt-1 truncate" title="Всього: ${formatMillions(m.total_damage)}">
-                                ${formatMillions(m.weekly_damage)}
-                            </div>
-                            <div class="text-[9px] text-gray-500 mt-0.5">всього</div>
+                        <div>
+                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Сьогодні</div>
+                            <div class="text-xs font-bold text-emerald-400 font-mono">${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}</div>
+                            <div class="mt-0.5">${renderSparkline7d(m.history_7d, m.target_damage)}</div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        function renderMembersTable() {
-            const tbody = document.getElementById('clanTableBody');
-            const cardsContainer = document.getElementById('clanCardsSection');
-            if (!tbody || !clanData) return;
-
+        function getFilteredAndSortedMembers() {
+            if (!clanData || !clanData.members) return [];
             let list = [...clanData.members];
 
-            // Filter
-            if (currentFilter === 'WAR') {
-                list = list.filter(m => m.build_type === 'WAR');
-            } else if (currentFilter === 'ECO') {
-                list = list.filter(m => m.build_type === 'ECO');
-            } else if (currentFilter === 'HYBRID') {
-                list = list.filter(m => m.build_type === 'HYBRID');
-            } else if (currentFilter === 'PILL_ACTIVE') {
-                list = list.filter(m => m.pill_status === 'ACTIVE');
-            } else if (currentFilter === 'PILL_READY') {
-                list = list.filter(m => m.pill_status === 'READY');
-            } else if (currentFilter === 'PILL_COOLDOWN') {
-                list = list.filter(m => m.pill_status === 'COOLDOWN');
-            } else if (currentFilter === 'AFK') {
-                list = list.filter(m => m.is_afk);
-            }
+            if (currentFilter === 'WAR') list = list.filter(m => m.build_type === 'WAR');
+            else if (currentFilter === 'ECO') list = list.filter(m => m.build_type === 'ECO');
+            else if (currentFilter === 'HYBRID') list = list.filter(m => m.build_type === 'HYBRID');
+            else if (currentFilter === 'PILL_ACTIVE') list = list.filter(m => m.pill_status === 'ACTIVE');
+            else if (currentFilter === 'PILL_READY') list = list.filter(m => m.pill_status === 'READY');
+            else if (currentFilter === 'PILL_COOLDOWN') list = list.filter(m => m.pill_status === 'COOLDOWN');
+            else if (currentFilter === 'AFK') list = list.filter(m => m.is_afk);
 
-            // Search query
             const q = (document.getElementById('memberSearchInput').value || '').trim().toLowerCase();
-            if (q) {
-                list = list.filter(m => m.username.toLowerCase().includes(q));
-            }
+            if (q) list = list.filter(m => m.username.toLowerCase().includes(q));
 
-            if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
-                if (cardsContainer) {
-                    cardsContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">Не знайдено бійців за вказаними критеріями</div>`;
-                }
-                return;
-            }
-
-            // Sort
             list.sort((a, b) => {
                 let vA, vB;
                 if (sortField === 'name') { vA = a.username; vB = b.username; }
@@ -664,17 +681,33 @@
                 if (vA > vB) return sortAsc ? 1 : -1;
                 return 0;
             });
+            return list;
+        }
 
-            // Populate Table
+        function renderMembersTable() {
+            const tbody = document.getElementById('clanTableBody');
+            const cardsContainer = document.getElementById('clanCardsSection');
+            if (!tbody || !clanData) return;
+
+            const list = getFilteredAndSortedMembers();
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-400">Не знайдено бійців за вказаними критеріями</td></tr>`;
+                if (cardsContainer) {
+                    cardsContainer.innerHTML = `<div class="glass-panel p-8 rounded-2xl border border-bordercolor text-center text-gray-400">Не знайдено бійців за вказаними критеріями</div>`;
+                }
+                updateViewModeUI();
+                updateSortControls();
+                return;
+            }
+
             tbody.innerHTML = list.map(m => renderTableRow(m)).join('');
-
-            // Populate Cards
             if (cardsContainer) {
                 cardsContainer.innerHTML = list.map(m => renderMemberCard(m)).join('');
             }
 
             updateViewModeUI();
             updateSortControls();
+            updateSalvoPlannerBar();
         }
 
         function copyDiscordReport() {
@@ -695,21 +728,21 @@
                 if (m.pill_status === 'COOLDOWN') return acc + (m.can_drink_before_reset ? getCustomFishSalvo(m) : 0);
                 return acc;
             }, 0);
-            text += `💥 **Залп клану до 02:00 (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} дамагу**\n`;
+            text += `💥 **Залп клану до 02:00 (+${customBattleBonus}% баф): ~${formatMillions(clanFishSalvo)} урону**\n`;
             const dynamicInstantSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomInstantFishSalvo(m) : 0), 0);
             const dynamicRegenSalvo = clanData.members.reduce((acc, m) => acc + (m.pill_status === 'ACTIVE' ? getCustomRegenFishSalvo(m) : 0), 0);
             text += `🔥 **Залишок активних бійців (+${customBattleBonus}%):** В руках: ~${formatMillions(dynamicInstantSalvo)} | Реген: ~${formatMillions(dynamicRegenSalvo)}\n`;
             const readyMembers = clanData.members.filter(m => m.pill_status === 'READY');
             const dynamicReadySalvo = readyMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
-            text += `💊 **Можуть пити зараз (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} дамагу (+${customBattleBonus}%)\n`;
+            text += `💊 **Можуть пити зараз (${readyMembers.length} бійців): ~${formatMillions(dynamicReadySalvo)} урону (+${customBattleBonus}%)\n`;
             const eveningMembers = clanData.members.filter(m => m.pill_status === 'COOLDOWN' && m.can_drink_before_reset);
             if (eveningMembers.length > 0) {
                 const eveningSalvo = eveningMembers.reduce((acc, m) => acc + getCustomFishSalvo(m), 0);
-                text += `⏳ **Зможуть пити ввечері до 02:00 (${eveningMembers.length} бійців): ~${formatMillions(eveningSalvo)} дамагу**\n`;
+                text += `⏳ **Зможуть пити ввечері до 02:00 (${eveningMembers.length} бійців): ~${formatMillions(eveningSalvo)} урону**\n`;
             }
-            text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} дамагу**\n`;
+            text += `⚡ **Реальний факт сьогодні (з 02:00): +${formatMillions(s.clan_today_damage || 0)} урону**\n`;
             if (s.clan_yesterday_damage) {
-                text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} дамагу**\n`;
+                text += `📅 **Факт за вчора: ${formatMillions(s.clan_yesterday_damage)} урону**\n`;
             }
             text += `\n`;
             
@@ -783,7 +816,7 @@
                     hint.innerText = '= введіть число (напр. 3.4)';
                     hint.className = 'text-[11px] font-mono text-amber-400 font-bold';
                 } else {
-                    hint.innerText = `= ${formatNumber(rawDmg)} дамагу (${formatMillions(rawDmg)})`;
+                    hint.innerText = `= ${formatNumber(rawDmg)} урону (${formatMillions(rawDmg)})`;
                     hint.className = 'text-[11px] font-mono text-emerald-400 font-bold';
                 }
             }
@@ -1201,13 +1234,13 @@
                             </div>
                             <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
                                 <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">${(isSaved && p.today_damage > 0) ? 'Сумарний бюджет залишку:' : 'Сумарний бюджет:'}</div>
-                                <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} ₴</div>
-                                ${stratToShow.initial_grand_total && p.today_damage > 0 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} ₴</div>` : ''}
+                                <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} Coins</div>
+                                ${stratToShow.initial_grand_total && p.today_damage > 0 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} Coins</div>` : ''}
                                 <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
-                                    ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} ₴
+                                    ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} Coins
                                 </div>
-                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} ₴ / 1M урону</div>
-                                ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} ₴ дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
+                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} Coins / 1M урону</div>
+                                ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} Coins дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
                         </div>
 
@@ -1255,7 +1288,7 @@
                         <!-- 2 Economics & Loot Badges (Athena & Intel Builder engine: Cases & Scrap) -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-bordercolor/40">
                             <!-- Expected Cases Drop -->
-                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Очікуваний дроп кейсів (жива ціна біржі: Кейс ~${case1Price} ₴, Елітний ~${case2Price} ₴)">
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Очікуваний дроп кейсів (жива ціна біржі: Кейс ~${case1Price} Coins, Елітний ~${case2Price} Coins)">
                                 <div class="flex items-center gap-2.5 min-w-0">
                                     <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
                                         <img src="${ICON_CASE_REGULAR}" class="w-full h-full object-contain filter drop-shadow" alt="Кейс">
@@ -1263,12 +1296,12 @@
                                     <div class="min-w-0">
                                         <div class="text-[10px] uppercase font-bold text-gray-400 truncate">Очікуваний дроп кейсів</div>
                                         <div class="text-white font-mono font-bold text-xs flex items-center gap-1.5 flex-wrap">
-                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case1Price} ₴">
+                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case1Price} Coins">
                                                 <span>${stratToShow.expected_case1 || 0}</span>
                                                 <span class="text-emerald-400 text-[10px] font-medium">Кейс</span>
                                             </span>
                                             <span class="text-gray-400 font-normal">+</span>
-                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case2Price} ₴">
+                                            <span class="inline-flex items-center gap-1" title="Жива ціна біржі: ${case2Price} Coins">
                                                 <img src="${ICON_CASE_ELITE}" class="w-3.5 h-3.5 object-contain inline-block" alt="Елітний">
                                                 <span>${stratToShow.expected_case2 || 0}</span>
                                                 <span class="text-indigo-300 text-[10px] font-medium">Елітний</span>
@@ -1276,11 +1309,11 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.total_cases_value || 0)} ₴</div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.total_cases_value || 0)} Coins</div>
                             </div>
 
                             <!-- Scrap Recovery -->
-                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Відновлення 1/3 металу при повному зносі спорядження (~0.26 ₴/од.)">
+                            <div class="bg-darkbg/70 p-2.5 rounded-xl border border-bordercolor/60 flex items-center justify-between" title="Відновлення 1/3 металу при повному зносі спорядження (~0.26 Coins/од.)">
                                 <div class="flex items-center gap-2.5 min-w-0">
                                     <div class="w-8 h-8 rounded-lg bg-darkbg border border-bordercolor/70 flex items-center justify-center shrink-0 p-0.5">
                                         <img src="${ICON_SCRAP}" class="w-full h-full object-contain filter drop-shadow" alt="Брухт">
@@ -1290,7 +1323,7 @@
                                         <div class="text-white font-mono font-bold text-xs">${formatNumber(stratToShow.total_scrap || 0)} <span class="text-gray-400 text-[10px] font-medium">од.</span></div>
                                     </div>
                                 </div>
-                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.scrap_value || 0)} ₴</div>
+                                <div class="text-right font-mono text-emerald-400 font-bold text-xs shrink-0 pl-1">+${formatNumber(stratToShow.scrap_value || 0)} Coins</div>
                             </div>
                         </div>
                     </div>
@@ -1332,11 +1365,11 @@
                                 <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                                     <span>${s.food_icon} ${s.food_name}</span>
                                     <span>•</span>
-                                    <span>${formatNumber(s.avg_dmg_per_hit || s.avg_damage_per_hit || s.sim_dmg || 0)} дамагу/удар</span>
+                                    <span>${formatNumber(s.avg_dmg_per_hit || s.avg_damage_per_hit || s.sim_dmg || 0)} урону/удар</span>
                                 </div>
                             </td>
                             <td class="p-2.5 text-center">
-                                <span class="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] border border-bordercolor text-gray-300 font-bold" title="${s.ammo_name} (${s.ammo_price} ₴/шт)">
+                                <span class="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] border border-bordercolor text-gray-300 font-bold" title="${s.ammo_name} (${s.ammo_price} Coins/шт)">
                                     ${s.ammo_badge}
                                 </span>
                             </td>
@@ -1354,11 +1387,11 @@
                                 <div class="text-[9px] text-gray-500 font-mono">${s.hunger_usage_pct}% ліміту</div>
                             </td>
                             <td class="p-2.5 text-right font-black text-xs ${isBest ? 'text-emerald-400 text-sm' : 'text-gray-200'}">
-                                <div>${formatNumber(s.grand_total_cost)} ₴</div>
+                                <div>${formatNumber(s.grand_total_cost)} Coins</div>
                                 <div class="text-[9px] font-mono font-semibold ${s.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
-                                    ${s.net_profit >= 0 ? 'Профіт +' : 'Мінус '}${formatNumber(s.net_profit)} ₴
+                                    ${s.net_profit >= 0 ? 'Профіт +' : 'Мінус '}${formatNumber(s.net_profit)} Coins
                                 </div>
-                                ${s.savings_vs_best > 0 ? `<div class="text-[9px] text-gray-500 font-normal">+${formatNumber(s.savings_vs_best)} ₴</div>` : ''}
+                                ${s.savings_vs_best > 0 ? `<div class="text-[9px] text-gray-500 font-normal">+${formatNumber(s.savings_vs_best)} Coins</div>` : ''}
                             </td>
                             <td class="p-2.5 text-center font-sans">
                                 ${statusBadge}
@@ -1383,8 +1416,8 @@
             if (!strat) return;
 
             document.getElementById('calcSelectedStratLabel').innerText = `${strat.label} (${strat.food_name})`;
-            const netBadge = `<span class="text-xs font-mono font-bold ml-2 ${strat.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">(${strat.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(strat.net_profit)} ₴)</span>`;
-            document.getElementById('calcSelectedGrandTotal').innerHTML = `${formatNumber(strat.grand_total_cost)} ₴ ${netBadge}`;
+            const netBadge = `<span class="text-xs font-mono font-bold ml-2 ${strat.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">(${strat.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(strat.net_profit)} Coins)</span>`;
+            document.getElementById('calcSelectedGrandTotal').innerHTML = `${formatNumber(strat.grand_total_cost)} Coins ${netBadge}`;
 
             const grid = document.getElementById('calcGearSlotsGrid');
             if (grid) {
@@ -1401,7 +1434,7 @@
                         grid.innerHTML = `
                             <div class="col-span-full p-4 rounded-xl bg-darkbg/60 border border-emerald-500/30 text-center space-y-1">
                                 <div class="text-emerald-400 font-bold text-sm">🛡 Використовується поточний надітий шмот бійця</div>
-                                <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 ₴)</div>
+                                <div class="text-gray-400 text-xs">Жодних нових витрат на покупку спорядження не потрібно! (0.00 Coins)</div>
                             </div>
                         `;
                     }
@@ -1481,7 +1514,7 @@
                             bottomHtml = `
                                 <div class="mt-2 py-1 px-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] text-center flex items-center justify-center gap-1">
                                     <i class="fa-solid fa-check text-emerald-400 text-[9px]"></i>
-                                    <span>Вже на тобі (0 ₴)</span>
+                                    <span>Вже на тобі (0 Coins)</span>
                                 </div>
                             `;
                         } else if (item.item_code === 'knife' && strat.is_naked) {
@@ -1492,7 +1525,7 @@
                                 </a>
                             `;
                         } else {
-                            const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)} ₴` : `${item.unit_price} ₴`;
+                            const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)} Coins` : `${item.unit_price} Coins`;
                             bottomHtml = `
                                 <a href="${item.url}" target="_blank" class="mt-2 py-1 px-1.5 rounded-lg bg-gradient-to-r from-blue-600/30 to-blue-500/20 hover:from-blue-600 hover:to-blue-500 border border-blue-500/40 hover:border-blue-400 text-white font-bold text-[10px] flex items-center justify-between transition-all group shadow-sm active:scale-95" title="Купити ${item.name} на ринку WarEra">
                                     <span class="font-mono text-emerald-300 group-hover:text-white font-bold">${buyPriceLabel}</span>
@@ -1551,12 +1584,12 @@
                             <span class="text-base">💊</span>
                             <div class="min-w-0">
                                 <div class="text-xs font-bold ${needPill ? 'text-white' : 'text-emerald-300'}">
-                                    Таблетка (Cocain): ${needPill ? 'потрібно докупити (1 шт на 8 год, +60%)' : 'вже активна на бійці'}
+                                    Таблетка (Cocaine): ${needPill ? 'потрібно докупити (1 шт на 8 год, +60%)' : 'вже активна на бійці'}
                                 </div>
                             </div>
                         </div>
                         <div class="font-mono font-bold text-xs ${needPill ? 'text-rose-300' : 'text-emerald-400'} shrink-0">
-                            ${needPill ? `${strat.pill_cost} ₴` : '0.00 ₴'}
+                            ${needPill ? `${strat.pill_cost} Coins` : '0.00 Coins'}
                         </div>
                     </div>
                 `;

@@ -231,3 +231,31 @@ class ClanHistoryDB:
             }
 
         return res
+
+    def get_7d_damage_history(self, game_date: Optional[str] = None, days: int = 7) -> Dict[str, List[int]]:
+        """Returns a list of daily damage totals for the last `days` game dates (oldest -> newest) per user_id."""
+        target_date = game_date or self.get_game_date()
+        end_dt = datetime.strptime(target_date, "%Y-%m-%d")
+        dates = [(end_dt - timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(days - 1, -1, -1)]
+        start_date = dates[0]
+
+        with closing(self._get_conn()) as conn, conn:
+            rows = conn.execute(
+                """
+                SELECT user_id, game_date, base_total_damage, latest_total_damage
+                FROM clan_damage_snapshots
+                WHERE game_date >= ? AND game_date <= ?
+                """,
+                (start_date, target_date),
+            ).fetchall()
+
+        by_user_date: Dict[str, Dict[str, int]] = {}
+        for r in rows:
+            uid = r["user_id"]
+            dmg = max(0, int(r["latest_total_damage"]) - int(r["base_total_damage"]))
+            by_user_date.setdefault(uid, {})[r["game_date"]] = dmg
+
+        return {
+            uid: [day_map.get(d, 0) for d in dates]
+            for uid, day_map in by_user_date.items()
+        }
