@@ -1251,13 +1251,13 @@
                                 </div>
                             </div>
                             <div class="text-left sm:text-right bg-darkbg/60 p-2.5 rounded-xl border border-bordercolor/40 sm:border-0 sm:bg-transparent sm:p-0">
-                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">${(isSaved && p.today_damage > 0) ? 'Сумарний бюджет залишку:' : 'Сумарний бюджет:'}</div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">На закупівлю:</div>
                                 <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} Coins</div>
-                                ${stratToShow.initial_grand_total && p.today_damage > 0 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} Coins</div>` : ''}
+                                ${stratToShow.initial_grand_total && p.today_damage > 0 && stratToShow.initial_grand_total > stratToShow.grand_total_cost + 10 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} Coins</div>` : ''}
                                 <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
-                                    ${stratToShow.net_profit >= 0 ? '💰 Чистий профіт: +' : '📉 Чистий мінус: '}${formatNumber(stratToShow.net_profit)} Coins
+                                    ${stratToShow.net_profit >= 0 ? `💰 Чистий профіт: +${formatNumber(stratToShow.net_profit)}` : `📉 Чисті витрати: ${formatNumber(Math.abs(stratToShow.net_profit))}`} Coins
                                 </div>
-                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ${formatNumber(stratToShow.cost_per_m_dmg || 0)} Coins / 1M урону</div>
+                                <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ~${formatNumber(Math.abs(stratToShow.cost_per_m_dmg || 0))} Coins / 1M (чистими)</div>
                                 ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} Coins дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
                         </div>
@@ -1291,7 +1291,7 @@
                             <div>
                                 <div class="text-[10px] uppercase font-bold text-gray-400">Їжа / Голод</div>
                                 <div class="font-bold ${stratToShow.can_reach_in_session ? 'text-sky-300' : 'text-rose-400'} mt-0.5 font-mono">${stratToShow.food_units_needed} шт</div>
-                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.hunger_usage_pct}% шкали</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.available_hunger ? `${stratToShow.food_units_needed} / ${stratToShow.available_hunger} од. голоду` : `${stratToShow.hunger_usage_pct}% шкали`}</div>
                             </div>
 
                             <div>
@@ -1299,7 +1299,7 @@
                                 <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-0.5">
                                     ${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}
                                 </div>
-                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? '1 сесія табла' : 'не вміститься')}</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? 'Вкладається в 1 сесію (8 год)' : 'Не вміститься в 1 сесію')}</div>
                             </div>
                         </div>
 
@@ -1309,7 +1309,7 @@
                                 Повернення: <b class="text-emerald-400 font-mono">+${formatNumber(Math.round((stratToShow.total_cases_value || 0) + (stratToShow.scrap_value || 0)))} Coins</b>
                             </span>
                             <span class="text-[11px] text-gray-400 font-mono">
-                                Кейси +${formatNumber(stratToShow.total_cases_value || 0)} (${stratToShow.expected_case1 || 0} / ${stratToShow.expected_case2 || 0} ел.) · Брухт +${formatNumber(stratToShow.scrap_value || 0)}
+                                Кейси +${formatNumber(stratToShow.total_cases_value || 0)} (${stratToShow.expected_case1 || 0} зв. + ${stratToShow.expected_case2 || 0} ел.) · Брухт +${formatNumber(stratToShow.scrap_value || 0)}
                             </span>
                         </div>
                     </div>

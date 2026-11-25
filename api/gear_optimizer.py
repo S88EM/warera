@@ -729,11 +729,22 @@ class GearOptimizer:
 
         total_cases_value = round((sol["expected_regular_cases"] * case1_price) + (sol["expected_elite_cases"] * case2_price), 2)
 
+        weapon_ukr_names = {
+            "knife": "Ніж",
+            "gun": "Пістолет",
+            "rifle": "Гвинтівка",
+            "sniper": "Снайперка",
+            "tank": "Танк",
+            "jet": "Літак",
+        }
+        w_label_ukr = weapon_ukr_names.get(sol["w_code"], sol["w_code"].capitalize())
+        build_title = f"🔥 {w_label_ukr} T{sol['w_tier']} · Гібрид"
+
         return {
             "strategy_key": strat_key,
             "name": name,
-            "label": f"🔥 {sol['w_code'].capitalize()} T{sol['w_tier']} Гібрид",
-            "badge": f"🔥 {sol['w_code'].capitalize()} T{sol['w_tier']} Гібрид",
+            "label": build_title,
+            "badge": build_title,
             "tier_num": sol["w_tier"],
             "is_best_value": is_best,
             "can_reach_in_session": True,
@@ -944,6 +955,16 @@ class GearOptimizer:
         hunger_usage_pct = round((food_units_needed / max(0.1, available_hunger)) * 100.0, 1)
 
         result_strat = dict(saved_build)
+        # Normalize legacy English weapon labels in previously saved builds
+        legacy_label = str(result_strat.get("label") or "")
+        for eng, ukr in (("Sniper", "Снайперка"), ("Tank", "Танк"), ("Rifle", "Гвинтівка"), ("Gun", "Пістолет"), ("Knife", "Ніж"), ("Jet", "Літак")):
+            if eng in legacy_label:
+                legacy_label = legacy_label.replace(eng, ukr).replace(" Гібрид", " · Гібрид")
+        if legacy_label:
+            result_strat["label"] = legacy_label
+            if result_strat.get("badge"):
+                result_strat["badge"] = legacy_label
+
         result_strat.update({
             "is_saved_build": True,
             "is_best_value": True,
@@ -983,7 +1004,7 @@ class GearOptimizer:
             "build_slots": updated_slots,
             "reach_status": "ok" if hunger_usage_pct <= 100 else "over_cap",
             "reach_badge": "✅ Досяжно" if hunger_usage_pct <= 100 else "❌ Переліміт голоду",
-            "reach_note": "1 сесія табла" if hunger_usage_pct <= 100 else "не вміститься в ліміт",
+            "reach_note": "Вкладається в 1 сесію (8 год)" if hunger_usage_pct <= 100 else "Не вміститься в 1 сесію",
             "initial_target_damage": saved_build.get("initial_target_damage") or target_damage,
             "initial_grand_total": saved_build.get("initial_grand_total") or saved_build.get("grand_total_cost"),
             "initial_hits": saved_build.get("initial_hits") or saved_build.get("hits_needed"),
