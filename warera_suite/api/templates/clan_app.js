@@ -1256,9 +1256,10 @@
                                 <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">На закупівлю:</div>
                                 <div class="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">${formatNumber(stratToShow.grand_total_cost)} Coins</div>
                                 ${stratToShow.initial_grand_total && p.today_damage > 0 && stratToShow.initial_grand_total > stratToShow.grand_total_cost + 10 ? `<div class="text-[10px] text-gray-400 font-mono mt-0.5">Повний план: ${formatNumber(stratToShow.initial_grand_total)} Coins</div>` : ''}
-                                <div class="text-[11px] font-bold font-mono mt-0.5 ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                <div class="text-[11px] font-bold font-mono mt-0.5 whitespace-nowrap ${stratToShow.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
                                     ${stratToShow.net_profit >= 0 ? `💰 Чистий профіт: +${formatNumber(stratToShow.net_profit)}` : `📉 Чисті витрати: ${formatNumber(Math.abs(stratToShow.net_profit))}`} Coins
                                 </div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">без урахування баунті та дропу з битв</div>
                                 <div class="text-[10px] text-sky-400 font-mono mt-0.5">🔥 ~${formatNumber(Math.abs(stratToShow.cost_per_m_dmg || 0))} Coins / 1M (чистими)</div>
                                 ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} Coins дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
