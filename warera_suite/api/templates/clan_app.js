@@ -590,6 +590,7 @@
 
         function renderMemberCard(m) {
             const fishSalvo = getCustomFishSalvo(m);
+            const steakSalvo = getCustomSteakSalvo(m);
             const isSelected = selectedMembers.has(m.username);
             const isRecentlyChanged = recentlyChangedUsers.has(m.username);
 
@@ -618,7 +619,7 @@
                                     <span class="font-extrabold text-white text-sm truncate">${m.username}</span>
                                     <span class="text-[10px] px-1 rounded bg-gray-800 text-yellow-400 border border-bordercolor font-mono">Lv.${m.level}</span>
                                 </div>
-                                <div class="text-[10px] text-gray-400 truncate">${m.role_label} · ${m.last_seen_label}</div>
+                                <div class="text-[10px] text-gray-400 truncate">${m.role_label} · ${m.build_label} · ${m.last_seen_label}</div>
                             </div>
                         </div>
                         <button data-user="${encodeURIComponent(m.username)}" onclick="event.stopPropagation(); openTargetCalculator(decodeURIComponent(this.dataset.user))" class="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 text-xs font-bold shrink-0 flex items-center gap-1">
@@ -634,13 +635,20 @@
                             <div class="text-[9px] text-gray-400 mt-0.5">${m.pill_time_label || '—'}</div>
                         </div>
                         <div class="border-x border-bordercolor/40 px-1">
-                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Залп 8г</div>
-                            <div class="text-xs font-bold font-mono text-sky-400">${m.build_type === 'ECO' ? '—' : `~${formatMillions(fishSalvo)}`}</div>
-                            <div class="text-[9px] text-gray-400">${m.pill_status === 'ACTIVE' ? `в руках ~${formatMillions(getCustomInstantFishSalvo(m))}` : m.build_label}</div>
+                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Залп (8 год)</div>
+                            ${m.build_type === 'ECO'
+                                ? `<div class="text-xs font-bold font-mono text-gray-500">—</div>`
+                                : `
+                                    <div class="text-xs font-bold font-mono text-sky-400">🐟 ~${formatMillions(fishSalvo)}</div>
+                                    <div class="text-[10px] font-mono text-rose-300/80">🥩 ~${formatMillions(steakSalvo)}</div>
+                                    ${m.pill_status === 'ACTIVE' ? `<div class="text-[9px] font-mono text-purple-300">в руках ~${formatMillions(getCustomInstantFishSalvo(m))}</div>` : ''}
+                                `
+                            }
                         </div>
                         <div>
-                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Сьогодні</div>
+                            <div class="text-[9px] uppercase font-bold text-gray-400 mb-0.5">Сьогодні / Вчора</div>
                             <div class="text-xs font-bold text-emerald-400 font-mono">${m.today_damage > 0 ? `+${formatMillions(m.today_damage)}` : '0'}</div>
+                            <div class="text-[9px] text-gray-400 font-mono">Вчора: ${m.has_yesterday ? formatMillions(m.yesterday_damage) : '—'}</div>
                             <div class="mt-0.5">${renderSparkline7d(m.history_7d, m.target_damage)}</div>
                         </div>
                     </div>
