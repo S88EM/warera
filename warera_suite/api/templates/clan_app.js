@@ -1379,6 +1379,40 @@
                 }).join('');
             }
 
+            const mobileAltList = document.getElementById('calcStrategiesMobileList');
+            if (mobileAltList && Array.isArray(result.strategies)) {
+                mobileAltList.innerHTML = result.strategies.map(s => {
+                    const isSelected = activeSelectedStrat && activeSelectedStrat.strategy_key === s.strategy_key;
+                    const isBest = s.is_best_value;
+                    const canReach = s.can_reach_in_session;
+                    let statusBadge = canReach
+                        ? '<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold">✅ Досяжно</span>'
+                        : '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">❌ Ліміт</span>';
+                    if (s.is_saved_build) statusBadge = '<span class="px-1.5 py-0.5 rounded bg-purple-500/25 text-purple-200 border border-purple-500/50 text-[10px] font-bold">🔒 Збережений</span>';
+                    else if (isBest) statusBadge = '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">🏆 Топ</span>';
+                    else if (s.reach_badge) statusBadge = `<span class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-[10px] font-bold">${s.reach_badge}</span>`;
+
+                    return `
+                        <div onclick="selectStrategyRow('${s.strategy_key}')" class="p-2.5 rounded-xl border ${isSelected ? 'border-blue-500 bg-blue-950/25' : 'border-bordercolor/70 bg-darkbg/60'} cursor-pointer space-y-1.5 transition">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-bold text-white text-xs truncate">${s.label}</span>
+                                <span class="shrink-0">${statusBadge}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-400 font-mono flex items-center justify-between gap-2 flex-wrap">
+                                <span>${s.food_name} · ${formatNumber(s.hits_needed)} уд. · ${s.weapons_burned} збр. · ${s.armor_sets_burned} бр.</span>
+                                <span class="${canReach ? 'text-sky-300' : 'text-rose-400'}">${s.food_units_needed} шт (${s.hunger_usage_pct}%)</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-1 border-t border-bordercolor/40 font-mono text-xs">
+                                <span class="font-black ${isBest ? 'text-emerald-400' : 'text-white'}">${formatNumber(s.grand_total_cost)} Coins</span>
+                                <span class="text-[10px] font-semibold ${s.net_profit >= 0 ? 'text-emerald-400' : 'text-amber-400'}">
+                                    ${s.net_profit >= 0 ? 'Профіт +' : 'Мінус '}${formatNumber(s.net_profit)} Coins
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             renderShoppingList(activeSelectedStrat || best);
         }
 
