@@ -1477,23 +1477,23 @@
                         } else if (rarity === 'mythic' || item.tier === 6) {
                             cardBorder = 'border-rose-500/60';
                             cardBg = 'bg-gradient-to-r from-[#260a12] to-[#110609]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold shrink-0">T6</span>';
+                            tierPill = '<span class="absolute -top-1 -right-1 text-[9px] px-1 rounded bg-rose-950 text-rose-300 border border-rose-500/60 font-bold leading-tight">T6</span>';
                         } else if (rarity === 'legendary' || item.tier === 5) {
                             cardBorder = 'border-amber-500/60';
                             cardBg = 'bg-gradient-to-r from-[#261b07] to-[#120d04]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">T5</span>';
+                            tierPill = '<span class="absolute -top-1 -right-1 text-[9px] px-1 rounded bg-amber-950 text-amber-300 border border-amber-500/60 font-bold leading-tight">T5</span>';
                         } else if (rarity === 'epic' || item.tier === 4) {
                             cardBorder = 'border-purple-500/60';
                             cardBg = 'bg-gradient-to-r from-[#1b0f2a] to-[#0e0816]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold shrink-0">T4</span>';
+                            tierPill = '<span class="absolute -top-1 -right-1 text-[9px] px-1 rounded bg-purple-950 text-purple-300 border border-purple-500/60 font-bold leading-tight">T4</span>';
                         } else if (rarity === 'rare' || item.tier === 3) {
                             cardBorder = 'border-blue-500/60';
                             cardBg = 'bg-gradient-to-r from-[#0c182c] to-[#070d18]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-bold shrink-0">T3</span>';
+                            tierPill = '<span class="absolute -top-1 -right-1 text-[9px] px-1 rounded bg-blue-950 text-blue-300 border border-blue-500/60 font-bold leading-tight">T3</span>';
                         } else if (rarity === 'uncommon' || item.tier === 2) {
                             cardBorder = 'border-emerald-500/60';
                             cardBg = 'bg-gradient-to-r from-[#0a2016] to-[#06110c]';
-                            tierPill = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold shrink-0">T2</span>';
+                            tierPill = '<span class="absolute -top-1 -right-1 text-[9px] px-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/60 font-bold leading-tight">T2</span>';
                         }
 
                         const cleanName = (item.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -1513,34 +1513,30 @@
 
                         let priceHtml = '';
                         if (isEquipped) {
-                            priceHtml = `<span class="text-[10px] font-bold text-emerald-400 whitespace-nowrap">На тобі · 0</span>`;
+                            priceHtml = `<div class="text-right shrink-0"><div class="text-[11px] font-bold text-emerald-400">На тобі</div><div class="text-[10px] text-gray-400 font-mono">0 Coins</div></div>`;
                         } else if (item.item_code === 'knife' && strat.is_naked) {
-                            priceHtml = `<a href="https://app.warera.io/market/equipments" target="_blank" class="px-2 py-1 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold whitespace-nowrap">Купити</a>`;
+                            priceHtml = `<a href="https://app.warera.io/market/equipments" target="_blank" class="px-2.5 py-1 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold whitespace-nowrap shrink-0">Купити</a>`;
                         } else {
                             const buyPriceLabel = item.total_price > 0 ? `${formatNumber(item.total_price)}` : `${item.unit_price}`;
                             priceHtml = `
-                                <a href="${item.url}" target="_blank" class="px-2 py-1 rounded-lg bg-blue-600/25 hover:bg-blue-600 border border-blue-500/40 text-white font-mono text-[10px] font-bold flex items-center gap-1 whitespace-nowrap transition shrink-0" title="Купити ${cleanName} (${item.qty_needed} шт)">
-                                    <span class="text-emerald-300">${buyPriceLabel} Coins</span>
-                                    <span class="text-gray-300 text-[9px]">×${item.qty_needed}</span>
+                                <a href="${item.url}" target="_blank" class="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 text-right shrink-0 transition block group" title="Купити ${cleanName} (${item.qty_needed} шт)">
+                                    <div class="font-mono text-[11px] font-bold text-emerald-300 group-hover:text-white whitespace-nowrap">${buyPriceLabel} Coins</div>
+                                    <div class="font-mono text-[10px] text-gray-300 group-hover:text-white">×${item.qty_needed} <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i></div>
                                 </a>
                             `;
                         }
 
                         return `
-                            <div class="p-2 rounded-xl border ${cardBorder} ${cardBg} flex items-center gap-2.5 min-h-[58px] hover:border-gray-400 transition-all">
-                                <div class="w-10 h-10 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center shrink-0 p-1">
+                            <div class="px-3 py-2 rounded-xl border ${cardBorder} ${cardBg} flex items-center gap-3 min-h-[60px] hover:border-gray-400 transition-all">
+                                <div class="relative w-10 h-10 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center shrink-0 p-1">
                                     <img src="${item.image_url}" class="max-h-full max-w-full object-contain" onerror="this.onerror=null; this.src='${fallbackSrc}';">
+                                    ${tierPill}
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="font-bold text-white text-xs truncate" title="${item.name}">${cleanName}</span>
-                                        ${tierPill}
-                                    </div>
-                                    <div class="text-[10px] font-mono text-sky-300 truncate mt-0.5" title="${item.target_stats || ''}">${compactStats}</div>
+                                    <div class="font-bold text-white text-xs truncate" title="${item.name}">${cleanName}</div>
+                                    <div class="text-[11px] font-mono text-sky-300 truncate mt-0.5" title="${item.target_stats || ''}">${compactStats}</div>
                                 </div>
-                                <div class="shrink-0">
-                                    ${priceHtml}
-                                </div>
+                                ${priceHtml}
                             </div>
                         `;
                     }).join('');
