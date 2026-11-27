@@ -1334,7 +1334,9 @@
                                 </div>
                                 ${(!stratToShow.can_reach_in_session && isSaved)
                                     ? `<button onclick="unlockCurrentBuild()" class="mt-0.5 text-left text-[10px] font-semibold text-amber-300 hover:text-white underline decoration-amber-400/70 transition">Потрібно перерахувати білд, натисніть кнопку Скинути</button>`
-                                    : `<div class="text-[10px] text-gray-400 font-mono">${stratToShow.can_reach_in_session ? (stratToShow.reach_note || 'Вкладається в 1 сесію (8 год)') : 'Не вистачить голоду за 1 сесію (8 год)'}</div>`
+                                    : (isSaved && Number(stratToShow.cheaper_alt_savings || 0) > 0
+                                        ? `<button onclick="unlockCurrentBuild()" class="mt-0.5 text-left text-[10px] font-semibold text-amber-300 hover:text-white underline decoration-amber-400/70 transition">💡 Білд надлишковий (є дешевший на ${formatNumber(Math.round(stratToShow.cheaper_alt_savings))} Coins), натисніть Скинути</button>`
+                                        : `<div class="text-[10px] text-gray-400 font-mono">${stratToShow.can_reach_in_session ? (stratToShow.reach_note || 'Вкладається в 1 сесію (8 год)') : 'Не вистачить голоду за 1 сесію (8 год)'}</div>`)
                                 }
                             </div>
                         </div>

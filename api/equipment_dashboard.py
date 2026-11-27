@@ -245,6 +245,22 @@ async def _refresh_live_gear_prices(client: Any, opt_result: Dict[str, Any], opt
             strat["grand_total"] = new_total
             strat["grand_total_cost"] = new_total
 
+    # If a saved build is locked and reachable, compute savings vs cheapest reachable alternative
+    best_strat = opt_result.get("best_strategy")
+    if isinstance(best_strat, dict) and best_strat.get("is_saved_build") and best_strat.get("can_reach_in_session"):
+        saved_total = float(best_strat.get("grand_total_cost") or 0.0)
+        alt_totals = [
+            float(s.get("grand_total_cost") or 0.0)
+            for s in (opt_result.get("strategies") or [])
+            if isinstance(s, dict) and not s.get("is_saved_build") and s.get("can_reach_in_session") and float(s.get("grand_total_cost") or 0.0) > 0
+        ]
+        if alt_totals and saved_total > 0:
+            cheapest_alt = min(alt_totals)
+            savings = round(saved_total - cheapest_alt, 2)
+            best_strat["cheaper_alt_savings"] = savings if (savings >= 15.0 and savings / saved_total >= 0.05) else 0.0
+        else:
+            best_strat["cheaper_alt_savings"] = 0.0
+
 
 async def handle_calculator(request: web.Request) -> web.Response:
     from combat_calculator import CombatDamageCalculator
