@@ -245,14 +245,16 @@ async def _refresh_live_gear_prices(client: Any, opt_result: Dict[str, Any], opt
             strat["grand_total"] = new_total
             strat["grand_total_cost"] = new_total
 
-    # If a saved build is locked, reachable, and user hasn't started shooting with it yet,
-    # compute savings vs cheapest reachable alternative (avoids false positives mid-session when deficit shrinks)
+    # If a saved build is locked and reachable, compute savings vs cheapest reachable alternative
+    # unless the player has already popped a pill and started dealing damage in this session
     best_strat = opt_result.get("best_strategy")
+    has_active_pill = bool((opt_result.get("player") or {}).get("has_active_pill"))
+    has_started_pill_session = has_active_pill and float((best_strat or {}).get("build_dealt_damage") or 0.0) > 0.0
     if (
         isinstance(best_strat, dict)
         and best_strat.get("is_saved_build")
         and best_strat.get("can_reach_in_session")
-        and float(best_strat.get("build_dealt_damage") or 0.0) <= 0.0
+        and not has_started_pill_session
     ):
         saved_total = float(best_strat.get("grand_total_cost") or 0.0)
         alt_totals = [
