@@ -1099,13 +1099,14 @@
             const slotsGrid = document.getElementById('calcGearSlotsGrid');
 
             if (optimalCard) {
+                const isLockedRefresh = activeIsBuildLocked && !forceUnlock && activeSelectedStrat;
                 optimalCard.innerHTML = `
-                    <div class="glass-panel p-6 rounded-2xl border border-blue-500/30 text-center space-y-2 bg-darkbg/60">
-                        <div class="text-blue-400 text-sm font-bold flex items-center justify-center gap-2">
+                    <div class="glass-panel p-6 rounded-2xl border ${isLockedRefresh ? 'border-purple-500/40' : 'border-blue-500/30'} text-center space-y-2 bg-darkbg/60">
+                        <div class="${isLockedRefresh ? 'text-purple-300' : 'text-blue-400'} text-sm font-bold flex items-center justify-center gap-2">
                             <i class="fa-solid fa-spinner fa-spin"></i>
-                            <span>Підбираємо найвигідніший бойовий комплект під ціль...</span>
+                            <span>${isLockedRefresh ? 'Оновлюємо прогрес та ціни збереженого білду...' : 'Підбираємо найвигідніший бойовий комплект під ціль...'}</span>
                         </div>
-                        <div class="text-[11px] text-gray-400">Аналізуємо ціни ринку, знос зброї, ухилення та ліміт голоду...</div>
+                        <div class="text-[11px] text-gray-400">${isLockedRefresh ? 'Перераховуємо залишок урону, ударів та актуальні ціни на ринку...' : 'Аналізуємо ціни ринку, знос зброї, ухилення та ліміт голоду...'}</div>
                     </div>
                 `;
             }
@@ -1231,6 +1232,29 @@
                 const case1Price = cp.case1 ? Number(cp.case1).toFixed(2) : '3.89';
                 const case2Price = cp.case2 ? Number(cp.case2).toFixed(2) : '26.92';
 
+                let buildProgressHtml = '';
+                if (isSaved && stratToShow.build_planned_damage > 0) {
+                    const dealt = Number(stratToShow.build_dealt_damage || 0);
+                    const planned = Number(stratToShow.build_planned_damage || 0);
+                    const pct = Number(stratToShow.build_progress_pct || 0);
+                    buildProgressHtml = `
+                        <div class="bg-purple-950/30 border border-purple-500/40 rounded-xl p-2.5 space-y-1.5">
+                            <div class="flex items-center justify-between text-[11px] font-semibold flex-wrap gap-1">
+                                <span class="text-purple-200 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-chart-line text-purple-400"></i>
+                                    Прогрес із цим білдом
+                                </span>
+                                <span class="font-mono text-white">
+                                    <b class="text-emerald-400">+${formatNumber(dealt)}</b> / ${formatNumber(planned)} <span class="text-purple-300">(${pct}%)</span>
+                                </span>
+                            </div>
+                            <div class="w-full h-2 bg-darkbg/80 rounded-full overflow-hidden border border-purple-500/20">
+                                <div class="h-full bg-gradient-to-r from-purple-500 to-emerald-400 transition-all duration-300" style="width: ${Math.min(100, Math.max(0, pct))}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 optimalCard.innerHTML = `
                     <div class="glass-panel p-4 sm:p-5 rounded-2xl border-2 ${isSaved ? 'border-purple-500/60 bg-gradient-to-r from-purple-950/40 via-[#0e131f] to-indigo-950/30' : (stratToShow.is_best_value ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/40 via-[#0e131f] to-blue-950/30' : 'border-blue-500/60 bg-[#0e131f]')} shadow-xl space-y-3.5">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-bordercolor/60 pb-3">
@@ -1242,7 +1266,7 @@
                                     <div class="flex items-center gap-2 flex-wrap">
                                         ${stratBadge}
                                         ${lockActionBtn}
-                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b> <span class="text-amber-400 font-mono font-bold">(+${t.battle_bonus ?? activeCalcBonus}% баф)</span></span>
+                                        <span class="text-xs text-gray-400">під ціль <b class="text-white font-mono">${formatMillions(t.target_damage)}</b> <span class="text-amber-400 font-mono font-bold">(+${p.battle_bonus_pct ?? activeCalcBonus}% баф)</span></span>
                                     </div>
                                     <h3 class="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2 flex-wrap">
                                         <span>${stratToShow.label}</span>
@@ -1264,6 +1288,8 @@
                                 ${stratToShow.savings_vs_best > 0 ? `<div class="text-[10px] text-amber-400 font-mono mt-0.5">+${formatNumber(stratToShow.savings_vs_best)} Coins дорожче за топ</div>` : '<div class="text-[10px] text-emerald-400/80 font-mono mt-0.5">Економічний оптимум</div>'}
                             </div>
                         </div>
+
+                        ${buildProgressHtml}
 
                         <!-- 6 Stat Metrics: 3x2 on desktop, 2x3 on mobile (lightweight, no heavy borders) -->
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 bg-darkbg/60 rounded-xl p-2.5 text-xs">
@@ -1631,6 +1657,7 @@
                     savedBuildPayload = Object.assign({}, stratToSave);
                     if (!savedBuildPayload.initial_target_damage) {
                         savedBuildPayload.initial_target_damage = activeCalcTarget;
+                        savedBuildPayload.initial_today_damage = Number(activeCalcMember.today_damage || 0);
                         savedBuildPayload.initial_grand_total = stratToSave.grand_total_cost;
                         savedBuildPayload.initial_hits = stratToSave.hits_needed;
                     }

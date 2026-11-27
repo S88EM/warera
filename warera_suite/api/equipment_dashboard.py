@@ -189,19 +189,20 @@ async def _refresh_live_gear_prices(client: Any, opt_result: Dict[str, Any], opt
 
     unique_queries: Dict[tuple, Dict[str, float]] = {}
     for strat in strategies:
+        roll_q = float(strat.get("roll_quality") or getattr(optimizer_cls, "DEFAULT_ROLL_QUALITY", 0.50))
         for slot_item in strat.get("build_slots") or []:
             s_type = slot_item.get("slot")
             code = slot_item.get("item_code")
-            if s_type in gear_slots_set and code and (s_type, code) not in unique_queries:
-                unique_queries[(s_type, code)] = optimizer_cls._default_min_stats_for_slot(s_type, code)
+            if s_type in gear_slots_set and code and (s_type, code, roll_q) not in unique_queries:
+                unique_queries[(s_type, code, roll_q)] = optimizer_cls._default_min_stats_for_slot(s_type, code, roll_q=roll_q)
 
     if not unique_queries:
         return
 
     keys = list(unique_queries.keys())
     tasks = [
-        client.get_equipment_offers(code, limit=1, min_skills=unique_queries[(s_type, code)])
-        for (s_type, code) in keys
+        client.get_equipment_offers(code, limit=1, min_skills=unique_queries[(s_type, code, roll_q)])
+        for (s_type, code, roll_q) in keys
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -220,12 +221,13 @@ async def _refresh_live_gear_prices(client: Any, opt_result: Dict[str, Any], opt
         return
 
     for strat in strategies:
+        roll_q = float(strat.get("roll_quality") or getattr(optimizer_cls, "DEFAULT_ROLL_QUALITY", 0.50))
         gear_sum = 0.0
         for slot_item in strat.get("build_slots") or []:
             s_type = slot_item.get("slot")
             code = slot_item.get("item_code")
-            if s_type in gear_slots_set and (s_type, code) in live_prices:
-                u_price = live_prices[(s_type, code)]
+            if s_type in gear_slots_set and (s_type, code, roll_q) in live_prices:
+                u_price = live_prices[(s_type, code, roll_q)]
                 qty = int(slot_item.get("qty_needed") or 1)
                 slot_item["unit_price"] = u_price
                 slot_item["total_price"] = round(u_price * qty, 2)

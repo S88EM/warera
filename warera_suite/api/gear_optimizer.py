@@ -78,8 +78,67 @@ class GearOptimizer:
     Engine for finding the lowest-cost gear set to achieve target battle damage.
     """
 
+    DEFAULT_ROLL_QUALITY = 0.50
+
     def __init__(self, market_app=None):
         self.market_app = market_app
+
+    @staticmethod
+    def _roll_stat(rng: List[float], roll_q: float) -> float:
+        return rng[0] + (rng[1] - rng[0]) * roll_q
+
+    @staticmethod
+    def _simulate_combat_metrics(
+        base_atk: float,
+        curr_prec: float,
+        curr_crit_ch: float,
+        curr_crit_dmg: float,
+        curr_armor_stat: float,
+        curr_dodge_stat: float,
+        rank_mult: float,
+        battle_mult: float,
+        ammo_mult: float,
+        w_atk: float,
+        w_crit_ch: float,
+        h_crit_dmg: float,
+        g_prec: float,
+        c_arm: float,
+        p_arm: float,
+        b_ddg: float,
+        pill_mult: float = 1.60,
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Computes (avg_dmg_per_hit, hp_cost_per_hit, hits_per_armor_set, dodge_fraction, armor_reduction, eff_prec_ratio)."""
+        raw_prec = curr_prec + g_prec
+        if raw_prec > 100.0:
+            prec_bonus_atk = (raw_prec - 100.0) * 4.0
+            eff_prec_ratio = 1.0
+        else:
+            prec_bonus_atk = 0.0
+            eff_prec_ratio = max(0.10, raw_prec / 100.0)
+
+        raw_crit_ch = curr_crit_ch + w_crit_ch
+        raw_crit_dmg = curr_crit_dmg + h_crit_dmg
+        if raw_crit_ch > 100.0:
+            crit_bonus_dmg = (raw_crit_ch - 100.0) * 4.0
+            eff_crit_ch_ratio = 1.0
+        else:
+            crit_bonus_dmg = 0.0
+            eff_crit_ch_ratio = max(0.0, raw_crit_ch / 100.0)
+
+        crit_mult_val = (raw_crit_dmg + crit_bonus_dmg) / 100.0
+        sim_atk = (base_atk + w_atk + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
+        hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
+        miss_dmg = sim_atk * 0.5
+        avg_dmg_per_hit = (eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * battle_mult
+
+        total_raw_armor = curr_armor_stat + c_arm + p_arm
+        total_raw_dodge = curr_dodge_stat + b_ddg
+        armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
+        dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
+        hp_cost_per_hit = max(0.50, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
+        hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
+
+        return avg_dmg_per_hit, hp_cost_per_hit, hits_per_armor_set, dodge_fraction, armor_reduction, eff_prec_ratio
 
     def optimize_set_for_target(
         self,
@@ -207,14 +266,19 @@ class GearOptimizer:
         hunger_curr = profile["hunger_curr"]
         hunger_regen = profile["hunger_regen"]
 
-        # Base character stats from skills (pure clean baseline without equipped gear)
-        base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100))
-        strat_prec = float(skills.get("precision", {}).get("strategic", 0))
-        curr_prec = float(skills.get("precision", {}).get("value", 75)) + strat_prec
-        curr_crit_ch = float(skills.get("criticalChance", {}).get("value", 10))
-        curr_crit_dmg = float(skills.get("criticalDamages", {}).get("value", 100))
-        curr_armor_stat = float(skills.get("armor", {}).get("value", 0))
-        curr_dodge_stat = float(skills.get("dodge", {}).get("value", 0))
+        # Base character stats from skills (pure clean baseline + strategic buffs, without equipped gear)
+        def _skill_with_strat(skill_name: str, default_val: float) -> float:
+            sk = skills.get(skill_name) or {}
+            return float(sk.get("value", default_val)) + float(sk.get("strategic", 0))
+
+        base_atk = float(player_member.get("base_attack") or skills.get("attack", {}).get("value", 100)) + float(
+            (skills.get("attack") or {}).get("strategic", 0)
+        )
+        curr_prec = _skill_with_strat("precision", 75)
+        curr_crit_ch = _skill_with_strat("criticalChance", 10)
+        curr_crit_dmg = _skill_with_strat("criticalDamages", 100)
+        curr_armor_stat = _skill_with_strat("armor", 0)
+        curr_dodge_stat = _skill_with_strat("dodge", 0)
 
         # Pill Status & Duration
         pill_status = player_member.get("pill_status", "READY")
@@ -273,115 +337,76 @@ class GearOptimizer:
             weapon_tier_choices = [2, 3, 4, 5, 6]
 
         armor_tier_choices = [2, 3, 4, 5, 6]
+        roll_q = self.DEFAULT_ROLL_QUALITY
+
+        # Precompute minStats-filtered market prices for all candidate gear codes
+        slot_price_cache: Dict[str, float] = {}
+        for wt in weapon_tier_choices:
+            wc = WEAPON_TIERS[wt]
+            slot_price_cache[wc] = get_item_price(wc, min_stats=self._default_min_stats_for_slot("weapon", wc, roll_q))
+        for at in armor_tier_choices:
+            for s_name, prefix in (("helmet", "helmet"), ("chest", "chest"), ("pants", "pants"), ("boots", "boots"), ("gloves", "gloves")):
+                ac = f"{prefix}{at}"
+                slot_price_cache[ac] = get_item_price(ac, min_stats=self._default_min_stats_for_slot(s_name, ac, roll_q))
 
         valid_solutions: List[Dict[str, Any]] = []
 
-        # Dual Search: evaluate hybrid gear combinations
+        # Dual Search: evaluate hybrid gear combinations using consistent roll_q and minStats prices
         for w_tier in weapon_tier_choices:
             w_code = WEAPON_TIERS[w_tier]
-            w_meta = EQUIPMENT_METADATA.get(w_code, {})
-            w_ranges = w_meta.get("ranges", {})
-            w_atk_min, w_atk_max = w_ranges.get("attack", [80, 90])
-            w_crit_min, w_crit_max = w_ranges.get("criticalChance", [10, 15])
-            # Use typical solid roll (65% quality) as initial evaluation anchor
-            w_atk = w_atk_min + (w_atk_max - w_atk_min) * 0.65
-            w_crit_ch = w_crit_min + (w_crit_max - w_crit_min) * 0.65
-            w_price = get_item_price(w_code)
+            w_ranges = EQUIPMENT_METADATA.get(w_code, {}).get("ranges", {})
+            w_atk = self._roll_stat(w_ranges.get("attack", [80, 90]), roll_q)
+            w_crit_ch = self._roll_stat(w_ranges.get("criticalChance", [10, 15]), roll_q)
+            w_price = slot_price_cache[w_code]
 
             for ammo_key in eval_ammos:
                 ammo_spec = AMMO_SPECS[ammo_key]
-                ammo_bonus_pct = ammo_spec["bonus_pct"]
                 ammo_unit_price = float(consumable_prices.get(ammo_key, ammo_spec["default_price"]))
-                ammo_mult = 1.0 + (ammo_bonus_pct / 100.0)
+                ammo_mult = 1.0 + (ammo_spec["bonus_pct"] / 100.0)
 
                 for h_tier in armor_tier_choices:
                     h_code = f"helmet{h_tier}"
-                    h_meta = EQUIPMENT_METADATA.get(h_code, {})
-                    h_ranges = h_meta.get("ranges", {})
-                    h_crit_min, h_crit_max = h_ranges.get("criticalDamages", [40, 60])
-                    h_crit_dmg = h_crit_min + (h_crit_max - h_crit_min) * 0.65
-                    h_price = get_item_price(h_code)
+                    h_ranges = EQUIPMENT_METADATA.get(h_code, {}).get("ranges", {})
+                    h_crit_dmg = self._roll_stat(h_ranges.get("criticalDamages", [40, 60]), roll_q)
+                    h_price = slot_price_cache[h_code]
 
                     for g_tier in armor_tier_choices:
                         g_code = f"gloves{g_tier}"
-                        g_meta = EQUIPMENT_METADATA.get(g_code, {})
-                        g_ranges = g_meta.get("ranges", {})
-                        g_prec_min, g_prec_max = g_ranges.get("precision", [10, 15])
-                        g_prec = g_prec_min + (g_prec_max - g_prec_min) * 0.65
-                        g_price = get_item_price(g_code)
+                        g_ranges = EQUIPMENT_METADATA.get(g_code, {}).get("ranges", {})
+                        g_prec = self._roll_stat(g_ranges.get("precision", [10, 15]), roll_q)
+                        g_price = slot_price_cache[g_code]
 
-                        # --- Combat Damage Simulation for this offensive setup ---
-                        # Precision & Overflow purely from candidate gloves
-                        raw_prec = curr_prec + g_prec
-                        if raw_prec > 100.0:
-                            prec_bonus_atk = (raw_prec - 100.0) * 4.0
-                            eff_prec_ratio = 1.0
-                        else:
-                            prec_bonus_atk = 0.0
-                            eff_prec_ratio = max(0.10, raw_prec / 100.0)
-
-                        # Crit Chance & Overflow purely from candidate weapon and helmet
-                        raw_crit_ch = curr_crit_ch + w_crit_ch
-                        raw_crit_dmg = curr_crit_dmg + h_crit_dmg
-                        if raw_crit_ch > 100.0:
-                            crit_bonus_dmg = (raw_crit_ch - 100.0) * 4.0
-                            eff_crit_ch_ratio = 1.0
-                        else:
-                            crit_bonus_dmg = 0.0
-                            eff_crit_ch_ratio = max(0.0, raw_crit_ch / 100.0)
-
-                        tot_crit_dmg_pct = raw_crit_dmg + crit_bonus_dmg
-                        crit_mult_val = tot_crit_dmg_pct / 100.0
-
-                        # Attack value from candidate weapon
-                        pill_mult = 1.60
-                        sim_atk = (base_atk + w_atk + prec_bonus_atk) * rank_mult * ammo_mult * pill_mult
-
-                        # Expected damage per hit with Graze mechanics
-                        hit_dmg = sim_atk * (1.0 + eff_crit_ch_ratio * crit_mult_val)
-                        miss_dmg = sim_atk * 0.5
-                        avg_dmg_per_hit = (eff_prec_ratio * hit_dmg + (1.0 - eff_prec_ratio) * miss_dmg) * battle_mult
+                        avg_dmg_per_hit, _, _, _, _, eff_prec_ratio = self._simulate_combat_metrics(
+                            base_atk, curr_prec, curr_crit_ch, curr_crit_dmg, curr_armor_stat, curr_dodge_stat,
+                            rank_mult, battle_mult, ammo_mult,
+                            w_atk, w_crit_ch, h_crit_dmg, g_prec, 0.0, 0.0, 0.0,
+                        )
 
                         if avg_dmg_per_hit <= 0:
                             continue
 
-                        # Minimum hits theoretically required
                         min_hits_needed = math.ceil(deficit_damage / avg_dmg_per_hit) if deficit_damage > 0 else 0
 
-                        # Now evaluate defensive/sustain combinations (Chest, Pants, Boots, Food)
                         for c_tier in armor_tier_choices:
                             c_code = f"chest{c_tier}"
-                            c_meta = EQUIPMENT_METADATA.get(c_code, {})
-                            c_arm_min, c_arm_max = c_meta.get("ranges", {}).get("armor", [10, 15])
-                            c_arm = c_arm_min + (c_arm_max - c_arm_min) * 0.65
-                            c_price = get_item_price(c_code)
+                            c_arm = self._roll_stat(EQUIPMENT_METADATA.get(c_code, {}).get("ranges", {}).get("armor", [10, 15]), roll_q)
+                            c_price = slot_price_cache[c_code]
 
                             for p_tier in armor_tier_choices:
                                 p_code = f"pants{p_tier}"
-                                p_meta = EQUIPMENT_METADATA.get(p_code, {})
-                                p_arm_min, p_arm_max = p_meta.get("ranges", {}).get("armor", [10, 15])
-                                p_arm = p_arm_min + (p_arm_max - p_arm_min) * 0.65
-                                p_price = get_item_price(p_code)
+                                p_arm = self._roll_stat(EQUIPMENT_METADATA.get(p_code, {}).get("ranges", {}).get("armor", [10, 15]), roll_q)
+                                p_price = slot_price_cache[p_code]
 
                                 for b_tier in armor_tier_choices:
                                     b_code = f"boots{b_tier}"
-                                    b_meta = EQUIPMENT_METADATA.get(b_code, {})
-                                    b_ddg_min, b_ddg_max = b_meta.get("ranges", {}).get("dodge", [10, 15])
-                                    b_ddg = b_ddg_min + (b_ddg_max - b_ddg_min) * 0.65
-                                    b_price = get_item_price(b_code)
+                                    b_ddg = self._roll_stat(EQUIPMENT_METADATA.get(b_code, {}).get("ranges", {}).get("dodge", [10, 15]), roll_q)
+                                    b_price = slot_price_cache[b_code]
 
-                                    # Honest candidate defense without artificial bonuses
-                                    total_raw_armor = curr_armor_stat + c_arm + p_arm
-                                    total_raw_dodge = curr_dodge_stat + b_ddg
-
-                                    armor_reduction = (total_raw_armor / (total_raw_armor + 40.0)) if total_raw_armor > 0 else 0.0
-                                    dodge_fraction = (total_raw_dodge / (total_raw_dodge + 40.0)) if total_raw_dodge > 0 else 0.0
-
-                                    # Damage taken per hit (canonical WarEra formula: base cost 10.0 HP)
-                                    hp_cost_per_hit = max(0.50, 10.0 * (1.0 - armor_reduction) * (1.0 - dodge_fraction))
-
-                                    # Armor set durability lifetime (Dodge protection)
-                                    hits_per_armor_set = max(100.0, 100.0 * (1.0 + total_raw_dodge / 40.0))
+                                    _, hp_cost_per_hit, hits_per_armor_set, dodge_fraction, armor_reduction, _ = self._simulate_combat_metrics(
+                                        base_atk, curr_prec, curr_crit_ch, curr_crit_dmg, curr_armor_stat, curr_dodge_stat,
+                                        rank_mult, battle_mult, ammo_mult,
+                                        w_atk, w_crit_ch, h_crit_dmg, g_prec, c_arm, p_arm, b_ddg,
+                                    )
 
                                     for food_key in eval_foods:
                                         food_spec = FOOD_SPECS[food_key]
@@ -483,10 +508,34 @@ class GearOptimizer:
 
         # Sort by Real Purchase Budget (User Rule: no case deductions, optimize strictly by real market purchase budget)
         valid_solutions.sort(key=lambda s: (s["total_purchase_cost"], s["actual_hits"]))
-        best_sol = valid_solutions[0]
 
-        # Select diverse representative strategies for comparison table
-        diverse_solutions = self._select_diverse_solutions(valid_solutions)
+        combat_ctx = {
+            "base_atk": base_atk,
+            "curr_prec": curr_prec,
+            "curr_crit_ch": curr_crit_ch,
+            "curr_crit_dmg": curr_crit_dmg,
+            "curr_armor_stat": curr_armor_stat,
+            "curr_dodge_stat": curr_dodge_stat,
+            "rank_mult": rank_mult,
+            "battle_mult": battle_mult,
+            "today_damage": today_damage,
+            "natural_hp_pool": natural_hp_pool,
+            "health_max": health_max,
+            "available_hunger": available_hunger,
+            "pill_cost": pill_cost,
+            "scrap_price": scrap_price,
+            "case1_price": case1_price,
+            "case2_price": case2_price,
+            "loot_chance_ratio": loot_chance_ratio,
+        }
+
+        # Select diverse representative strategies and tune rolls near ceil(hits/100) wear boundaries
+        diverse_solutions = [
+            self._tune_roll_to_save_wear(s, deficit_damage, combat_ctx, get_item_price)
+            for s in self._select_diverse_solutions(valid_solutions)
+        ]
+        diverse_solutions.sort(key=lambda s: (s["total_purchase_cost"], s["actual_hits"]))
+        best_sol = diverse_solutions[0]
 
         # Refine Minimum Roll Requirements for best solution
         refined_slots = self._format_and_refine_slots(best_sol, deficit_damage, get_item_price_fn=get_item_price)
@@ -506,6 +555,7 @@ class GearOptimizer:
                 target_damage=target_damage,
                 consumable_prices=consumable_prices,
                 get_item_price_fn=get_item_price,
+                combat_ctx=combat_ctx,
             )
             best_strat = saved_strat
             all_strats = [saved_strat] + [
@@ -609,29 +659,133 @@ class GearOptimizer:
 
         return diverse_solutions
 
+    def _tune_roll_to_save_wear(
+        self,
+        sol: Dict[str, Any],
+        deficit_damage: float,
+        combat_ctx: Dict[str, Any],
+        get_item_price_fn,
+    ) -> Dict[str, Any]:
+        """
+        Checks if raising roll quality (0.60..0.90) reduces weapons_needed or armor_sets_needed
+        across ceil() wear boundaries and lowers total_purchase_cost.
+        """
+        if deficit_damage <= 0:
+            return sol
+
+        best = dict(sol)
+        best.setdefault("roll_quality", self.DEFAULT_ROLL_QUALITY)
+        ammo_spec = sol["ammo_spec"]
+        ammo_mult = 1.0 + (ammo_spec["bonus_pct"] / 100.0)
+        food_spec = sol["food_spec"]
+        hp_per_food_unit = food_spec["hp_pct"] * combat_ctx["health_max"]
+        max_food_units = math.floor(combat_ctx["available_hunger"])
+
+        for cand_q in (0.60, 0.70, 0.80, 0.90):
+            w_rng = EQUIPMENT_METADATA.get(sol["w_code"], {}).get("ranges", {})
+            w_atk = self._roll_stat(w_rng.get("attack", [80, 90]), cand_q)
+            w_crit = self._roll_stat(w_rng.get("criticalChance", [10, 15]), cand_q)
+            h_cd = self._roll_stat(EQUIPMENT_METADATA.get(sol["h_code"], {}).get("ranges", {}).get("criticalDamages", [40, 60]), cand_q)
+            g_prc = self._roll_stat(EQUIPMENT_METADATA.get(sol["g_code"], {}).get("ranges", {}).get("precision", [10, 15]), cand_q)
+            c_arm = self._roll_stat(EQUIPMENT_METADATA.get(sol["c_code"], {}).get("ranges", {}).get("armor", [10, 15]), cand_q)
+            p_arm = self._roll_stat(EQUIPMENT_METADATA.get(sol["p_code"], {}).get("ranges", {}).get("armor", [10, 15]), cand_q)
+            b_ddg = self._roll_stat(EQUIPMENT_METADATA.get(sol["b_code"], {}).get("ranges", {}).get("dodge", [10, 15]), cand_q)
+
+            avg_dmg, hp_cost, hits_per_armor, dodge_frac, arm_red, eff_prec = self._simulate_combat_metrics(
+                combat_ctx["base_atk"], combat_ctx["curr_prec"], combat_ctx["curr_crit_ch"],
+                combat_ctx["curr_crit_dmg"], combat_ctx["curr_armor_stat"], combat_ctx["curr_dodge_stat"],
+                combat_ctx["rank_mult"], combat_ctx["battle_mult"], ammo_mult,
+                w_atk, w_crit, h_cd, g_prc, c_arm, p_arm, b_ddg,
+            )
+            if avg_dmg <= 0:
+                continue
+
+            hits = math.ceil(deficit_damage / avg_dmg)
+            weapons_needed = math.ceil(hits / 100.0)
+            armor_sets_needed = math.ceil(hits / hits_per_armor)
+            if weapons_needed >= best["weapons_needed"] and armor_sets_needed >= best["armor_sets_needed"]:
+                continue
+
+            food_hp_needed = max(0.0, hits * hp_cost - combat_ctx["natural_hp_pool"])
+            food_units = math.ceil(food_hp_needed / hp_per_food_unit) if hp_per_food_unit > 0 else 0
+            if food_units > max_food_units:
+                continue
+
+            w_p = get_item_price_fn(sol["w_code"], min_stats=self._default_min_stats_for_slot("weapon", sol["w_code"], cand_q))
+            h_p = get_item_price_fn(sol["h_code"], min_stats=self._default_min_stats_for_slot("helmet", sol["h_code"], cand_q))
+            c_p = get_item_price_fn(sol["c_code"], min_stats=self._default_min_stats_for_slot("chest", sol["c_code"], cand_q))
+            p_p = get_item_price_fn(sol["p_code"], min_stats=self._default_min_stats_for_slot("pants", sol["p_code"], cand_q))
+            b_p = get_item_price_fn(sol["b_code"], min_stats=self._default_min_stats_for_slot("boots", sol["b_code"], cand_q))
+            g_p = get_item_price_fn(sol["g_code"], min_stats=self._default_min_stats_for_slot("gloves", sol["g_code"], cand_q))
+
+            ammo_c = hits * sol["ammo_unit_price"]
+            food_c = food_units * sol["food_unit_price"]
+            armor_set_p = h_p + c_p + p_p + b_p + g_p
+            total_cost = round((weapons_needed * w_p) + (armor_sets_needed * armor_set_p) + ammo_c + food_c + combat_ctx["pill_cost"], 2)
+
+            if total_cost < best["total_purchase_cost"]:
+                amort_gear = (hits / 100.0) * w_p + (hits / hits_per_armor) * armor_set_p
+                amort_gross = amort_gear + ammo_c + food_c + combat_ctx["pill_cost"]
+                scrap_val = (
+                    SCRAP_RECOVERY_BY_TIER.get(sol["w_tier"], 0) * max(1, weapons_needed)
+                    + sum(SCRAP_RECOVERY_BY_TIER.get(sol[k], 0) for k in ("h_tier", "c_tier", "p_tier", "b_tier", "g_tier")) * max(1, armor_sets_needed)
+                ) * combat_ctx["scrap_price"]
+                exp_c1, exp_c2 = estimate_expected_cases(hits, combat_ctx["loot_chance_ratio"], eff_prec)
+                case_val = exp_c1 * combat_ctx["case1_price"] + exp_c2 * combat_ctx["case2_price"]
+                net_c = amort_gross - scrap_val - case_val
+                best.update({
+                    "roll_quality": cand_q,
+                    "w_price": w_p, "w_atk": w_atk, "w_crit_ch": w_crit,
+                    "h_price": h_p, "h_crit_dmg": h_cd,
+                    "c_price": c_p, "c_arm": c_arm,
+                    "p_price": p_p, "p_arm": p_arm,
+                    "b_price": b_p, "b_ddg": b_ddg,
+                    "g_price": g_p, "g_prec": g_prc,
+                    "ammo_cost": ammo_c, "ammo_bullets_needed": hits,
+                    "food_cost": food_c, "food_units_needed": food_units,
+                    "avg_dmg_per_hit": round(avg_dmg, 1),
+                    "hp_cost_per_hit": round(hp_cost, 2),
+                    "actual_hits": hits,
+                    "weapons_needed": weapons_needed,
+                    "armor_sets_needed": armor_sets_needed,
+                    "total_purchase_cost": total_cost,
+                    "amortized_gross_cost": round(amort_gross, 2),
+                    "net_cost": round(net_c, 2),
+                    "cost_per_1m": round(net_c / (deficit_damage / 1_000_000.0), 2),
+                    "expected_regular_cases": round(exp_c1, 1),
+                    "expected_elite_cases": round(exp_c2, 2),
+                    "scrap_recovery_value": round(scrap_val, 2),
+                    "eff_dodge_pct": round(dodge_frac * 100.0, 1),
+                    "eff_armor_pct": round(arm_red * 100.0, 1),
+                    "eff_prec_ratio": round(eff_prec, 3),
+                    "eff_w_atk": round(w_atk, 1),
+                })
+
+        return best
+
     @staticmethod
-    def _default_min_stats_for_slot(slot_type: str, code: str) -> Dict[str, float]:
-        """Returns the 40% recommended minimum stat thresholds for a gear slot."""
+    def _default_min_stats_for_slot(slot_type: str, code: str, roll_q: float = 0.50) -> Dict[str, float]:
+        """Returns the recommended minimum stat thresholds for a gear slot at roll_q."""
         ranges = EQUIPMENT_METADATA.get(code, {}).get("ranges", {})
         if slot_type == "weapon":
             atk_r = ranges.get("attack", [100, 130])
             crit_r = ranges.get("criticalChance", [15, 20])
             return {
-                "attack": int(atk_r[0] + (atk_r[1] - atk_r[0]) * 0.40),
-                "criticalChance": int(crit_r[0] + (crit_r[1] - crit_r[0]) * 0.40),
+                "attack": int(atk_r[0] + (atk_r[1] - atk_r[0]) * roll_q),
+                "criticalChance": int(crit_r[0] + (crit_r[1] - crit_r[0]) * roll_q),
             }
         if slot_type == "helmet":
             cd_r = ranges.get("criticalDamages", [70, 90])
-            return {"criticalDamages": int(cd_r[0] + (cd_r[1] - cd_r[0]) * 0.40)}
+            return {"criticalDamages": int(cd_r[0] + (cd_r[1] - cd_r[0]) * roll_q)}
         if slot_type in ("chest", "pants"):
             arm_r = ranges.get("armor", [20, 30])
-            return {"armor": int(arm_r[0] + (arm_r[1] - arm_r[0]) * 0.40)}
+            return {"armor": int(arm_r[0] + (arm_r[1] - arm_r[0]) * roll_q)}
         if slot_type == "boots":
             ddg_r = ranges.get("dodge", [20, 25])
-            return {"dodge": int(ddg_r[0] + (ddg_r[1] - ddg_r[0]) * 0.40)}
+            return {"dodge": int(ddg_r[0] + (ddg_r[1] - ddg_r[0]) * roll_q)}
         if slot_type == "gloves":
             prc_r = ranges.get("precision", [20, 25])
-            return {"precision": int(prc_r[0] + (prc_r[1] - prc_r[0]) * 0.40)}
+            return {"precision": int(prc_r[0] + (prc_r[1] - prc_r[0]) * roll_q)}
         return {}
 
     def _format_and_refine_slots(
@@ -645,6 +799,7 @@ class GearOptimizer:
         knows the minimum acceptable stats to buy on the market.
         """
         slots = {}
+        roll_q = float(sol.get("roll_quality", self.DEFAULT_ROLL_QUALITY))
         slot_keys = [
             ("weapon", sol["w_code"], sol["w_tier"], sol["w_price"]),
             ("helmet", sol["h_code"], sol["h_tier"], sol["h_price"]),
@@ -657,7 +812,7 @@ class GearOptimizer:
         for slot_type, code, tier, price in slot_keys:
             meta = EQUIPMENT_METADATA.get(code, {})
             name = meta.get("name", code)
-            min_stats = self._default_min_stats_for_slot(slot_type, code)
+            min_stats = self._default_min_stats_for_slot(slot_type, code, roll_q=roll_q)
 
             if get_item_price_fn is not None:
                 price = get_item_price_fn(code, min_stats=min_stats)
@@ -835,6 +990,7 @@ class GearOptimizer:
             "label": build_title,
             "badge": build_title,
             "tier_num": sol["w_tier"],
+            "roll_quality": sol.get("roll_quality", self.DEFAULT_ROLL_QUALITY),
             "is_best_value": is_best,
             "can_reach_in_session": True,
             "reach_status": "ok",
@@ -931,27 +1087,65 @@ class GearOptimizer:
         target_damage: float = 2_500_000.0,
         consumable_prices: Optional[Dict[str, float]] = None,
         get_item_price_fn=None,
+        combat_ctx: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Recalculates an existing locked/saved strategy for the active remaining deficit_damage.
-        Preserves the EXACT gear slots (weapon, armor tiers, rolls, ammo, food) selected by the user.
+        Preserves the EXACT gear slots (weapon, armor tiers, rolls, ammo, food) selected by the user,
+        while recalculating avg_dmg_per_hit and hp_cost_per_hit for current battle_bonus/rank/prestige.
         """
         consumable_prices = consumable_prices or {}
         sol_meta = saved_build.get("sol_meta") or {}
 
-        avg_dmg_per_hit = float(saved_build.get("avg_dmg_per_hit") or sol_meta.get("avg_dmg_per_hit") or 7000.0)
-        hp_cost_per_hit = float(saved_build.get("hp_cost_per_hit") or sol_meta.get("hp_cost_per_hit") or 35.0)
-        eff_dodge = float(saved_build.get("eff_dodge") or sol_meta.get("eff_dodge_pct") or 50.0)
-        eff_armor = float(saved_build.get("eff_armor") or sol_meta.get("eff_armor_pct") or 30.0)
-        eff_prec_ratio = float(saved_build.get("eff_precision") or sol_meta.get("eff_prec_ratio") or 1.0)
-
-        food_key = saved_build.get("food_key") or sol_meta.get("food_key") or "cookedFish"
+        food_key = saved_build.get("food_key") or saved_build.get("food") or sol_meta.get("food_key") or "cookedFish"
         food_spec = FOOD_SPECS.get(food_key, FOOD_SPECS["cookedFish"])
         food_unit_price = float(consumable_prices.get(food_key) or saved_build.get("food_unit_price") or saved_build.get("food_price") or 10.0)
 
-        ammo_key = saved_build.get("ammo_key") or sol_meta.get("ammo_key") or "lightAmmo"
+        ammo_key = saved_build.get("ammo_key") or saved_build.get("ammo") or sol_meta.get("ammo_key") or "lightAmmo"
         ammo_spec = AMMO_SPECS.get(ammo_key, AMMO_SPECS["lightAmmo"])
         ammo_unit_price = float(consumable_prices.get(ammo_key) or saved_build.get("ammo_unit_price") or saved_build.get("ammo_price") or 0.5)
+
+        # Resolve gear codes from build_slots, sol_meta, or legacy top-level keys
+        slot_codes: Dict[str, str] = {}
+        for slot_item in saved_build.get("build_slots") or []:
+            st = slot_item.get("slot")
+            ic = slot_item.get("item_code")
+            if st and ic:
+                slot_codes[st] = ic
+        w_code = slot_codes.get("weapon") or sol_meta.get("w_code") or saved_build.get("weapon")
+        h_code = slot_codes.get("helmet") or sol_meta.get("h_code") or saved_build.get("helmet")
+        c_code = slot_codes.get("chest") or sol_meta.get("c_code") or saved_build.get("chest")
+        p_code = slot_codes.get("pants") or sol_meta.get("p_code") or saved_build.get("pants")
+        b_code = slot_codes.get("boots") or sol_meta.get("b_code") or saved_build.get("boots")
+        g_code = slot_codes.get("gloves") or sol_meta.get("g_code") or saved_build.get("gloves")
+
+        roll_q = float(saved_build.get("roll_quality") or sol_meta.get("roll_quality") or self.DEFAULT_ROLL_QUALITY)
+        if combat_ctx and w_code and h_code and c_code and p_code and b_code and g_code:
+            w_rng = EQUIPMENT_METADATA.get(w_code, {}).get("ranges", {})
+            w_atk = self._roll_stat(w_rng.get("attack", [80, 90]), roll_q)
+            w_crit = self._roll_stat(w_rng.get("criticalChance", [10, 15]), roll_q)
+            h_cd = self._roll_stat(EQUIPMENT_METADATA.get(h_code, {}).get("ranges", {}).get("criticalDamages", [40, 60]), roll_q)
+            g_prc = self._roll_stat(EQUIPMENT_METADATA.get(g_code, {}).get("ranges", {}).get("precision", [10, 15]), roll_q)
+            c_arm = self._roll_stat(EQUIPMENT_METADATA.get(c_code, {}).get("ranges", {}).get("armor", [10, 15]), roll_q)
+            p_arm = self._roll_stat(EQUIPMENT_METADATA.get(p_code, {}).get("ranges", {}).get("armor", [10, 15]), roll_q)
+            b_ddg = self._roll_stat(EQUIPMENT_METADATA.get(b_code, {}).get("ranges", {}).get("dodge", [10, 15]), roll_q)
+            ammo_mult = 1.0 + (ammo_spec["bonus_pct"] / 100.0)
+            sim_dmg, sim_hp, _, dodge_frac, arm_red, eff_prec_ratio = self._simulate_combat_metrics(
+                combat_ctx["base_atk"], combat_ctx["curr_prec"], combat_ctx["curr_crit_ch"],
+                combat_ctx["curr_crit_dmg"], combat_ctx["curr_armor_stat"], combat_ctx["curr_dodge_stat"],
+                combat_ctx["rank_mult"], combat_ctx["battle_mult"], ammo_mult,
+                w_atk, w_crit, h_cd, g_prc, c_arm, p_arm, b_ddg,
+            )
+            avg_dmg_per_hit = round(sim_dmg, 1)
+            hp_cost_per_hit = round(sim_hp, 2)
+            eff_dodge = round(dodge_frac * 100.0, 1)
+            eff_armor = round(arm_red * 100.0, 1)
+        else:
+            avg_dmg_per_hit = float(saved_build.get("avg_dmg_per_hit") or sol_meta.get("avg_dmg_per_hit") or 7000.0)
+            hp_cost_per_hit = float(saved_build.get("hp_cost_per_hit") or sol_meta.get("hp_cost_per_hit") or 35.0)
+            eff_dodge = float(saved_build.get("eff_dodge") or sol_meta.get("eff_dodge_pct") or 50.0)
+            eff_armor = float(saved_build.get("eff_armor") or sol_meta.get("eff_armor_pct") or 30.0)
+            eff_prec_ratio = float(saved_build.get("eff_precision") or sol_meta.get("eff_prec_ratio") or 1.0)
 
         # Hits needed for remaining deficit
         if deficit_damage > 0:
@@ -991,7 +1185,7 @@ class GearOptimizer:
             item_code = item.get("item_code")
             u_price = float(item.get("unit_price") or 0.0)
             if get_item_price_fn is not None and item_code and s_type in ("weapon", "helmet", "chest", "pants", "boots", "gloves"):
-                min_stats = self._default_min_stats_for_slot(s_type, item_code)
+                min_stats = self._default_min_stats_for_slot(s_type, item_code, roll_q=roll_q)
                 u_price = get_item_price_fn(item_code, min_stats=min_stats)
                 item["unit_price"] = round(u_price, 2)
                 refreshed_gear_unit_prices[s_type] = u_price
@@ -1066,9 +1260,22 @@ class GearOptimizer:
             if result_strat.get("badge"):
                 result_strat["badge"] = legacy_label
 
+        init_target_dmg = float(saved_build.get("initial_target_damage") or target_damage)
+        init_today_dmg = float(saved_build.get("initial_today_damage") or 0.0)
+        curr_today_dmg = float((combat_ctx or {}).get("today_damage") or 0.0)
+        build_planned_dmg = max(0.0, init_target_dmg - init_today_dmg)
+        build_dealt_dmg = max(0.0, curr_today_dmg - init_today_dmg)
+        build_progress_pct = round(min(100.0, (build_dealt_dmg / build_planned_dmg) * 100.0), 1) if build_planned_dmg > 0 else 100.0
+
         result_strat.update({
             "is_saved_build": True,
             "is_best_value": True,
+            "avg_dmg_per_hit": avg_dmg_per_hit,
+            "avg_damage_per_hit": avg_dmg_per_hit,
+            "hp_cost_per_hit": hp_cost_per_hit,
+            "eff_dodge": eff_dodge,
+            "eff_armor": eff_armor,
+            "eff_precision": eff_prec_ratio,
             "hits_needed": actual_hits,
             "hits_planned": actual_hits,
             "weapons_burned": weapons_needed,
@@ -1106,7 +1313,11 @@ class GearOptimizer:
             "reach_status": "ok" if hunger_usage_pct <= 100 else "over_cap",
             "reach_badge": "✅ Досяжно" if hunger_usage_pct <= 100 else "❌ Переліміт голоду",
             "reach_note": "Вкладається в 1 сесію (8 год)" if hunger_usage_pct <= 100 else "Не вміститься в 1 сесію",
-            "initial_target_damage": saved_build.get("initial_target_damage") or target_damage,
+            "initial_target_damage": init_target_dmg,
+            "initial_today_damage": init_today_dmg,
+            "build_planned_damage": round(build_planned_dmg, 0),
+            "build_dealt_damage": round(build_dealt_dmg, 0),
+            "build_progress_pct": build_progress_pct,
             "initial_grand_total": saved_build.get("initial_grand_total") or saved_build.get("grand_total_cost"),
             "initial_hits": saved_build.get("initial_hits") or saved_build.get("hits_needed"),
         })
