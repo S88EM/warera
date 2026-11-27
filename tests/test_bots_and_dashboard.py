@@ -40,3 +40,36 @@ def test_dashboard_post_auth_guard(monkeypatch):
     req_ingress = make_mocked_request("POST", "/api/scan", headers={"X-Ingress-Path": "/api/hassio_ingress/xyz"})
     resp_ingress = asyncio.run(equipment_dashboard.cors_and_headers_middleware(req_ingress, ok_handler))
     assert resp_ingress.status == 200
+
+
+def test_focus_select_screen_renders_active_battles(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    import bot_formatter
+
+    fake_battles = [
+        {
+            "battleId": "67c01234567890abcdef1234",
+            "regionName": "Agadez",
+            "type": "war",
+            "roundNumber": 2,
+            "attackerCountry": "Ukraine",
+            "attackerFlag": "🇺🇦",
+            "defenderCountry": "Poland",
+            "defenderFlag": "🇵🇱",
+            "attackerRate": 0.5,
+            "defenderRate": 0.0,
+            "hasBounty": True,
+            "maxBountyRate": 0.5,
+        }
+    ]
+    fake_analyzer = MagicMock()
+    fake_analyzer.get_active_battles_for_focus = AsyncMock(return_value=fake_battles)
+    monkeypatch.setattr(bot_formatter, "get_shared_battle_analyzer", lambda: fake_analyzer)
+
+    fake_db = MagicMock()
+    fake_db.get_user_focused_battle.return_value = None
+
+    text, kb = asyncio.run(bot_formatter.format_focus_select_screen(fake_db, chat_id="123", page=0))
+    assert "Всього: 1" in text
+    rows = kb.get("inline_keyboard", [])
+    assert any("Agadez" in btn["text"] for row in rows for btn in row)

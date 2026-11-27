@@ -221,8 +221,8 @@ def build_focus_select_keyboard(page_items: List[Dict[str, Any]], page: int, tot
     rows = []
     for b in page_items:
         bid = b['battleId']
-        reg = b['region']
-        btype = "⚔️" if b['type'] == 'war' else "✊"
+        reg = b.get('regionName') or b.get('region') or 'Битва'
+        btype = "⚔️" if b.get('type') == 'war' else "✊"
         is_cur = (bid == focused_bid)
         status_icon = "✅ " if is_cur else ""
         btn_text = f"{status_icon}{btype} {reg[:18]}"
