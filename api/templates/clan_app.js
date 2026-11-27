@@ -1328,13 +1328,13 @@
                             </div>
 
                             <div>
-                                <div class="text-[10px] uppercase font-bold text-gray-400">Ліміт сесії</div>
+                                <div class="text-[10px] uppercase font-bold text-gray-400">Досягнення урону</div>
                                 <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-0.5">
-                                    ${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}
+                                    ${stratToShow.can_reach_in_session ? (stratToShow.reach_badge || '✅ Досяжно') : '❌ Неможливо досягти'}
                                 </div>
                                 ${(!stratToShow.can_reach_in_session && isSaved)
-                                    ? `<button onclick="unlockCurrentBuild()" class="mt-0.5 text-[10px] font-bold text-amber-300 hover:text-white underline decoration-amber-400/70 flex items-center gap-1 transition"><i class="fa-solid fa-rotate-left text-[9px]"></i> Потрібно скинути білд</button>`
-                                    : `<div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? 'Вкладається в 1 сесію (8 год)' : 'Не вміститься в 1 сесію')}</div>`
+                                    ? `<button onclick="unlockCurrentBuild()" class="mt-0.5 text-left text-[10px] font-semibold text-amber-300 hover:text-white underline decoration-amber-400/70 transition">Потрібно перерахувати білд, натисніть кнопку Скинути</button>`
+                                    : `<div class="text-[10px] text-gray-400 font-mono">${stratToShow.can_reach_in_session ? (stratToShow.reach_note || 'Вкладається в 1 сесію (8 год)') : 'Не вистачить голоду за 1 сесію (8 год)'}</div>`
                                 }
                             </div>
                         </div>
