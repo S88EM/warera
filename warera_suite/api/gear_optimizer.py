@@ -1310,6 +1310,7 @@ class GearOptimizer:
             "expected_case2": expected_elite_cases,
             "total_cases_value": total_cases_value,
             "build_slots": updated_slots,
+            "can_reach_in_session": hunger_usage_pct <= 100,
             "reach_status": "ok" if hunger_usage_pct <= 100 else "over_cap",
             "reach_badge": "✅ Досяжно" if hunger_usage_pct <= 100 else "❌ Переліміт голоду",
             "reach_note": "Вкладається в 1 сесію (8 год)" if hunger_usage_pct <= 100 else "Не вміститься в 1 сесію",

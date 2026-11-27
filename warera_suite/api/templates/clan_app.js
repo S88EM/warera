@@ -809,6 +809,7 @@
         let activeCalcRankBonus = 0;
         let calcPrestigeDebounce = null;
         let calcRankBonusDebounce = null;
+        let calcRequestSeq = 0;
 
         function getPillBadgeClass(status) {
             if (status === 'ACTIVE') return 'bg-purple-950/80 text-purple-300 border-purple-700/60 font-semibold';
@@ -882,7 +883,7 @@
             clearTimeout(calcBonusDebounce);
             calcBonusDebounce = setTimeout(() => {
                 fetchCalculatorPlan();
-            }, 350);
+            }, 500);
         }
 
         function setCalcBonus(val) {
@@ -1093,6 +1094,7 @@
 
         async function fetchCalculatorPlan(forceUnlock = false) {
             if (!activeCalcMember) return;
+            const reqId = ++calcRequestSeq;
             const stratBody = document.getElementById('calcStrategiesBody');
             const banner = document.getElementById('calcStatusBanner');
             const optimalCard = document.getElementById('calcOptimalCard');
@@ -1123,8 +1125,10 @@
                 const url = `${basePath ? `${basePath}/` : '/'}api/calculator?nick=${encodeURIComponent(activeCalcMember.username)}&target=${activeCalcTarget}&ammo=${activeCalcAmmo}&food=${activeCalcFood}&bonus=${activeCalcBonus}&prestige=${activeCalcPrestige}&rank_bonus=${activeCalcRankBonus}&weapon=${activeCalcWeapon}${lockQuery}`;
 
                 const resp = await fetch(url);
+                if (reqId !== calcRequestSeq) return;
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
+                if (reqId !== calcRequestSeq) return;
 
                 if (data.status !== 'ok' || !data.result) {
                     throw new Error(data.message || 'Не вдалося прорахувати план');
@@ -1328,7 +1332,10 @@
                                 <div class="font-bold ${stratToShow.can_reach_in_session ? (stratToShow.reach_status === 'soft_cap' ? 'text-amber-300' : 'text-emerald-400') : 'text-rose-400'} mt-0.5">
                                     ${stratToShow.reach_badge || (stratToShow.can_reach_in_session ? '✅ Досяжно' : '❌ Переліміт')}
                                 </div>
-                                <div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? 'Вкладається в 1 сесію (8 год)' : 'Не вміститься в 1 сесію')}</div>
+                                ${(!stratToShow.can_reach_in_session && isSaved)
+                                    ? `<button onclick="unlockCurrentBuild()" class="mt-0.5 text-[10px] font-bold text-amber-300 hover:text-white underline decoration-amber-400/70 flex items-center gap-1 transition"><i class="fa-solid fa-rotate-left text-[9px]"></i> Потрібно скинути білд</button>`
+                                    : `<div class="text-[10px] text-gray-400 font-mono">${stratToShow.reach_note || (stratToShow.can_reach_in_session ? 'Вкладається в 1 сесію (8 год)' : 'Не вміститься в 1 сесію')}</div>`
+                                }
                             </div>
                         </div>
 
