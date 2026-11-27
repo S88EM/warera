@@ -271,9 +271,13 @@ class WarEraClient:
         return {"buyOrders": [], "sellOrders": []}
 
     async def get_equipment_offers(
-        self, item_code: str, limit: int = 12, pages: int = 1
+        self,
+        item_code: str,
+        limit: int = 12,
+        pages: int = 1,
+        min_skills: Optional[Dict[str, float]] = None,
     ) -> List[Dict[str, Any]]:
-        """Fetch active market offers for equipment or weapons."""
+        """Fetch active market offers for equipment or weapons, optionally filtered by minSkills."""
         url = f"{getattr(config, 'WARERA_EQUIPMENT_API_URL', 'https://api6.warera.io/trpc')}/itemOffer.getItemOffers"
         client = await self.get_equip_client()
 
@@ -286,6 +290,8 @@ class WarEraClient:
                 "limit": limit,
                 "direction": "forward",
             }
+            if min_skills:
+                payload["minSkills"] = min_skills
             if cursor:
                 payload["cursor"] = cursor
 
