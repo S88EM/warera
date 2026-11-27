@@ -321,7 +321,7 @@ class EquipmentScannerApp:
         try:
             from market_cache import save_market_cheapest_cache
             consumable_prices = await self.api.get_prices()
-            save_market_cheapest_cache(self.latest_market_offers, consumable_prices, limit_per_item=3)
+            save_market_cheapest_cache(self.latest_market_offers, consumable_prices, limit_per_item=12)
         except Exception as cache_err:
             console.print(f"[dim yellow]⚠️ Помилка оновлення кешу ринку: {cache_err}[/dim yellow]")
 

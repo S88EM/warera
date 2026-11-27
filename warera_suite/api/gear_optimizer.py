@@ -107,16 +107,78 @@ class GearOptimizer:
             live_consumables,
         )
 
-        # Helper to get live or default item price
-        def get_item_price(code: str) -> float:
+        # Helper to get live or default item price (optionally filtered by minimum roll stats)
+        def get_item_price(code: str, min_stats: Optional[Dict[str, float]] = None) -> float:
             if not code:
                 return 0.0
+
+            def _extract_offer_skills(offer: Dict[str, Any]) -> Dict[str, Any]:
+                item_obj = offer.get("item")
+                if isinstance(item_obj, dict) and isinstance(item_obj.get("skills"), dict):
+                    return item_obj["skills"]
+                skills_obj = offer.get("skills")
+                return skills_obj if isinstance(skills_obj, dict) else {}
+
+            def _matches_min_stats(skills_dict: Dict[str, Any]) -> bool:
+                if not min_stats:
+                    return True
+                for stat_k, min_v in min_stats.items():
+                    try:
+                        if float(skills_dict.get(stat_k, 0) or 0) < float(min_v):
+                            return False
+                    except (ValueError, TypeError):
+                        return False
+                return True
+
+            def _pick_from_offers(offers_list: Any) -> Optional[float]:
+                if not isinstance(offers_list, list) or not offers_list:
+                    return None
+                parsed: List[Tuple[float, Dict[str, Any]]] = []
+                for o in offers_list:
+                    if not isinstance(o, dict):
+                        continue
+                    raw_p = o.get("price") or o.get("money")
+                    if raw_p is None:
+                        continue
+                    try:
+                        p_val = float(raw_p)
+                    except (ValueError, TypeError):
+                        continue
+                    if p_val > 0:
+                        parsed.append((p_val, _extract_offer_skills(o)))
+                if not parsed:
+                    return None
+                parsed.sort(key=lambda x: x[0])
+                if min_stats:
+                    for p_val, sk in parsed:
+                        if _matches_min_stats(sk):
+                            return p_val
+                return parsed[0][0]
+
+            # 1. Prefer live in-memory offers from running EquipmentScannerApp
+            if self.market_app is not None:
+                live_offers_map = getattr(self.market_app, "latest_market_offers", None)
+                if isinstance(live_offers_map, dict):
+                    live_price = _pick_from_offers(live_offers_map.get(code))
+                    if live_price is not None:
+                        return live_price
+
+            # 2. Fall back to persistent market_cheapest_cache.json
             item_entry = cached_items.get(code)
-            if item_entry and isinstance(item_entry, dict) and item_entry.get("price"):
-                try:
-                    return float(item_entry["price"])
-                except (ValueError, TypeError):
-                    pass
+            if item_entry and isinstance(item_entry, dict):
+                cached_offer_price = _pick_from_offers(item_entry.get("offers"))
+                if cached_offer_price is not None:
+                    return cached_offer_price
+                for price_key in ("cheapest_price", "price"):
+                    raw_val = item_entry.get(price_key)
+                    if raw_val:
+                        try:
+                            val = float(raw_val)
+                            if val > 0:
+                                return val
+                        except (ValueError, TypeError):
+                            pass
+
             return float(DEFAULT_MARKET_PRICES.get(code, 20.0))
 
         # Player profile parameters
@@ -427,7 +489,7 @@ class GearOptimizer:
         diverse_solutions = self._select_diverse_solutions(valid_solutions)
 
         # Refine Minimum Roll Requirements for best solution
-        refined_slots = self._format_and_refine_slots(best_sol, deficit_damage)
+        refined_slots = self._format_and_refine_slots(best_sol, deficit_damage, get_item_price_fn=get_item_price)
 
         if saved_build and is_build_locked:
             saved_strat = self._build_saved_strategy_dict(
@@ -443,12 +505,13 @@ class GearOptimizer:
                 loot_chance_ratio=loot_chance_ratio,
                 target_damage=target_damage,
                 consumable_prices=consumable_prices,
+                get_item_price_fn=get_item_price,
             )
             best_strat = saved_strat
             all_strats = [saved_strat] + [
                 self._build_strategy_dict(
                     s,
-                    self._format_and_refine_slots(s, deficit_damage),
+                    self._format_and_refine_slots(s, deficit_damage, get_item_price_fn=get_item_price),
                     pill_cost,
                     deficit_damage,
                     f"Альтернатива #{idx+1}",
@@ -474,7 +537,7 @@ class GearOptimizer:
             all_strats = [
                 self._build_strategy_dict(
                     s,
-                    self._format_and_refine_slots(s, deficit_damage),
+                    self._format_and_refine_slots(s, deficit_damage, get_item_price_fn=get_item_price),
                     pill_cost,
                     deficit_damage,
                     "Оптимальний мінімальний сет" if idx == 0 else f"Альтернатива #{idx}",
@@ -546,7 +609,37 @@ class GearOptimizer:
 
         return diverse_solutions
 
-    def _format_and_refine_slots(self, sol: Dict[str, Any], deficit_damage: float) -> Dict[str, Any]:
+    @staticmethod
+    def _default_min_stats_for_slot(slot_type: str, code: str) -> Dict[str, float]:
+        """Returns the 40% recommended minimum stat thresholds for a gear slot."""
+        ranges = EQUIPMENT_METADATA.get(code, {}).get("ranges", {})
+        if slot_type == "weapon":
+            atk_r = ranges.get("attack", [100, 130])
+            crit_r = ranges.get("criticalChance", [15, 20])
+            return {
+                "attack": int(atk_r[0] + (atk_r[1] - atk_r[0]) * 0.40),
+                "criticalChance": int(crit_r[0] + (crit_r[1] - crit_r[0]) * 0.40),
+            }
+        if slot_type == "helmet":
+            cd_r = ranges.get("criticalDamages", [70, 90])
+            return {"criticalDamages": int(cd_r[0] + (cd_r[1] - cd_r[0]) * 0.40)}
+        if slot_type in ("chest", "pants"):
+            arm_r = ranges.get("armor", [20, 30])
+            return {"armor": int(arm_r[0] + (arm_r[1] - arm_r[0]) * 0.40)}
+        if slot_type == "boots":
+            ddg_r = ranges.get("dodge", [20, 25])
+            return {"dodge": int(ddg_r[0] + (ddg_r[1] - ddg_r[0]) * 0.40)}
+        if slot_type == "gloves":
+            prc_r = ranges.get("precision", [20, 25])
+            return {"precision": int(prc_r[0] + (prc_r[1] - prc_r[0]) * 0.40)}
+        return {}
+
+    def _format_and_refine_slots(
+        self,
+        sol: Dict[str, Any],
+        deficit_damage: float,
+        get_item_price_fn=None,
+    ) -> Dict[str, Any]:
         """
         Determines the exact minimum rolls required for each slot so the fighter
         knows the minimum acceptable stats to buy on the market.
@@ -564,39 +657,35 @@ class GearOptimizer:
         for slot_type, code, tier, price in slot_keys:
             meta = EQUIPMENT_METADATA.get(code, {})
             name = meta.get("name", code)
-            ranges = meta.get("ranges", {})
+            min_stats = self._default_min_stats_for_slot(slot_type, code)
+
+            if get_item_price_fn is not None:
+                price = get_item_price_fn(code, min_stats=min_stats)
 
             # Format recommended minimum roll
             if slot_type == "weapon":
-                atk_r = ranges.get("attack", [100, 130])
-                crit_r = ranges.get("criticalChance", [15, 20])
-                # Conservative roll: 50% of the range is sufficient
-                rec_atk = int(atk_r[0] + (atk_r[1] - atk_r[0]) * 0.40)
-                rec_crit = int(crit_r[0] + (crit_r[1] - crit_r[0]) * 0.40)
+                rec_atk = int(min_stats["attack"])
+                rec_crit = int(min_stats["criticalChance"])
                 roll_desc = f"🗡 {rec_atk}+ Атака • 🎯 {rec_crit}%+ Крит"
                 roll_badge = f"🗡 {rec_atk} 🎯 {rec_crit}%"
                 qty = sol["weapons_needed"]
             elif slot_type == "helmet":
-                cd_r = ranges.get("criticalDamages", [70, 90])
-                rec_cd = int(cd_r[0] + (cd_r[1] - cd_r[0]) * 0.40)
+                rec_cd = int(min_stats["criticalDamages"])
                 roll_desc = f"💥 {rec_cd}%+ Крит. урон"
                 roll_badge = f"💥 {rec_cd}%"
                 qty = sol["armor_sets_needed"]
             elif slot_type in ("chest", "pants"):
-                arm_r = ranges.get("armor", [20, 30])
-                rec_arm = int(arm_r[0] + (arm_r[1] - arm_r[0]) * 0.40)
+                rec_arm = int(min_stats["armor"])
                 roll_desc = f"🛡 {rec_arm}+ Броня"
                 roll_badge = f"🛡 {rec_arm}"
                 qty = sol["armor_sets_needed"]
             elif slot_type == "boots":
-                ddg_r = ranges.get("dodge", [20, 25])
-                rec_ddg = int(ddg_r[0] + (ddg_r[1] - ddg_r[0]) * 0.40)
+                rec_ddg = int(min_stats["dodge"])
                 roll_desc = f"💨 {rec_ddg}+ Ухилення"
                 roll_badge = f"💨 {rec_ddg}"
                 qty = sol["armor_sets_needed"]
             elif slot_type == "gloves":
-                prc_r = ranges.get("precision", [20, 25])
-                rec_prc = int(prc_r[0] + (prc_r[1] - prc_r[0]) * 0.40)
+                rec_prc = int(min_stats["precision"])
                 roll_desc = f"🎯 {rec_prc}+ Точність"
                 roll_badge = f"🎯 {rec_prc}"
                 qty = sol["armor_sets_needed"]
@@ -762,9 +851,9 @@ class GearOptimizer:
             "eff_dodge": sol["eff_dodge_pct"],
             "eff_armor": sol["eff_armor_pct"],
             "eff_precision": sol["eff_prec_ratio"],
-            # Financials
-            "grand_total": sol["total_purchase_cost"],
-            "grand_total_cost": sol["total_purchase_cost"],
+            # Financials (keep grand_total synced with refined slot prices)
+            "grand_total": round(sum(s["total_cost"] for s in slots.values()) + sol["ammo_cost"] + sol["food_cost"] + pill_cost, 2),
+            "grand_total_cost": round(sum(s["total_cost"] for s in slots.values()) + sol["ammo_cost"] + sol["food_cost"] + pill_cost, 2),
             "net_cost": sol["net_cost"],
             "net_profit": round(-sol["net_cost"], 2),
             "cost_per_1m": sol["cost_per_1m"],
@@ -841,6 +930,7 @@ class GearOptimizer:
         loot_chance_ratio: float = 0.05,
         target_damage: float = 2_500_000.0,
         consumable_prices: Optional[Dict[str, float]] = None,
+        get_item_price_fn=None,
     ) -> Dict[str, Any]:
         """
         Recalculates an existing locked/saved strategy for the active remaining deficit_damage.
@@ -894,10 +984,17 @@ class GearOptimizer:
         b_tier = sol_meta.get("b_tier", 5)
         g_tier = sol_meta.get("g_tier", 5)
 
+        refreshed_gear_unit_prices: Dict[str, float] = {}
         for slot_item in old_slots:
             item = dict(slot_item)
             s_type = item.get("slot")
+            item_code = item.get("item_code")
             u_price = float(item.get("unit_price") or 0.0)
+            if get_item_price_fn is not None and item_code and s_type in ("weapon", "helmet", "chest", "pants", "boots", "gloves"):
+                min_stats = self._default_min_stats_for_slot(s_type, item_code)
+                u_price = get_item_price_fn(item_code, min_stats=min_stats)
+                item["unit_price"] = round(u_price, 2)
+                refreshed_gear_unit_prices[s_type] = u_price
 
             if s_type == "weapon":
                 item["qty_needed"] = weapons_needed
@@ -926,8 +1023,12 @@ class GearOptimizer:
         # Durability & Economic recovery for remaining deficit
         weapon_decay_ratio = actual_hits / 100.0
         armor_decay_ratio = actual_hits / hits_per_armor_set if hits_per_armor_set > 0 else 0
-        weapon_price = float(sol_meta.get("w_price") or 40.0)
-        armor_price = float(sum(sol_meta.get(f"{k}_price", 20.0) for k in ["h", "c", "p", "b", "g"]))
+        weapon_price = refreshed_gear_unit_prices.get("weapon") or float(sol_meta.get("w_price") or 40.0)
+        armor_slot_map = [("helmet", "h"), ("chest", "c"), ("pants", "p"), ("boots", "b"), ("gloves", "g")]
+        armor_price = float(sum(
+            refreshed_gear_unit_prices.get(s_name) or sol_meta.get(f"{k}_price", 20.0)
+            for s_name, k in armor_slot_map
+        ))
         amortized_gear_cost = (weapon_decay_ratio * weapon_price) + (armor_decay_ratio * armor_price)
         amortized_gross_cost = amortized_gear_cost + ammo_cost + food_cost + pill_cost
 
